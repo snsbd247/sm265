@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, Sparkles, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog } from "lucide-react";
+import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 export const Route = createFileRoute("/app")({ ssr: false, component: AppLayout });
 
-type NavItem = { to: string; label: string; icon: any; color: string; exact?: boolean };
+type NavItem = { to: string; label: string; icon: any; exact?: boolean };
 type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -24,7 +24,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ওভারভিউ",
     icon: Activity,
     items: [
-      { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, color: "from-sky-400 to-indigo-500", exact: true },
+      { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, exact: true },
     ],
   },
   {
@@ -32,10 +32,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ইনভেন্টরি",
     icon: Warehouse,
     items: [
-      { to: "/app/products", label: "পণ্য", icon: Package, color: "from-emerald-400 to-teal-500" },
-      { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag, color: "from-pink-400 to-rose-500" },
-      { to: "/app/units", label: "একক", icon: Ruler, color: "from-amber-400 to-orange-500" },
-      { to: "/app/stock", label: "স্টক", icon: Boxes, color: "from-lime-400 to-emerald-500" },
+      { to: "/app/products", label: "পণ্য", icon: Package },
+      { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag },
+      { to: "/app/units", label: "একক", icon: Ruler },
+      { to: "/app/stock", label: "স্টক", icon: Boxes },
     ],
   },
   {
@@ -43,8 +43,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ক্রয়",
     icon: ShoppingCart,
     items: [
-      { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck, color: "from-cyan-400 to-blue-500" },
-      { to: "/app/purchases", label: "ক্রয় অর্ডার", icon: ShoppingCart, color: "from-violet-400 to-purple-600" },
+      { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck },
+      { to: "/app/purchases", label: "ক্রয় অর্ডার", icon: ShoppingCart },
     ],
   },
   {
@@ -52,9 +52,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: "বিক্রয়",
     icon: TrendingUp,
     items: [
-      { to: "/app/customers", label: "কাস্টমার", icon: Users, color: "from-fuchsia-400 to-pink-500" },
-      { to: "/app/sales", label: "বিক্রয়", icon: Receipt, color: "from-orange-400 to-red-500" },
-      { to: "/app/installments", label: "কিস্তি", icon: CalendarClock, color: "from-yellow-400 to-amber-500" },
+      { to: "/app/customers", label: "কাস্টমার", icon: Users },
+      { to: "/app/sales", label: "বিক্রয়", icon: Receipt },
+      { to: "/app/installments", label: "কিস্তি", icon: CalendarClock },
     ],
   },
   {
@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ইনসাইটস",
     icon: PieChart,
     items: [
-      { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3, color: "from-teal-400 to-cyan-500" },
+      { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3 },
     ],
   },
   {
@@ -70,7 +70,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "একাউন্ট",
     icon: UserCog,
     items: [
-      { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard, color: "from-indigo-400 to-blue-600" },
+      { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard },
     ],
   },
 ];
@@ -118,34 +118,33 @@ function AppLayout() {
         const isOpen = openGroups[g.id] ?? true;
         const hasActive = g.items.some(isItemActive);
         return (
-          <div key={g.id} className="space-y-1">
+          <div key={g.id} className="space-y-0.5">
             <button
               type="button"
               onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
-                hasActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+                hasActive ? "text-emerald-200" : "text-emerald-200/50 hover:text-emerald-200/80"
               }`}
             >
               <span className="flex items-center gap-2">
-                <g.icon className="h-3.5 w-3.5" />
+                <g.icon className="h-3 w-3" />
                 {g.label}
               </span>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+              <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
             </button>
             {isOpen && (
-              <div className="ml-2 space-y-1 border-l border-border pl-2">
+              <div className="space-y-0.5">
                 {g.items.map((n) => {
                   const active = isItemActive(n);
                   return (
                     <Link key={n.to} to={n.to} onClick={onClick}
-                      className={`group flex min-w-0 items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-all ${
+                      className={`group relative flex min-w-0 items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
                         active
-                          ? "bg-gradient-to-r from-primary/10 to-primary/5 text-foreground shadow-sm ring-1 ring-primary/20"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "bg-emerald-600/25 text-white"
+                          : "text-emerald-50/80 hover:bg-white/5 hover:text-white"
                       }`}>
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${n.color} shadow ${active ? "" : "opacity-80 group-hover:opacity-100"}`}>
-                        <n.icon className="h-3.5 w-3.5 text-white" />
-                      </span>
+                      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-emerald-300" />}
+                      <n.icon className={`h-4 w-4 shrink-0 ${active ? "text-emerald-200" : "opacity-70 group-hover:opacity-100"}`} />
                       <span className="truncate font-medium">{n.label}</span>
                     </Link>
                   );
@@ -159,13 +158,13 @@ function AppLayout() {
   );
 
   const ShopHeader = () => (
-    <div className="flex min-w-0 items-center gap-3 border-b bg-gradient-to-r from-primary/5 via-transparent to-transparent px-4 py-4 pr-12">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 shadow-lg">
+    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 px-5 py-5 pr-12">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-500 shadow-md">
         <Store className="h-5 w-5 text-white" />
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-bold truncate">{shopQ.data?.shop?.name}</div>
-        <div className="text-xs text-muted-foreground truncate flex items-center gap-1"><Sparkles className="h-3 w-3" />{shopQ.data?.shop?.owner_name}</div>
+        <div className="text-sm font-bold truncate text-white leading-tight">{shopQ.data?.shop?.name}</div>
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-emerald-300/70 mt-0.5 truncate">{shopQ.data?.shop?.owner_name}</div>
       </div>
     </div>
   );
@@ -173,20 +172,20 @@ function AppLayout() {
   return (
     <div className="flex min-h-dvh">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 flex-col border-r bg-card md:flex">
+      <aside className="hidden w-64 flex-col bg-[#0d3b2e] text-slate-100 md:flex">
         <ShopHeader />
         <NavList />
-        <div className="border-t p-3">
-          <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
+        <div className="border-t border-white/10 p-3">
+          <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" /> লগআউট
           </Button>
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-50 via-sky-50/40 to-emerald-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
+      <main className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950">
         <ImpersonationBanner />
 
-        <div className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b bg-card/80 backdrop-blur px-3 py-2.5 md:px-6">
+        <div className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 bg-white px-3 py-2.5 md:px-6">
           <div className="flex min-w-0 items-center gap-2">
             {/* Mobile menu trigger */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -196,20 +195,20 @@ function AppLayout() {
                   <span className="text-sm font-medium">মেন্যু</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex w-[min(84vw,20rem)] flex-col p-0">
+              <SheetContent side="left" className="flex w-[min(84vw,20rem)] flex-col p-0 bg-[#0d3b2e] text-slate-100 border-white/10">
                 <SheetTitle className="sr-only">মেন্যু</SheetTitle>
                 <ShopHeader />
                 <NavList onClick={() => setMobileOpen(false)} />
-                <div className="border-t p-2">
-                  <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
+                <div className="border-t border-white/10 p-2">
+                  <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
                     <LogOut className="mr-2 h-4 w-4" /> লগআউট
                   </Button>
                 </div>
               </SheetContent>
             </Sheet>
             <div className="min-w-0 md:hidden">
-              <div className="truncate text-sm font-semibold">{shopQ.data?.shop?.name}</div>
-              <div className="truncate text-xs text-muted-foreground">শপ প্যানেল</div>
+              <div className="truncate text-sm font-semibold text-slate-900">{shopQ.data?.shop?.name}</div>
+              <div className="truncate text-xs text-slate-500">শপ প্যানেল</div>
             </div>
           </div>
           <NotificationsBell />
