@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, Sparkles, ShieldAlert, Users, ChevronDown, Activity, FileText } from "lucide-react";
+import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { useBranding } from "@/hooks/use-branding";
 import type { ReactNode } from "react";
 
 
-type NavItem = { to: string; label: string; icon: any; color: string; exact?: boolean };
+type NavItem = { to: string; label: string; icon: any; exact?: boolean };
 type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -17,7 +17,7 @@ const navGroups: NavGroup[] = [
     label: "ওভারভিউ",
     icon: Activity,
     items: [
-      { to: "/admin", label: "ড্যাশবোর্ড", icon: LayoutDashboard, color: "from-sky-400 to-indigo-500", exact: true },
+      { to: "/admin", label: "ড্যাশবোর্ড", icon: LayoutDashboard, exact: true },
     ],
   },
   {
@@ -25,10 +25,10 @@ const navGroups: NavGroup[] = [
     label: "ম্যানেজমেন্ট",
     icon: Store,
     items: [
-      { to: "/admin/shops", label: "দোকান সমূহ", icon: Store, color: "from-emerald-400 to-teal-500" },
-      { to: "/admin/subscriptions", label: "পেমেন্ট", icon: CreditCard, color: "from-amber-400 to-orange-500" },
-      { to: "/admin/packages", label: "প্যাকেজ", icon: Package, color: "from-fuchsia-400 to-pink-500" },
-      { to: "/admin/admins", label: "এডমিন ইউজার", icon: Users, color: "from-indigo-400 to-violet-500" },
+      { to: "/admin/shops", label: "দোকান সমূহ", icon: Store },
+      { to: "/admin/subscriptions", label: "পেমেন্ট", icon: CreditCard },
+      { to: "/admin/packages", label: "প্যাকেজ", icon: Package },
+      { to: "/admin/admins", label: "এডমিন ইউজার", icon: Users },
     ],
   },
   {
@@ -36,8 +36,8 @@ const navGroups: NavGroup[] = [
     label: "লগস",
     icon: FileText,
     items: [
-      { to: "/admin/sms-logs", label: "SMS লগ", icon: MessageSquare, color: "from-cyan-400 to-blue-500" },
-      { to: "/admin/impersonation-logs", label: "ইম্পার্সোনেশন লগ", icon: ShieldAlert, color: "from-rose-400 to-orange-500" },
+      { to: "/admin/sms-logs", label: "SMS লগ", icon: MessageSquare },
+      { to: "/admin/impersonation-logs", label: "ইম্পার্সোনেশন লগ", icon: ShieldAlert },
     ],
   },
   {
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
     label: "সিস্টেম",
     icon: Settings,
     items: [
-      { to: "/admin/settings", label: "সেটিংস", icon: Settings, color: "from-violet-400 to-purple-600" },
+      { to: "/admin/settings", label: "সেটিংস", icon: Settings },
     ],
   },
 ];
@@ -75,39 +75,38 @@ export function AdminShell({ children }: { children: ReactNode }) {
   };
 
   const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+    <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
       {navGroups.map((g) => {
         const isOpen = openGroups[g.id] ?? true;
         const hasActive = g.items.some(isItemActive);
         return (
-          <div key={g.id} className="space-y-1">
+          <div key={g.id} className="space-y-0.5">
             <button
               type="button"
               onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
-                hasActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+              className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+                hasActive ? "text-emerald-200" : "text-emerald-200/50 hover:text-emerald-200/80"
               }`}
             >
               <span className="flex items-center gap-2">
-                <g.icon className="h-3.5 w-3.5" />
+                <g.icon className="h-3 w-3" />
                 {g.label}
               </span>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+              <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
             </button>
             {isOpen && (
-              <div className="ml-2 space-y-1 border-l border-white/10 pl-2">
+              <div className="space-y-0.5">
                 {g.items.map((n) => {
                   const active = isItemActive(n);
                   return (
                     <Link key={n.to} to={n.to} onClick={onClick}
-                      className={`group flex min-w-0 items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-all ${
+                      className={`group relative flex min-w-0 items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
                         active
-                          ? "bg-white/10 text-white shadow-md shadow-black/20 ring-1 ring-white/10"
-                          : "text-slate-300 hover:bg-white/5 hover:text-white"
+                          ? "bg-emerald-600/25 text-white"
+                          : "text-emerald-50/80 hover:bg-white/5 hover:text-white"
                       }`}>
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${n.color} shadow ${active ? "" : "opacity-80 group-hover:opacity-100"}`}>
-                        <n.icon className="h-3.5 w-3.5 text-white" />
-                      </span>
+                      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-emerald-300" />}
+                      <n.icon className={`h-4 w-4 shrink-0 ${active ? "text-emerald-200" : "opacity-70 group-hover:opacity-100"}`} />
                       <span className="truncate font-medium">{n.label}</span>
                     </Link>
                   );
@@ -121,17 +120,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 
   const Brand = () => (
-    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 px-4 py-4 pr-12">
+    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 px-5 py-5 pr-12">
       {logoUrl ? (
-        <img src={logoUrl} alt={siteName} className="h-10 w-10 shrink-0 rounded-xl object-contain bg-white p-1" />
+        <img src={logoUrl} alt={siteName} className="h-9 w-9 shrink-0 rounded-md object-contain bg-white p-1" />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-rose-500 shadow-lg">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-500 shadow-md">
           <ShieldCheck className="h-5 w-5 text-white" />
         </div>
       )}
       <div className="min-w-0">
-        <div className="truncate font-bold text-white">{siteName}</div>
-        <div className="truncate text-[11px] text-slate-400 flex items-center gap-1"><Sparkles className="h-3 w-3" /> সুপার এডমিন</div>
+        <div className="truncate font-bold text-white leading-tight">{siteName}</div>
+        <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-emerald-300/70 mt-0.5">সুপার এডমিন</div>
       </div>
     </div>
   );
@@ -141,17 +140,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="hidden w-64 flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-slate-100 md:flex">
+      <aside className="hidden w-64 flex-col bg-[#0d3b2e] text-slate-100 md:flex">
         <Brand />
         <NavList />
         <div className="border-t border-white/10 p-3">
-          <Button variant="ghost" className="w-full justify-start text-slate-300 hover:bg-white/5 hover:text-white" onClick={signOut}>
+          <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" /> লগআউট
           </Button>
         </div>
       </aside>
-      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-50 via-indigo-50/40 to-fuchsia-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
-        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-b border-white/10 bg-gradient-to-r from-slate-950 to-indigo-950 px-3 py-2.5 text-slate-100 md:hidden">
+      <main className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950">
+        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-b border-white/10 bg-[#0d3b2e] px-3 py-2.5 text-slate-100 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" className="h-9 shrink-0 gap-2 px-3 text-slate-100 hover:bg-white/10 hover:text-white" aria-label="মেন্যু খুলুন">
@@ -159,13 +158,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <span className="text-sm font-medium">মেন্যু</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[min(84vw,20rem)] border-white/10 bg-gradient-to-b from-slate-950 to-indigo-950 p-0 text-slate-100">
+            <SheetContent side="left" className="w-[min(84vw,20rem)] border-white/10 bg-[#0d3b2e] p-0 text-slate-100">
               <SheetTitle className="sr-only">মেন্যু</SheetTitle>
               <div className="flex h-full flex-col">
                 <Brand />
                 <NavList onClick={() => setOpen(false)} />
                 <div className="border-t border-white/10 p-3">
-                  <Button variant="ghost" className="w-full justify-start text-slate-300 hover:bg-white/5 hover:text-white" onClick={signOut}>
+                  <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
                     <LogOut className="mr-2 h-4 w-4" /> লগআউট
                   </Button>
                 </div>
@@ -176,13 +175,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
             {logoUrl ? (
               <img src={logoUrl} alt={siteName} className="h-9 w-9 shrink-0 rounded-lg object-contain bg-white p-0.5" />
             ) : (
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500">
                 <ShieldCheck className="h-4 w-4 text-white" />
               </div>
             )}
             <div className="min-w-0">
               <div className="truncate text-sm font-bold">{siteName}</div>
-              <div className="truncate text-xs text-slate-300">{current?.label ?? "এডমিন প্যানেল"}</div>
+              <div className="truncate text-xs text-emerald-200/80">{current?.label ?? "এডমিন প্যানেল"}</div>
             </div>
           </div>
 
