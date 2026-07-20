@@ -10,24 +10,69 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, Sparkles } from "lucide-react";
+import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, Sparkles, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 export const Route = createFileRoute("/app")({ ssr: false, component: AppLayout });
 
-const NAV_ITEMS: { to: string; label: string; icon: any; color: string; exact?: boolean }[] = [
-  { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, color: "from-sky-400 to-indigo-500", exact: true },
-  { to: "/app/products", label: "পণ্য", icon: Package, color: "from-emerald-400 to-teal-500" },
-  { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag, color: "from-pink-400 to-rose-500" },
-  { to: "/app/units", label: "একক", icon: Ruler, color: "from-amber-400 to-orange-500" },
-  { to: "/app/stock", label: "স্টক", icon: Boxes, color: "from-lime-400 to-emerald-500" },
-  { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck, color: "from-cyan-400 to-blue-500" },
-  { to: "/app/purchases", label: "ক্রয়", icon: ShoppingCart, color: "from-violet-400 to-purple-600" },
-  { to: "/app/customers", label: "কাস্টমার", icon: Users, color: "from-fuchsia-400 to-pink-500" },
-  { to: "/app/sales", label: "বিক্রয়", icon: Receipt, color: "from-orange-400 to-red-500" },
-  { to: "/app/installments", label: "কিস্তি", icon: CalendarClock, color: "from-yellow-400 to-amber-500" },
-  { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3, color: "from-teal-400 to-cyan-500" },
-  { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard, color: "from-indigo-400 to-blue-600" },
+type NavItem = { to: string; label: string; icon: any; color: string; exact?: boolean };
+type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "overview",
+    label: "ওভারভিউ",
+    icon: Activity,
+    items: [
+      { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, color: "from-sky-400 to-indigo-500", exact: true },
+    ],
+  },
+  {
+    id: "inventory",
+    label: "ইনভেন্টরি",
+    icon: Warehouse,
+    items: [
+      { to: "/app/products", label: "পণ্য", icon: Package, color: "from-emerald-400 to-teal-500" },
+      { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag, color: "from-pink-400 to-rose-500" },
+      { to: "/app/units", label: "একক", icon: Ruler, color: "from-amber-400 to-orange-500" },
+      { to: "/app/stock", label: "স্টক", icon: Boxes, color: "from-lime-400 to-emerald-500" },
+    ],
+  },
+  {
+    id: "purchases",
+    label: "ক্রয়",
+    icon: ShoppingCart,
+    items: [
+      { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck, color: "from-cyan-400 to-blue-500" },
+      { to: "/app/purchases", label: "ক্রয় অর্ডার", icon: ShoppingCart, color: "from-violet-400 to-purple-600" },
+    ],
+  },
+  {
+    id: "sales",
+    label: "বিক্রয়",
+    icon: TrendingUp,
+    items: [
+      { to: "/app/customers", label: "কাস্টমার", icon: Users, color: "from-fuchsia-400 to-pink-500" },
+      { to: "/app/sales", label: "বিক্রয়", icon: Receipt, color: "from-orange-400 to-red-500" },
+      { to: "/app/installments", label: "কিস্তি", icon: CalendarClock, color: "from-yellow-400 to-amber-500" },
+    ],
+  },
+  {
+    id: "insights",
+    label: "ইনসাইটস",
+    icon: PieChart,
+    items: [
+      { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3, color: "from-teal-400 to-cyan-500" },
+    ],
+  },
+  {
+    id: "account",
+    label: "একাউন্ট",
+    icon: UserCog,
+    items: [
+      { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard, color: "from-indigo-400 to-blue-600" },
+    ],
+  },
 ];
 
 function AppLayout() {
@@ -37,6 +82,14 @@ function AppLayout() {
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => fn(), enabled: !!session });
   const [mobileOpen, setMobileOpen] = useState(false);
   const loc = useLocation();
+
+  const isItemActive = (n: NavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
+  const activeGroupId = NAV_GROUPS.find((g) => g.items.some(isItemActive))?.id ?? "overview";
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(NAV_GROUPS.map((g) => [g.id, true]))
+  );
+  const toggleGroup = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !s[id] }));
+  useEffect(() => { setOpenGroups((s) => ({ ...s, [activeGroupId]: true })); }, [activeGroupId]);
 
   useEffect(() => {
     if (loading) return;
@@ -60,21 +113,46 @@ function AppLayout() {
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/login" }); };
 
   const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-      {NAV_ITEMS.map((n) => {
-        const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
+    <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+      {NAV_GROUPS.map((g) => {
+        const isOpen = openGroups[g.id] ?? true;
+        const hasActive = g.items.some(isItemActive);
         return (
-          <Link key={n.to} to={n.to} onClick={onClick}
-            className={`group flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-              active
-                ? "bg-gradient-to-r from-primary/10 to-primary/5 text-foreground shadow-sm ring-1 ring-primary/20"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}>
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${n.color} shadow-md ${active ? "" : "opacity-85 group-hover:opacity-100"}`}>
-              <n.icon className="h-4 w-4 text-white" />
-            </span>
-            <span className="truncate font-medium">{n.label}</span>
-          </Link>
+          <div key={g.id} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => toggleGroup(g.id)}
+              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition ${
+                hasActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <g.icon className="h-3.5 w-3.5" />
+                {g.label}
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+            </button>
+            {isOpen && (
+              <div className="ml-2 space-y-1 border-l border-border pl-2">
+                {g.items.map((n) => {
+                  const active = isItemActive(n);
+                  return (
+                    <Link key={n.to} to={n.to} onClick={onClick}
+                      className={`group flex min-w-0 items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-all ${
+                        active
+                          ? "bg-gradient-to-r from-primary/10 to-primary/5 text-foreground shadow-sm ring-1 ring-primary/20"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}>
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${n.color} shadow ${active ? "" : "opacity-80 group-hover:opacity-100"}`}>
+                        <n.icon className="h-3.5 w-3.5 text-white" />
+                      </span>
+                      <span className="truncate font-medium">{n.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>
