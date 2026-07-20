@@ -142,3 +142,66 @@
     color: var(--color-foreground);
   }
 }
+
+@utility grad-blue {
+  background-image: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #fff;
+}
+@utility grad-emerald {
+  background-image: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+}
+@utility grad-amber {
+  background-image: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #fff;
+}
+@utility grad-rose {
+  background-image: linear-gradient(135deg, #f43f5e, #db2777);
+  color: #fff;
+}
+@utility grad-violet {
+  background-image: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+}
+@utility grad-cyan {
+  background-image: linear-gradient(135deg, #06b6d4, #0284c7);
+  color: #fff;
+}
+@utility grad-sunset {
+  background-image: linear-gradient(135deg, #fb7185, #f59e0b);
+  color: #fff;
+}
+@utility grad-ocean {
+  background-image: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #fff;
+}
+@utility grad-forest {
+  background-image: linear-gradient(135deg, #14b8a6, #22c55e);
+  color: #fff;
+}
+@utility card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px -20px rgb(0 0 0 / 0.25);
+  }
+}
+@utility soft-blue {
+  background-image: linear-gradient(135deg, #dbeafe, #eef2ff);
+}
+@utility soft-emerald {
+  background-image: linear-gradient(135deg, #d1fae5, #ecfdf5);
+}
+@utility soft-amber {
+  background-image: linear-gradient(135deg, #fef3c7, #fff7ed);
+}
+@utility soft-rose {
+  background-image: linear-gradient(135deg, #ffe4e6, #fdf2f8);
+}
+@utility soft-violet {
+  background-image: linear-gradient(135deg, #ede9fe, #f5f3ff);
+}
+@utility soft-cyan {
+  background-image: linear-gradient(135deg, #cffafe, #ecfeff);
+}
+
