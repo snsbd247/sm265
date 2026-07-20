@@ -9,38 +9,537 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RenewRouteImport } from './routes/renew'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ImpersonateRouteImport } from './routes/impersonate'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AppUnitsRouteImport } from './routes/app.units'
+import { Route as AppSuppliersRouteImport } from './routes/app.suppliers'
+import { Route as AppSubscriptionRouteImport } from './routes/app.subscription'
+import { Route as AppStockRouteImport } from './routes/app.stock'
+import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppProductsRouteImport } from './routes/app.products'
+import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
+import { Route as AppCustomersRouteImport } from './routes/app.customers'
+import { Route as AppCategoriesRouteImport } from './routes/app.categories'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
+import { Route as AdminSmsLogsRouteImport } from './routes/admin.sms-logs'
+import { Route as AdminShopsRouteImport } from './routes/admin.shops'
+import { Route as AdminSetupRouteImport } from './routes/admin.setup'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminImpersonationLogsRouteImport } from './routes/admin.impersonation-logs'
+import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
+import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
+import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
+import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
+import { Route as AppSalesNewRouteImport } from './routes/app.sales.new'
+import { Route as AppSalesSaleIdRouteImport } from './routes/app.sales.$saleId'
+import { Route as AppPurchasesNewRouteImport } from './routes/app.purchases.new'
+import { Route as AppProductsProductIdRouteImport } from './routes/app.products.$productId'
+import { Route as AdminShopsShopIdRouteImport } from './routes/admin.shops.$shopId'
+import { Route as AdminReceiptsPaymentIdRouteImport } from './routes/admin.receipts.$paymentId'
+import { Route as ApiPublicCronExpiryCheckRouteImport } from './routes/api/public/cron/expiry-check'
+import { Route as ApiPublicBkashCallbackRouteImport } from './routes/api/public/bkash/callback'
+import { Route as AdminReceiptsEnPaymentIdRouteImport } from './routes/admin.receipts.en.$paymentId'
+import { Route as AdminInvoicesEnSubscriptionIdRouteImport } from './routes/admin.invoices.en.$subscriptionId'
 
+const RenewRoute = RenewRouteImport.update({
+  id: '/renew',
+  path: '/renew',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImpersonateRoute = ImpersonateRouteImport.update({
+  id: '/impersonate',
+  path: '/impersonate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AppUnitsRoute = AppUnitsRouteImport.update({
+  id: '/units',
+  path: '/units',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSuppliersRoute = AppSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubscriptionRoute = AppSubscriptionRouteImport.update({
+  id: '/subscription',
+  path: '/subscription',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStockRoute = AppStockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsRoute = AppProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInstallmentsRoute = AppInstallmentsRouteImport.update({
+  id: '/installments',
+  path: '/installments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCustomersRoute = AppCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCategoriesRoute = AppCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AppRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSmsLogsRoute = AdminSmsLogsRouteImport.update({
+  id: '/sms-logs',
+  path: '/sms-logs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminShopsRoute = AdminShopsRouteImport.update({
+  id: '/shops',
+  path: '/shops',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSetupRoute = AdminSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPackagesRoute = AdminPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminImpersonationLogsRoute = AdminImpersonationLogsRouteImport.update({
+  id: '/impersonation-logs',
+  path: '/impersonation-logs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdminsRoute = AdminAdminsRouteImport.update({
+  id: '/admins',
+  path: '/admins',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AppSalesIndexRoute = AppSalesIndexRouteImport.update({
+  id: '/sales/',
+  path: '/sales/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPurchasesIndexRoute = AppPurchasesIndexRouteImport.update({
+  id: '/purchases/',
+  path: '/purchases/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AdminShopsIndexRoute = AdminShopsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminShopsRoute,
+} as any)
+const AppSalesNewRoute = AppSalesNewRouteImport.update({
+  id: '/sales/new',
+  path: '/sales/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSalesSaleIdRoute = AppSalesSaleIdRouteImport.update({
+  id: '/sales/$saleId',
+  path: '/sales/$saleId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPurchasesNewRoute = AppPurchasesNewRouteImport.update({
+  id: '/purchases/new',
+  path: '/purchases/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
+  id: '/$productId',
+  path: '/$productId',
+  getParentRoute: () => AppProductsRoute,
+} as any)
+const AdminShopsShopIdRoute = AdminShopsShopIdRouteImport.update({
+  id: '/$shopId',
+  path: '/$shopId',
+  getParentRoute: () => AdminShopsRoute,
+} as any)
+const AdminReceiptsPaymentIdRoute = AdminReceiptsPaymentIdRouteImport.update({
+  id: '/receipts/$paymentId',
+  path: '/receipts/$paymentId',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiPublicCronExpiryCheckRoute =
+  ApiPublicCronExpiryCheckRouteImport.update({
+    id: '/api/public/cron/expiry-check',
+    path: '/api/public/cron/expiry-check',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBkashCallbackRoute = ApiPublicBkashCallbackRouteImport.update({
+  id: '/api/public/bkash/callback',
+  path: '/api/public/bkash/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReceiptsEnPaymentIdRoute =
+  AdminReceiptsEnPaymentIdRouteImport.update({
+    id: '/receipts/en/$paymentId',
+    path: '/receipts/en/$paymentId',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminInvoicesEnSubscriptionIdRoute =
+  AdminInvoicesEnSubscriptionIdRouteImport.update({
+    id: '/invoices/en/$subscriptionId',
+    path: '/invoices/en/$subscriptionId',
+    getParentRoute: () => AdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/app': typeof AppRouteWithChildren
+  '/impersonate': typeof ImpersonateRoute
+  '/login': typeof LoginRoute
+  '/renew': typeof RenewRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/packages': typeof AdminPackagesRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/shops': typeof AdminShopsRouteWithChildren
+  '/admin/sms-logs': typeof AdminSmsLogsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/app/categories': typeof AppCategoriesRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/installments': typeof AppInstallmentsRoute
+  '/app/products': typeof AppProductsRouteWithChildren
+  '/app/reports': typeof AppReportsRoute
+  '/app/stock': typeof AppStockRoute
+  '/app/subscription': typeof AppSubscriptionRoute
+  '/app/suppliers': typeof AppSuppliersRoute
+  '/app/units': typeof AppUnitsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/admin/receipts/$paymentId': typeof AdminReceiptsPaymentIdRoute
+  '/admin/shops/$shopId': typeof AdminShopsShopIdRoute
+  '/app/products/$productId': typeof AppProductsProductIdRoute
+  '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
+  '/admin/shops/': typeof AdminShopsIndexRoute
+  '/app/purchases/': typeof AppPurchasesIndexRoute
+  '/app/sales/': typeof AppSalesIndexRoute
+  '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
+  '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
+  '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/impersonate': typeof ImpersonateRoute
+  '/login': typeof LoginRoute
+  '/renew': typeof RenewRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/packages': typeof AdminPackagesRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/sms-logs': typeof AdminSmsLogsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/app/categories': typeof AppCategoriesRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/installments': typeof AppInstallmentsRoute
+  '/app/products': typeof AppProductsRouteWithChildren
+  '/app/reports': typeof AppReportsRoute
+  '/app/stock': typeof AppStockRoute
+  '/app/subscription': typeof AppSubscriptionRoute
+  '/app/suppliers': typeof AppSuppliersRoute
+  '/app/units': typeof AppUnitsRoute
+  '/admin': typeof AdminIndexRoute
+  '/app': typeof AppIndexRoute
+  '/admin/receipts/$paymentId': typeof AdminReceiptsPaymentIdRoute
+  '/admin/shops/$shopId': typeof AdminShopsShopIdRoute
+  '/app/products/$productId': typeof AppProductsProductIdRoute
+  '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
+  '/admin/shops': typeof AdminShopsIndexRoute
+  '/app/purchases': typeof AppPurchasesIndexRoute
+  '/app/sales': typeof AppSalesIndexRoute
+  '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
+  '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
+  '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/app': typeof AppRouteWithChildren
+  '/impersonate': typeof ImpersonateRoute
+  '/login': typeof LoginRoute
+  '/renew': typeof RenewRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/packages': typeof AdminPackagesRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/shops': typeof AdminShopsRouteWithChildren
+  '/admin/sms-logs': typeof AdminSmsLogsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/app/categories': typeof AppCategoriesRoute
+  '/app/customers': typeof AppCustomersRoute
+  '/app/installments': typeof AppInstallmentsRoute
+  '/app/products': typeof AppProductsRouteWithChildren
+  '/app/reports': typeof AppReportsRoute
+  '/app/stock': typeof AppStockRoute
+  '/app/subscription': typeof AppSubscriptionRoute
+  '/app/suppliers': typeof AppSuppliersRoute
+  '/app/units': typeof AppUnitsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/admin/receipts/$paymentId': typeof AdminReceiptsPaymentIdRoute
+  '/admin/shops/$shopId': typeof AdminShopsShopIdRoute
+  '/app/products/$productId': typeof AppProductsProductIdRoute
+  '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
+  '/admin/shops/': typeof AdminShopsIndexRoute
+  '/app/purchases/': typeof AppPurchasesIndexRoute
+  '/app/sales/': typeof AppSalesIndexRoute
+  '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
+  '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
+  '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/impersonate'
+    | '/login'
+    | '/renew'
+    | '/admin/admins'
+    | '/admin/impersonation-logs'
+    | '/admin/login'
+    | '/admin/packages'
+    | '/admin/settings'
+    | '/admin/setup'
+    | '/admin/shops'
+    | '/admin/sms-logs'
+    | '/admin/subscriptions'
+    | '/app/categories'
+    | '/app/customers'
+    | '/app/installments'
+    | '/app/products'
+    | '/app/reports'
+    | '/app/stock'
+    | '/app/subscription'
+    | '/app/suppliers'
+    | '/app/units'
+    | '/admin/'
+    | '/app/'
+    | '/admin/receipts/$paymentId'
+    | '/admin/shops/$shopId'
+    | '/app/products/$productId'
+    | '/app/purchases/new'
+    | '/app/sales/$saleId'
+    | '/app/sales/new'
+    | '/admin/shops/'
+    | '/app/purchases/'
+    | '/app/sales/'
+    | '/admin/invoices/en/$subscriptionId'
+    | '/admin/receipts/en/$paymentId'
+    | '/api/public/bkash/callback'
+    | '/api/public/cron/expiry-check'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/impersonate'
+    | '/login'
+    | '/renew'
+    | '/admin/admins'
+    | '/admin/impersonation-logs'
+    | '/admin/login'
+    | '/admin/packages'
+    | '/admin/settings'
+    | '/admin/setup'
+    | '/admin/sms-logs'
+    | '/admin/subscriptions'
+    | '/app/categories'
+    | '/app/customers'
+    | '/app/installments'
+    | '/app/products'
+    | '/app/reports'
+    | '/app/stock'
+    | '/app/subscription'
+    | '/app/suppliers'
+    | '/app/units'
+    | '/admin'
+    | '/app'
+    | '/admin/receipts/$paymentId'
+    | '/admin/shops/$shopId'
+    | '/app/products/$productId'
+    | '/app/purchases/new'
+    | '/app/sales/$saleId'
+    | '/app/sales/new'
+    | '/admin/shops'
+    | '/app/purchases'
+    | '/app/sales'
+    | '/admin/invoices/en/$subscriptionId'
+    | '/admin/receipts/en/$paymentId'
+    | '/api/public/bkash/callback'
+    | '/api/public/cron/expiry-check'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/impersonate'
+    | '/login'
+    | '/renew'
+    | '/admin/admins'
+    | '/admin/impersonation-logs'
+    | '/admin/login'
+    | '/admin/packages'
+    | '/admin/settings'
+    | '/admin/setup'
+    | '/admin/shops'
+    | '/admin/sms-logs'
+    | '/admin/subscriptions'
+    | '/app/categories'
+    | '/app/customers'
+    | '/app/installments'
+    | '/app/products'
+    | '/app/reports'
+    | '/app/stock'
+    | '/app/subscription'
+    | '/app/suppliers'
+    | '/app/units'
+    | '/admin/'
+    | '/app/'
+    | '/admin/receipts/$paymentId'
+    | '/admin/shops/$shopId'
+    | '/app/products/$productId'
+    | '/app/purchases/new'
+    | '/app/sales/$saleId'
+    | '/app/sales/new'
+    | '/admin/shops/'
+    | '/app/purchases/'
+    | '/app/sales/'
+    | '/admin/invoices/en/$subscriptionId'
+    | '/admin/receipts/en/$paymentId'
+    | '/api/public/bkash/callback'
+    | '/api/public/cron/expiry-check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
+  ImpersonateRoute: typeof ImpersonateRoute
+  LoginRoute: typeof LoginRoute
+  RenewRoute: typeof RenewRoute
+  ApiPublicBkashCallbackRoute: typeof ApiPublicBkashCallbackRoute
+  ApiPublicCronExpiryCheckRoute: typeof ApiPublicCronExpiryCheckRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/renew': {
+      id: '/renew'
+      path: '/renew'
+      fullPath: '/renew'
+      preLoaderRoute: typeof RenewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/impersonate': {
+      id: '/impersonate'
+      path: '/impersonate'
+      fullPath: '/impersonate'
+      preLoaderRoute: typeof ImpersonateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +547,347 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/app/units': {
+      id: '/app/units'
+      path: '/units'
+      fullPath: '/app/units'
+      preLoaderRoute: typeof AppUnitsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/suppliers': {
+      id: '/app/suppliers'
+      path: '/suppliers'
+      fullPath: '/app/suppliers'
+      preLoaderRoute: typeof AppSuppliersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/subscription': {
+      id: '/app/subscription'
+      path: '/subscription'
+      fullPath: '/app/subscription'
+      preLoaderRoute: typeof AppSubscriptionRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/stock': {
+      id: '/app/stock'
+      path: '/stock'
+      fullPath: '/app/stock'
+      preLoaderRoute: typeof AppStockRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/reports': {
+      id: '/app/reports'
+      path: '/reports'
+      fullPath: '/app/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/products': {
+      id: '/app/products'
+      path: '/products'
+      fullPath: '/app/products'
+      preLoaderRoute: typeof AppProductsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/installments': {
+      id: '/app/installments'
+      path: '/installments'
+      fullPath: '/app/installments'
+      preLoaderRoute: typeof AppInstallmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/customers': {
+      id: '/app/customers'
+      path: '/customers'
+      fullPath: '/app/customers'
+      preLoaderRoute: typeof AppCustomersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/categories': {
+      id: '/app/categories'
+      path: '/categories'
+      fullPath: '/app/categories'
+      preLoaderRoute: typeof AppCategoriesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/sms-logs': {
+      id: '/admin/sms-logs'
+      path: '/sms-logs'
+      fullPath: '/admin/sms-logs'
+      preLoaderRoute: typeof AdminSmsLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/shops': {
+      id: '/admin/shops'
+      path: '/shops'
+      fullPath: '/admin/shops'
+      preLoaderRoute: typeof AdminShopsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/setup': {
+      id: '/admin/setup'
+      path: '/setup'
+      fullPath: '/admin/setup'
+      preLoaderRoute: typeof AdminSetupRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/packages': {
+      id: '/admin/packages'
+      path: '/packages'
+      fullPath: '/admin/packages'
+      preLoaderRoute: typeof AdminPackagesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/impersonation-logs': {
+      id: '/admin/impersonation-logs'
+      path: '/impersonation-logs'
+      fullPath: '/admin/impersonation-logs'
+      preLoaderRoute: typeof AdminImpersonationLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/admins': {
+      id: '/admin/admins'
+      path: '/admins'
+      fullPath: '/admin/admins'
+      preLoaderRoute: typeof AdminAdminsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/app/sales/': {
+      id: '/app/sales/'
+      path: '/sales'
+      fullPath: '/app/sales/'
+      preLoaderRoute: typeof AppSalesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/purchases/': {
+      id: '/app/purchases/'
+      path: '/purchases'
+      fullPath: '/app/purchases/'
+      preLoaderRoute: typeof AppPurchasesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/admin/shops/': {
+      id: '/admin/shops/'
+      path: '/'
+      fullPath: '/admin/shops/'
+      preLoaderRoute: typeof AdminShopsIndexRouteImport
+      parentRoute: typeof AdminShopsRoute
+    }
+    '/app/sales/new': {
+      id: '/app/sales/new'
+      path: '/sales/new'
+      fullPath: '/app/sales/new'
+      preLoaderRoute: typeof AppSalesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sales/$saleId': {
+      id: '/app/sales/$saleId'
+      path: '/sales/$saleId'
+      fullPath: '/app/sales/$saleId'
+      preLoaderRoute: typeof AppSalesSaleIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/purchases/new': {
+      id: '/app/purchases/new'
+      path: '/purchases/new'
+      fullPath: '/app/purchases/new'
+      preLoaderRoute: typeof AppPurchasesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/products/$productId': {
+      id: '/app/products/$productId'
+      path: '/$productId'
+      fullPath: '/app/products/$productId'
+      preLoaderRoute: typeof AppProductsProductIdRouteImport
+      parentRoute: typeof AppProductsRoute
+    }
+    '/admin/shops/$shopId': {
+      id: '/admin/shops/$shopId'
+      path: '/$shopId'
+      fullPath: '/admin/shops/$shopId'
+      preLoaderRoute: typeof AdminShopsShopIdRouteImport
+      parentRoute: typeof AdminShopsRoute
+    }
+    '/admin/receipts/$paymentId': {
+      id: '/admin/receipts/$paymentId'
+      path: '/receipts/$paymentId'
+      fullPath: '/admin/receipts/$paymentId'
+      preLoaderRoute: typeof AdminReceiptsPaymentIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/public/cron/expiry-check': {
+      id: '/api/public/cron/expiry-check'
+      path: '/api/public/cron/expiry-check'
+      fullPath: '/api/public/cron/expiry-check'
+      preLoaderRoute: typeof ApiPublicCronExpiryCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bkash/callback': {
+      id: '/api/public/bkash/callback'
+      path: '/api/public/bkash/callback'
+      fullPath: '/api/public/bkash/callback'
+      preLoaderRoute: typeof ApiPublicBkashCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/receipts/en/$paymentId': {
+      id: '/admin/receipts/en/$paymentId'
+      path: '/receipts/en/$paymentId'
+      fullPath: '/admin/receipts/en/$paymentId'
+      preLoaderRoute: typeof AdminReceiptsEnPaymentIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/invoices/en/$subscriptionId': {
+      id: '/admin/invoices/en/$subscriptionId'
+      path: '/invoices/en/$subscriptionId'
+      fullPath: '/admin/invoices/en/$subscriptionId'
+      preLoaderRoute: typeof AdminInvoicesEnSubscriptionIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminShopsRouteChildren {
+  AdminShopsShopIdRoute: typeof AdminShopsShopIdRoute
+  AdminShopsIndexRoute: typeof AdminShopsIndexRoute
+}
+
+const AdminShopsRouteChildren: AdminShopsRouteChildren = {
+  AdminShopsShopIdRoute: AdminShopsShopIdRoute,
+  AdminShopsIndexRoute: AdminShopsIndexRoute,
+}
+
+const AdminShopsRouteWithChildren = AdminShopsRoute._addFileChildren(
+  AdminShopsRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminAdminsRoute: typeof AdminAdminsRoute
+  AdminImpersonationLogsRoute: typeof AdminImpersonationLogsRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminPackagesRoute: typeof AdminPackagesRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSetupRoute: typeof AdminSetupRoute
+  AdminShopsRoute: typeof AdminShopsRouteWithChildren
+  AdminSmsLogsRoute: typeof AdminSmsLogsRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminReceiptsPaymentIdRoute: typeof AdminReceiptsPaymentIdRoute
+  AdminInvoicesEnSubscriptionIdRoute: typeof AdminInvoicesEnSubscriptionIdRoute
+  AdminReceiptsEnPaymentIdRoute: typeof AdminReceiptsEnPaymentIdRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdminsRoute: AdminAdminsRoute,
+  AdminImpersonationLogsRoute: AdminImpersonationLogsRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminPackagesRoute: AdminPackagesRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminSetupRoute: AdminSetupRoute,
+  AdminShopsRoute: AdminShopsRouteWithChildren,
+  AdminSmsLogsRoute: AdminSmsLogsRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminReceiptsPaymentIdRoute: AdminReceiptsPaymentIdRoute,
+  AdminInvoicesEnSubscriptionIdRoute: AdminInvoicesEnSubscriptionIdRoute,
+  AdminReceiptsEnPaymentIdRoute: AdminReceiptsEnPaymentIdRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface AppProductsRouteChildren {
+  AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+}
+
+const AppProductsRouteChildren: AppProductsRouteChildren = {
+  AppProductsProductIdRoute: AppProductsProductIdRoute,
+}
+
+const AppProductsRouteWithChildren = AppProductsRoute._addFileChildren(
+  AppProductsRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppCategoriesRoute: typeof AppCategoriesRoute
+  AppCustomersRoute: typeof AppCustomersRoute
+  AppInstallmentsRoute: typeof AppInstallmentsRoute
+  AppProductsRoute: typeof AppProductsRouteWithChildren
+  AppReportsRoute: typeof AppReportsRoute
+  AppStockRoute: typeof AppStockRoute
+  AppSubscriptionRoute: typeof AppSubscriptionRoute
+  AppSuppliersRoute: typeof AppSuppliersRoute
+  AppUnitsRoute: typeof AppUnitsRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppPurchasesNewRoute: typeof AppPurchasesNewRoute
+  AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
+  AppSalesNewRoute: typeof AppSalesNewRoute
+  AppPurchasesIndexRoute: typeof AppPurchasesIndexRoute
+  AppSalesIndexRoute: typeof AppSalesIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppCategoriesRoute: AppCategoriesRoute,
+  AppCustomersRoute: AppCustomersRoute,
+  AppInstallmentsRoute: AppInstallmentsRoute,
+  AppProductsRoute: AppProductsRouteWithChildren,
+  AppReportsRoute: AppReportsRoute,
+  AppStockRoute: AppStockRoute,
+  AppSubscriptionRoute: AppSubscriptionRoute,
+  AppSuppliersRoute: AppSuppliersRoute,
+  AppUnitsRoute: AppUnitsRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppPurchasesNewRoute: AppPurchasesNewRoute,
+  AppSalesSaleIdRoute: AppSalesSaleIdRoute,
+  AppSalesNewRoute: AppSalesNewRoute,
+  AppPurchasesIndexRoute: AppPurchasesIndexRoute,
+  AppSalesIndexRoute: AppSalesIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
+  ImpersonateRoute: ImpersonateRoute,
+  LoginRoute: LoginRoute,
+  RenewRoute: RenewRoute,
+  ApiPublicBkashCallbackRoute: ApiPublicBkashCallbackRoute,
+  ApiPublicCronExpiryCheckRoute: ApiPublicCronExpiryCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
