@@ -1300,6 +1300,7 @@ function Page() {
         }}
       />
       <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
+      <BarcodeScannerDialog open={scanOpen} onOpenChange={setScanOpen} onDetected={handleScannedCode} />
     </div>
   );
 }
