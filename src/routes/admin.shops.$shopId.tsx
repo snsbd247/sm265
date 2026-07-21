@@ -511,10 +511,25 @@ function ShopDetail() {
                   <SelectContent><SelectItem value="monthly">মাসিক</SelectItem><SelectItem value="yearly">বাৎসরিক</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div><Label>মেয়াদ (মাস)</Label>
-                <Input type="number" min={1} value={upgradeForm.months} onChange={(e) => setUpgradeForm({ ...upgradeForm, months: parseInt(e.target.value || "1") })} />
-              </div>
             </div>
+            {previewQ.data && (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">নতুন প্যাকেজ প্রাইস</span><span>{bdt(previewQ.data.new_amount)}</span></div>
+                <div className="flex justify-between text-emerald-700"><span>পুরনো প্যাকেজের ব্যবহারবিহীন মূল্য</span><span>− {bdt(previewQ.data.unused_value)}</span></div>
+                {previewQ.data.credit_applied > 0 && (
+                  <div className="flex justify-between text-emerald-700"><span>ক্রেডিট প্রয়োগ</span><span>− {bdt(previewQ.data.credit_applied)}</span></div>
+                )}
+                <div className="flex justify-between border-t pt-1 font-bold">
+                  <span>{previewQ.data.net_amount > 0 ? "পরিশোধযোগ্য" : "ক্রেডিট যোগ হবে"}</span>
+                  <span>{bdt(Math.abs(previewQ.data.net_amount))}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {previewQ.data.net_amount > 0
+                    ? "কনফার্ম করলে শপে একটি পেন্ডিং ইনভয়েস তৈরি হবে; পেমেন্ট হলে নতুন প্যাকেজ এক্টিভ হবে।"
+                    : "কনফার্ম করলে সরাসরি প্যাকেজ পরিবর্তন হবে এবং অবশিষ্ট টাকা ক্রেডিট হিসেবে জমা থাকবে।"}
+                </div>
+              </div>
+            )}
             <DialogFooter><Button type="submit" disabled={upgradeMut.isPending || !upgradeForm.package_id}>কনফার্ম</Button></DialogFooter>
           </form>
         </DialogContent>
