@@ -1,74 +1,52 @@
-# POS Enhancement Plan
+## সমস্যা
 
-চারটি বড় ফিচার — ধাপে ধাপে বিল্ড করব।
+1. এখন একটি শপের জন্য একাধিক subscription row একসাথে `status = 'active'` থাকতে পারে (আপগ্রেড/ডাউনগ্রেড পেমেন্ট approve হওয়ার সময় পুরনোটা `expired` করা হয় না — শুধু নতুন insert হয়)। ছবিতে দেখানো "Standard + Premium দুইটাই active" ঠিক এই কারণেই।
+2. পেন্ডিং সাবস্ক্রিপশন ইনভয়েসের বিপরীতে এডমিন নিজে থেকে পেমেন্ট রিসিভ/রেকর্ড করে approve করার কোনো ফ্লো নেই — এখন শুধু দোকানদার bKash TrxID জমা দিলে এডমিন approve করতে পারে।
 
-## 1. আইটেম/অর্ডার ডিসকাউন্ট + VAT/ট্যাক্স
+## সমাধান (২ ভাগ)
 
-**DB (migration):**
-- `sale_items`: `discount_amount NUMERIC DEFAULT 0`, `tax_rate NUMERIC DEFAULT 0`, `tax_amount NUMERIC DEFAULT 0` যোগ।
-- `sales`: `tax_amount NUMERIC DEFAULT 0`, `discount_type TEXT DEFAULT 'flat'` (flat/percent) যোগ।
-- `shops`: `default_tax_rate NUMERIC DEFAULT 0`, `tax_inclusive BOOLEAN DEFAULT false` যোগ।
-- `create_sale` RPC আপডেট — per-item discount ও tax গণনা, subtotal/total এ রিফ্লেক্ট।
+### Part A — এক শপে একটাই active subscription
 
-**UI:**
-- POS কার্ট আইটেমে ছোট "%" আইকন → per-item discount input popover।
-- চেকআউট ডায়ালগে: অর্ডার ডিসকাউন্ট (flat/percent টগল), VAT % ইনপুট (শপ ডিফল্ট প্রি-ফিলড), লাইভ ব্রেকডাউন (Subtotal, Item Disc, Order Disc, Tax, Total)।
-- Receipt এ ডিসকাউন্ট/ট্যাক্স লাইন।
+**`src/lib/subscription.server.ts` (`activatePaymentAndExtendShop`)** — নতুন subscription insert বা active update করার ঠিক আগে একই shop-এর অন্য সব active row কে `superseded` করা হবে:
 
-## 2. অর্ডার ক্যান্সেল/রিটার্ন
+```text
+UPDATE subscriptions
+  SET status = 'expired', ends_at = now()
+WHERE shop_id = :shop_id
+  AND status = 'active'
+  AND id <> :current_sub_id   -- যদি current থাকে
+```
 
-**DB:**
-- `sales.status TEXT DEFAULT 'completed'` (completed/cancelled/returned/partial_return)।
-- নতুন টেবিল `sale_returns` (id, shop_id, sale_id, return_date, reason, refund_amount, refund_method, created_by)।
-- `sale_return_items` (id, return_id, sale_item_id, product_id, quantity, unit_price, line_total)।
-- RPC `cancel_sale(_sale_id)` — completed → cancelled, stock restore, customer balance reverse, payment reverse।
-- RPC `create_sale_return(_sale_id, _items, _refund_amount, _refund_method, _reason)` — partial/full return, stock_movement 'return_in', customer refund/credit।
+- Renewal (একই package + cycle): existing active row-এর `ends_at` extend হবে (আজকের লজিকই), অন্য কোনো stray active থাকলে সেটা close হয়ে যাবে।
+- Upgrade/Downgrade/Initial: পুরনো active row `expired` হবে, তারপর নতুন row insert হবে — ফলে একটাই active থাকবে।
 
-**UI:**
-- `/app/sales/$saleId`: "ক্যান্সেল" ও "রিটার্ন" বাটন (status অনুযায়ী disabled)।
-- Return dialog: প্রতি আইটেমে রিটার্ন quantity ইনপুট + refund method।
-- সেলস লিস্টে status badge।
-- Success এ products + notifications invalidate → লো-স্টক ব্যাজ auto-refresh।
+**`src/lib/proration.server.ts` (`applyImmediateDowngrade`)** — একই supersede-then-insert প্যাটার্ন যোগ করা হবে (এখন insert-only)।
 
-## 3. শিফট (ক্যাশ ড্রয়ার)
+**Backfill migration**: প্রতিটা শপের latest active ছাড়া বাকি সব active row কে `expired` মার্ক করে বর্তমান ডাটা পরিষ্কার করা হবে (partial unique index দেওয়া হবে না — race-safety application layer থেকেই আসবে, migration সহজ থাকবে)।
 
-**DB:**
-- `pos_shifts` (id, shop_id, opened_by, opened_at, closed_at, opening_cash, closing_cash_expected, closing_cash_actual, cash_sales_total, card_sales_total, bkash_sales_total, other_sales_total, total_sales, note, status)।
-- `sales.shift_id UUID NULLABLE` — বিক্রয়ের সাথে অ্যাসাইন।
-- RPC `open_shift(_opening_cash, _note)` — একটাই open shift/user।
-- RPC `close_shift(_shift_id, _closing_cash_actual, _note)` — সব সেল অ্যাগ্রিগেট।
+### Part B — এডমিন থেকে সাবস্ক্রিপশন ইনভয়েসে ম্যানুয়াল পেমেন্ট রিসিভ
 
-**UI:**
-- নতুন রুট `/app/shifts` — শিফট লিস্ট + ওপেন/ক্লোজ বাটন।
-- POS পেজ: শিফট open না থাকলে "শিফট শুরু করুন" মোডাল (opening cash), সেল ব্লক।
-- শিফট ক্লোজ মোডাল: expected vs actual cash, variance, সামারি।
-- সাইডবার Sales গ্রুপে "শিফট" মেনু।
+নতুন server function `recordManualSubscriptionPayment` (admin-only, `src/lib/admin.functions.ts`) যা করবে:
 
-## 4. কাস্টমার লেজার পেজ
+1. একটি pending `subscription_payments` row-কে ইনপুট নেবে: `payment_id`, `method` (cash / bank / bkash-manual), `reference_no` (রসিদ/ট্রানজেকশন নাম্বার), `note`।
+2. `payment_method`, `transaction_id`, `raw_response.manual = true`, `raw_response.received_by = <admin email>` সেট করবে।
+3. তারপর existing `activatePaymentAndExtendShop(payment_id, { source: 'admin_manual' })` কল করবে — ফলে audit log, SMS, এবং Part A এর supersede লজিক সবই reuse হবে।
 
-**Backend:** `getCustomerLedger` (আছে) — লেজার এন্ট্রি + বকেয়া সামারি।
+**UI — `src/routes/admin.subscriptions.tsx`**: pending row-এ এখন যে `Check` (approve) বাটন আছে, সেটার পাশে "Receive Payment" (💵) বাটন যোগ হবে যা একটি ছোট dialog খুলবে: Method dropdown + Reference no + Note → submit করলে `recordManualSubscriptionPayment` কল হবে।
 
-**UI:**
-- নতুন রুট `/app/customers/$customerId` — 
-  - হেডার: নাম, ফোন, মোট বকেয়া, লাইফটাইম বিক্রয়।
-  - ট্যাব: লেজার (debit/credit/balance টেবিল), সেলস হিস্টরি, ইনস্টলমেন্ট, পেমেন্টস।
-  - "পেমেন্ট গ্রহণ" বাটন → existing receiveCustomerPayment ডায়ালগ।
-  - CSV এক্সপোর্ট, প্রিন্ট।
-- `app.customers.tsx` লিস্টে প্রতি রো ক্লিকে লেজারে যাবে।
-- POS এ কাস্টমার সিলেক্ট করলে "লেজার দেখুন" লিংক।
+**UI — `src/routes/admin.shops.$shopId.tsx`** (শপ ডিটেইলস পেজে): pending invoice থাকলে সেখান থেকেও একই dialog দিয়ে receive-payment করা যাবে (একই server fn)।
 
-## ধাপক্রম (এই টার্নে সব বিল্ড)
+## Technical notes
 
-1. Migration — সব DB পরিবর্তন এক ব্যাচে।
-2. Server functions — shifts, returns, ledger helpers।
-3. UI — POS আপডেট, নতুন রুট, নেভিগেশন।
-4. QA — বিল্ড ও কী flows verify।
+- একটাই `activatePaymentAndExtendShop` হেল্পার সব paths (bKash callback, admin approve, admin manual receive) থেকে ব্যবহৃত হবে — supersede লজিক এক জায়গায় থাকলে drift হবে না।
+- Existing atomic `paid_at` claim already prevents double-processing — manual receive সেটার সুবিধা পাবে।
+- কোনো schema change লাগবে না; শুধু একটা data-cleanup migration (backfill)।
 
-## Technical Notes
+## Files touched
 
-- Idempotency: cancel/return RPC গুলোতে status check।
-- Shift enforcement: server-side check `create_sale`-এ open shift না থাকলে reject।
-- Tax formula: `line = qty * price - item_disc; tax = line * rate/100; total = Σline + Σtax - order_disc`।
-- Backward compat: existing sales এ status default 'completed', shift_id NULL allowed।
-
-শুরু করব?
+- `src/lib/subscription.server.ts` — supersede লজিক যোগ
+- `src/lib/proration.server.ts` — supersede লজিক যোগ
+- `src/lib/admin.functions.ts` — `recordManualSubscriptionPayment` server fn
+- `src/routes/admin.subscriptions.tsx` — "Receive Payment" dialog
+- `src/routes/admin.shops.$shopId.tsx` — pending invoice এ same dialog
+- একটি migration — বর্তমান duplicate active rows পরিষ্কার
