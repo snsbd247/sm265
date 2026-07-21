@@ -25,7 +25,6 @@ import { Route as AppSubscriptionRouteImport } from './routes/app.subscription'
 import { Route as AppStockRouteImport } from './routes/app.stock'
 import { Route as AppShiftsRouteImport } from './routes/app.shifts'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
-import { Route as AppProductsRouteImport } from './routes/app.products'
 import { Route as AppPayInvoiceRouteImport } from './routes/app.pay-invoice'
 import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
@@ -45,6 +44,7 @@ import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
 import { Route as AppReportsIndexRouteImport } from './routes/app.reports.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
+import { Route as AppProductsIndexRouteImport } from './routes/app.products.index'
 import { Route as AppCustomersIndexRouteImport } from './routes/app.customers.index'
 import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
 import { Route as AppSettingsInvoiceTemplateRouteImport } from './routes/app.settings.invoice-template'
@@ -162,11 +162,6 @@ const AppReportsRoute = AppReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProductsRoute = AppProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppPayInvoiceRoute = AppPayInvoiceRouteImport.update({
   id: '/pay-invoice',
   path: '/pay-invoice',
@@ -260,6 +255,11 @@ const AppReportsIndexRoute = AppReportsIndexRouteImport.update({
 const AppPurchasesIndexRoute = AppPurchasesIndexRouteImport.update({
   id: '/purchases/',
   path: '/purchases/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsIndexRoute = AppProductsIndexRouteImport.update({
+  id: '/products/',
+  path: '/products/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCustomersIndexRoute = AppCustomersIndexRouteImport.update({
@@ -395,9 +395,9 @@ const AppPurchasesNewRoute = AppPurchasesNewRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
-  id: '/$productId',
-  path: '/$productId',
-  getParentRoute: () => AppProductsRoute,
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppCustomersCustomerIdRoute = AppCustomersCustomerIdRouteImport.update({
   id: '/$customerId',
@@ -472,7 +472,6 @@ export interface FileRoutesByFullPath {
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
-  '/app/products': typeof AppProductsRouteWithChildren
   '/app/reports': typeof AppReportsRouteWithChildren
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
@@ -513,6 +512,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
+  '/app/products/': typeof AppProductsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/reports/': typeof AppReportsIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -542,7 +542,6 @@ export interface FileRoutesByTo {
   '/app/change-password': typeof AppChangePasswordRoute
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
-  '/app/products': typeof AppProductsRouteWithChildren
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -582,6 +581,7 @@ export interface FileRoutesByTo {
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops': typeof AdminShopsIndexRoute
   '/app/customers': typeof AppCustomersIndexRoute
+  '/app/products': typeof AppProductsIndexRoute
   '/app/purchases': typeof AppPurchasesIndexRoute
   '/app/reports': typeof AppReportsIndexRoute
   '/app/sales': typeof AppSalesIndexRoute
@@ -616,7 +616,6 @@ export interface FileRoutesById {
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
-  '/app/products': typeof AppProductsRouteWithChildren
   '/app/reports': typeof AppReportsRouteWithChildren
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
@@ -657,6 +656,7 @@ export interface FileRoutesById {
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
+  '/app/products/': typeof AppProductsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/reports/': typeof AppReportsIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -692,7 +692,6 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
-    | '/app/products'
     | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
@@ -733,6 +732,7 @@ export interface FileRouteTypes {
     | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/customers/'
+    | '/app/products/'
     | '/app/purchases/'
     | '/app/reports/'
     | '/app/sales/'
@@ -762,7 +762,6 @@ export interface FileRouteTypes {
     | '/app/change-password'
     | '/app/installments'
     | '/app/pay-invoice'
-    | '/app/products'
     | '/app/shifts'
     | '/app/stock'
     | '/app/subscription'
@@ -802,6 +801,7 @@ export interface FileRouteTypes {
     | '/app/settings/invoice-template'
     | '/admin/shops'
     | '/app/customers'
+    | '/app/products'
     | '/app/purchases'
     | '/app/reports'
     | '/app/sales'
@@ -835,7 +835,6 @@ export interface FileRouteTypes {
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
-    | '/app/products'
     | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
@@ -876,6 +875,7 @@ export interface FileRouteTypes {
     | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/customers/'
+    | '/app/products/'
     | '/app/purchases/'
     | '/app/reports/'
     | '/app/sales/'
@@ -1015,13 +1015,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/products': {
-      id: '/app/products'
-      path: '/products'
-      fullPath: '/app/products'
-      preLoaderRoute: typeof AppProductsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/pay-invoice': {
       id: '/app/pay-invoice'
       path: '/pay-invoice'
@@ -1153,6 +1146,13 @@ declare module '@tanstack/react-router' {
       path: '/purchases'
       fullPath: '/app/purchases/'
       preLoaderRoute: typeof AppPurchasesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/products/': {
+      id: '/app/products/'
+      path: '/products'
+      fullPath: '/app/products/'
+      preLoaderRoute: typeof AppProductsIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/customers/': {
@@ -1339,10 +1339,10 @@ declare module '@tanstack/react-router' {
     }
     '/app/products/$productId': {
       id: '/app/products/$productId'
-      path: '/$productId'
+      path: '/products/$productId'
       fullPath: '/app/products/$productId'
       preLoaderRoute: typeof AppProductsProductIdRouteImport
-      parentRoute: typeof AppProductsRoute
+      parentRoute: typeof AppRoute
     }
     '/app/customers/$customerId': {
       id: '/app/customers/$customerId'
@@ -1476,18 +1476,6 @@ const AppCustomersRouteWithChildren = AppCustomersRoute._addFileChildren(
   AppCustomersRouteChildren,
 )
 
-interface AppProductsRouteChildren {
-  AppProductsProductIdRoute: typeof AppProductsProductIdRoute
-}
-
-const AppProductsRouteChildren: AppProductsRouteChildren = {
-  AppProductsProductIdRoute: AppProductsProductIdRoute,
-}
-
-const AppProductsRouteWithChildren = AppProductsRoute._addFileChildren(
-  AppProductsRouteChildren,
-)
-
 interface AppReportsRouteChildren {
   AppReportsBkashBookRoute: typeof AppReportsBkashBookRoute
   AppReportsCashBookRoute: typeof AppReportsCashBookRoute
@@ -1546,7 +1534,6 @@ interface AppRouteChildren {
   AppCustomersRoute: typeof AppCustomersRouteWithChildren
   AppInstallmentsRoute: typeof AppInstallmentsRoute
   AppPayInvoiceRoute: typeof AppPayInvoiceRoute
-  AppProductsRoute: typeof AppProductsRouteWithChildren
   AppReportsRoute: typeof AppReportsRouteWithChildren
   AppShiftsRoute: typeof AppShiftsRoute
   AppStockRoute: typeof AppStockRoute
@@ -1555,10 +1542,12 @@ interface AppRouteChildren {
   AppUnitsRoute: typeof AppUnitsRoute
   AppUsageRoute: typeof AppUsageRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppPurchasesNewRoute: typeof AppPurchasesNewRoute
   AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
   AppSalesNewRoute: typeof AppSalesNewRoute
   AppSettingsInvoiceTemplateRoute: typeof AppSettingsInvoiceTemplateRoute
+  AppProductsIndexRoute: typeof AppProductsIndexRoute
   AppPurchasesIndexRoute: typeof AppPurchasesIndexRoute
   AppSalesIndexRoute: typeof AppSalesIndexRoute
 }
@@ -1569,7 +1558,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppCustomersRoute: AppCustomersRouteWithChildren,
   AppInstallmentsRoute: AppInstallmentsRoute,
   AppPayInvoiceRoute: AppPayInvoiceRoute,
-  AppProductsRoute: AppProductsRouteWithChildren,
   AppReportsRoute: AppReportsRouteWithChildren,
   AppShiftsRoute: AppShiftsRoute,
   AppStockRoute: AppStockRoute,
@@ -1578,10 +1566,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppUnitsRoute: AppUnitsRoute,
   AppUsageRoute: AppUsageRoute,
   AppIndexRoute: AppIndexRoute,
+  AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppPurchasesNewRoute: AppPurchasesNewRoute,
   AppSalesSaleIdRoute: AppSalesSaleIdRoute,
   AppSalesNewRoute: AppSalesNewRoute,
   AppSettingsInvoiceTemplateRoute: AppSettingsInvoiceTemplateRoute,
+  AppProductsIndexRoute: AppProductsIndexRoute,
   AppPurchasesIndexRoute: AppPurchasesIndexRoute,
   AppSalesIndexRoute: AppSalesIndexRoute,
 }
