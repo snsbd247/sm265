@@ -1233,3 +1233,196 @@ export const getAdminExtras = createServerFn({ method: "GET" })
       newShopsPeriod: trend.reduce((s, t) => s + t.shops, 0),
     };
   });
+
+// ============= Demo Requests =============
+export const listDemoRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ status: z.enum(["pending", "approved", "rejected", "all"]).default("pending") }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin.from("demo_requests" as any).select("*").order("created_at", { ascending: false });
+    if (data.status !== "all") q = q.eq("status", data.status);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const rejectDemoRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), note: z.string().max(500).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("demo_requests" as any)
+      .update({
+        status: "rejected",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: context.userId,
+        review_note: data.note ?? null,
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const approveDemoRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      package_id: z.string().uuid().optional(), // defaults to Trial
+      trial_days: z.number().int().min(1).max(365).default(14),
+      note: z.string().max(500).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Load request
+    const { data: reqRow, error: reqErr } = await supabaseAdmin
+      .from("demo_requests" as any).select("*").eq("id", data.id).maybeSingle();
+    if (reqErr) throw new Error(reqErr.message);
+    if (!reqRow) throw new Error("Demo request not found");
+    const req = reqRow as any;
+    if (req.status !== "pending") throw new Error("এই রিকোয়েস্টটি ইতিমধ্যে প্রসেস হয়েছে");
+    if (!req.email) throw new Error("এই রিকোয়েস্টে ইমেইল নেই — অনুমোদনের জন্য ইমেইল প্রয়োজন");
+
+    // Resolve trial package
+    let pkgId = data.package_id;
+    if (!pkgId) {
+      const { data: pkg } = await supabaseAdmin
+        .from("packages").select("id").ilike("name", "trial").maybeSingle();
+      if (!pkg) throw new Error("Trial প্যাকেজ পাওয়া যায়নি");
+      pkgId = pkg.id;
+    }
+    const { data: pkg } = await supabaseAdmin
+      .from("packages").select("*").eq("id", pkgId).single();
+
+    const defaultPassword = "123456789";
+
+    // 1) Create auth user (or reuse existing)
+    let userId: string;
+    const created = await supabaseAdmin.auth.admin.createUser({
+      email: req.email,
+      password: defaultPassword,
+      email_confirm: true,
+      user_metadata: { full_name: req.name, phone: req.phone },
+    });
+    if (created.error || !created.data.user) {
+      // Try to find existing
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+      const found = list.users.find((u) => u.email?.toLowerCase() === String(req.email).toLowerCase());
+      if (!found) throw new Error(created.error?.message ?? "User creation failed");
+      userId = found.id;
+      // Reset password to default for demo access
+      await supabaseAdmin.auth.admin.updateUserById(userId, { password: defaultPassword });
+    } else {
+      userId = created.data.user.id;
+    }
+
+    // 2) Create shop (active trial)
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + data.trial_days);
+
+    const { data: shop, error: shopErr } = await supabaseAdmin
+      .from("shops")
+      .insert({
+        name: req.shop_name || `${req.name} এর দোকান`,
+        owner_name: req.name,
+        phone: req.phone,
+        email: req.email,
+        package_id: pkgId,
+        billing_cycle: "monthly",
+        status: "active",
+        subscription_start: start.toISOString(),
+        subscription_end: end.toISOString(),
+        created_by: context.userId,
+      } as any)
+      .select()
+      .single();
+    if (shopErr) throw new Error(shopErr.message);
+
+    // 3) Role
+    await supabaseAdmin.from("user_roles").insert({
+      user_id: userId,
+      role: "shop_owner",
+      shop_id: shop.id,
+    } as any);
+
+    // 4) Trial subscription record
+    await supabaseAdmin.from("subscriptions").insert({
+      shop_id: shop.id,
+      package_id: pkgId,
+      billing_cycle: "monthly",
+      status: "active",
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+    } as any);
+
+    // 5) Mark demo request approved
+    await supabaseAdmin.from("demo_requests" as any).update({
+      status: "approved",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: context.userId,
+      review_note: data.note ?? null,
+      shop_id: shop.id,
+      package_id: pkgId,
+      billing_cycle: "monthly",
+    }).eq("id", data.id);
+
+    // 6) SMS (non-blocking)
+    try {
+      const { sendTemplateSMS } = await import("./sms.server");
+      await sendTemplateSMS("account_created", req.phone, {
+        shop_name: shop.name,
+        owner: req.name,
+        phone: req.phone,
+        password: defaultPassword,
+        package: pkg?.name ?? "Trial",
+        end_date: end.toLocaleDateString("bn-BD"),
+        invoice_no: "",
+        amount: "0",
+      }, { shopId: shop.id });
+    } catch (e) { console.error("trial SMS failed", e); }
+
+    // 7) Audit
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: shop.id, action: "demo_request.approved",
+        target_type: "demo_request", target_id: data.id,
+        details: { email: req.email, trial_days: data.trial_days, package: pkg?.name },
+      });
+    } catch {}
+
+    return {
+      ok: true,
+      shop_id: shop.id,
+      credentials: { email: req.email, password: defaultPassword },
+      trial_ends: end.toISOString(),
+    };
+  });
+
+export const changeMyPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ new_password: z.string().min(6, "কমপক্ষে ৬ ডিজিটের পাসওয়ার্ড দিন") }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.new_password,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

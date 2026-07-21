@@ -29,6 +29,7 @@ import { Route as AppProductsRouteImport } from './routes/app.products'
 import { Route as AppPayInvoiceRouteImport } from './routes/app.pay-invoice'
 import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
+import { Route as AppChangePasswordRouteImport } from './routes/app.change-password'
 import { Route as AppCategoriesRouteImport } from './routes/app.categories'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSmsLogsRouteImport } from './routes/admin.sms-logs'
@@ -38,6 +39,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminImpersonationLogsRouteImport } from './routes/admin.impersonation-logs'
+import { Route as AdminDemoRequestsRouteImport } from './routes/admin.demo-requests'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
@@ -158,6 +160,11 @@ const AppCustomersRoute = AppCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppChangePasswordRoute = AppChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCategoriesRoute = AppCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
@@ -201,6 +208,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
 const AdminImpersonationLogsRoute = AdminImpersonationLogsRouteImport.update({
   id: '/impersonation-logs',
   path: '/impersonation-logs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDemoRequestsRoute = AdminDemoRequestsRouteImport.update({
+  id: '/demo-requests',
+  path: '/demo-requests',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
@@ -313,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -322,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -361,6 +375,7 @@ export interface FileRoutesByTo {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -369,6 +384,7 @@ export interface FileRoutesByTo {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -411,6 +427,7 @@ export interface FileRoutesById {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -420,6 +437,7 @@ export interface FileRoutesById {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -463,6 +481,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -472,6 +491,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -511,6 +531,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -519,6 +540,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -560,6 +582,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -569,6 +592,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -758,6 +782,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCustomersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/change-password': {
+      id: '/app/change-password'
+      path: '/change-password'
+      fullPath: '/app/change-password'
+      preLoaderRoute: typeof AppChangePasswordRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/categories': {
       id: '/app/categories'
       path: '/categories'
@@ -819,6 +850,13 @@ declare module '@tanstack/react-router' {
       path: '/impersonation-logs'
       fullPath: '/admin/impersonation-logs'
       preLoaderRoute: typeof AdminImpersonationLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/demo-requests': {
+      id: '/admin/demo-requests'
+      path: '/demo-requests'
+      fullPath: '/admin/demo-requests'
+      preLoaderRoute: typeof AdminDemoRequestsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/audit-logs': {
@@ -974,6 +1012,7 @@ const AdminShopsRouteWithChildren = AdminShopsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
+  AdminDemoRequestsRoute: typeof AdminDemoRequestsRoute
   AdminImpersonationLogsRoute: typeof AdminImpersonationLogsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
@@ -991,6 +1030,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
+  AdminDemoRequestsRoute: AdminDemoRequestsRoute,
   AdminImpersonationLogsRoute: AdminImpersonationLogsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminPackagesRoute: AdminPackagesRoute,
@@ -1033,6 +1073,7 @@ const AppProductsRouteWithChildren = AppProductsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
+  AppChangePasswordRoute: typeof AppChangePasswordRoute
   AppCustomersRoute: typeof AppCustomersRouteWithChildren
   AppInstallmentsRoute: typeof AppInstallmentsRoute
   AppPayInvoiceRoute: typeof AppPayInvoiceRoute
@@ -1055,6 +1096,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppCategoriesRoute: AppCategoriesRoute,
+  AppChangePasswordRoute: AppChangePasswordRoute,
   AppCustomersRoute: AppCustomersRouteWithChildren,
   AppInstallmentsRoute: AppInstallmentsRoute,
   AppPayInvoiceRoute: AppPayInvoiceRoute,

@@ -266,36 +266,69 @@ export type Database = {
       }
       demo_requests: {
         Row: {
+          billing_cycle: string | null
           created_at: string
           email: string | null
           id: string
           message: string | null
           name: string
+          package_id: string | null
           phone: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          shop_id: string | null
           shop_name: string | null
           status: string
         }
         Insert: {
+          billing_cycle?: string | null
           created_at?: string
           email?: string | null
           id?: string
           message?: string | null
           name: string
+          package_id?: string | null
           phone: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          shop_id?: string | null
           shop_name?: string | null
           status?: string
         }
         Update: {
+          billing_cycle?: string | null
           created_at?: string
           email?: string | null
           id?: string
           message?: string | null
           name?: string
+          package_id?: string | null
           phone?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          shop_id?: string | null
           shop_name?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "demo_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_requests_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       impersonation_audit: {
         Row: {
@@ -1923,6 +1956,7 @@ export type Database = {
         }
         Returns: string
       }
+      auto_lock_expired_shops: { Args: never; Returns: undefined }
       cancel_sale: {
         Args: { _reason: string; _sale_id: string }
         Returns: undefined
