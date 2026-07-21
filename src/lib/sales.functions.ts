@@ -169,12 +169,12 @@ export const cancelSale = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     sale_id: z.string().uuid(),
-    reason: z.string().max(300).optional().nullable(),
+    reason: z.string().trim().min(3, "কারণ কমপক্ষে ৩ অক্ষর").max(300),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await getShopId(context);
     const { error } = await context.supabase.rpc("cancel_sale", {
-      _sale_id: data.sale_id, _reason: data.reason ?? null,
+      _sale_id: data.sale_id, _reason: data.reason,
     } as any);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -190,14 +190,14 @@ export const createSaleReturn = createServerFn({ method: "POST" })
     })).min(1),
     refund_amount: z.number().nonnegative().default(0),
     refund_method: z.enum(["cash", "card", "bkash", "bank"]).default("cash"),
-    reason: z.string().max(300).optional().nullable(),
+    reason: z.string().trim().min(3, "কারণ কমপক্ষে ৩ অক্ষর").max(300),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await getShopId(context);
     const { data: id, error } = await context.supabase.rpc("create_sale_return", {
       _sale_id: data.sale_id, _items: data.items,
       _refund_amount: data.refund_amount, _refund_method: data.refund_method,
-      _reason: data.reason ?? null,
+      _reason: data.reason,
     } as any);
     if (error) throw new Error(error.message);
     return { ok: true, id };
