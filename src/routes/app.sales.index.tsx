@@ -41,8 +41,8 @@ function Page() {
   const pageSize = [10, 25, 50, 100].includes(sp.size) ? sp.size : 25;
   const page = Math.max(1, sp.page);
 
-  const update = (patch: Partial<z.infer<typeof searchSchema>>) => {
-    nav({ to: "/app/sales", search: (prev) => ({ ...prev, ...patch }) });
+  const update = (patch: Record<string, unknown>) => {
+    nav({ to: "/app/sales", search: (prev: any) => ({ ...prev, ...patch }) });
   };
 
   const q = useQuery({
