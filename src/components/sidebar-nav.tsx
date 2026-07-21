@@ -43,7 +43,9 @@ function ItemRow({
     <Link
       to={item.to}
       onClick={onClick}
-      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+      aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-950 ${
         active
           ? "bg-emerald-500/10 text-emerald-300 backdrop-blur-md border-r-4 border-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.06)]"
           : "text-emerald-100/70 hover:bg-white/5 hover:text-white"
@@ -79,17 +81,20 @@ export function SidebarNavList({
   onItemClick?: () => void;
 }) {
   return (
-    <nav className="flex-1 space-y-5 overflow-y-auto p-3">
+    <nav aria-label="Primary" className="flex-1 space-y-5 overflow-y-auto p-3">
       {groups.map((g) => {
         const isOpen = openGroups[g.id] ?? true;
         const hasActive = g.items.some(isItemActive);
         const GIcon = g.icon;
+        const panelId = `sb-group-${g.id}`;
         return (
           <div key={g.id} className="space-y-1">
             <button
               type="button"
               onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-md px-3 pb-1 text-[10px] font-bold uppercase tracking-widest transition ${
+              aria-expanded={isOpen}
+              aria-controls={panelId}
+              className={`flex w-full items-center justify-between rounded-md px-3 pb-1 text-[10px] font-bold uppercase tracking-widest transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
                 hasActive ? "text-emerald-400/80" : "text-emerald-500/50 hover:text-emerald-400/80"
               }`}
             >
@@ -100,7 +105,7 @@ export function SidebarNavList({
               <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
             </button>
             {isOpen && (
-              <div className="space-y-1">
+              <div id={panelId} role="group" aria-label={g.label} className="space-y-1">
                 {g.items.map((n) => (
                   <ItemRow key={n.to} item={n} active={isItemActive(n)} onClick={onItemClick} />
                 ))}
@@ -118,14 +123,20 @@ export function SidebarIconRail({
   groups,
   isItemActive,
   onItemClick,
+  tooltipDelay = 150,
+  tooltipSide = "right",
+  tooltipSideOffset = 8,
 }: {
   groups: SidebarNavGroup[];
   isItemActive: (i: SidebarNavItem) => boolean;
   onItemClick?: () => void;
+  tooltipDelay?: number;
+  tooltipSide?: "top" | "right" | "bottom" | "left";
+  tooltipSideOffset?: number;
 }) {
   return (
-    <TooltipProvider delayDuration={100}>
-      <nav className="flex-1 space-y-2 overflow-y-auto px-2 py-3">
+    <TooltipProvider delayDuration={tooltipDelay}>
+      <nav aria-label="Primary" className="flex-1 space-y-2 overflow-y-auto px-2 py-3">
         {groups.map((g) => {
           const GIcon = g.icon;
           const hasActive = g.items.some(isItemActive);
@@ -140,7 +151,9 @@ export function SidebarIconRail({
                   <Link
                     to={n.to}
                     onClick={onItemClick}
-                    className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
+                    aria-label={n.label}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${
                       active
                         ? "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/30 backdrop-blur-md"
                         : "text-emerald-100/60 hover:bg-white/5 hover:text-white"
@@ -158,30 +171,56 @@ export function SidebarIconRail({
                     )}
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="border border-emerald-800/50 bg-emerald-900 text-white">
+                <TooltipContent
+                  side={tooltipSide}
+                  sideOffset={tooltipSideOffset}
+                  className={`border text-xs font-medium ${
+                    active
+                      ? "border-emerald-400/60 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                      : "border-emerald-800/50 bg-emerald-900 text-white"
+                  }`}
+                >
                   {n.label}
+                  {active && <span className="ml-2 text-[10px] uppercase tracking-wider opacity-80">• Active</span>}
                 </TooltipContent>
               </Tooltip>
             );
           }
           return (
             <Popover key={g.id}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={`relative mx-auto flex h-11 w-11 items-center justify-center rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${
+                        hasActive
+                          ? "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/30 backdrop-blur-md"
+                          : "text-emerald-100/60 hover:bg-white/5 hover:text-white"
+                      }`}
+                      aria-label={g.label}
+                      aria-haspopup="menu"
+                    >
+                      <GIcon className="h-5 w-5" strokeWidth={hasActive ? 2.5 : 2} />
+                      <ChevronRight className="absolute -right-0.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-40" />
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent
+                  side={tooltipSide}
+                  sideOffset={tooltipSideOffset}
+                  className={`border text-xs font-medium ${
                     hasActive
-                      ? "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/30 backdrop-blur-md"
-                      : "text-emerald-100/60 hover:bg-white/5 hover:text-white"
+                      ? "border-emerald-400/60 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                      : "border-emerald-800/50 bg-emerald-900 text-white"
                   }`}
-                  aria-label={g.label}
                 >
-                  <GIcon className="h-5 w-5" strokeWidth={hasActive ? 2.5 : 2} />
-                  <ChevronRight className="absolute -right-0.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-40" />
-                </button>
-              </PopoverTrigger>
+                  {g.label}
+                  {hasActive && <span className="ml-2 text-[10px] uppercase tracking-wider opacity-80">• Active</span>}
+                </TooltipContent>
+              </Tooltip>
               <PopoverContent
-                side="right"
+                side={tooltipSide}
                 align="start"
                 sideOffset={12}
                 className="w-60 border border-emerald-800/50 bg-emerald-950 p-2 text-slate-100 shadow-2xl"
@@ -189,7 +228,7 @@ export function SidebarIconRail({
                 <div className="mb-2 px-2 pt-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
                   {g.label}
                 </div>
-                <div className="space-y-1">
+                <div role="menu" aria-label={g.label} className="space-y-1">
                   {g.items.map((n) => (
                     <ItemRow key={n.to} item={n} active={isItemActive(n)} onClick={onItemClick} />
                   ))}
