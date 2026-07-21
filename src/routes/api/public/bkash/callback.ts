@@ -18,6 +18,7 @@ export const Route = createFileRoute("/api/public/bkash/callback")({
           const { executeBkashPayment } = await import("@/lib/bkash.server");
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { activatePaymentAndExtendShop } = await import("@/lib/subscription.server");
+          const { logAudit } = await import("@/lib/audit.server");
 
           const exec = await executeBkashPayment(paymentID);
           if (exec?.transactionStatus !== "Completed" || exec?.statusCode !== "0000") {
@@ -25,6 +26,11 @@ export const Route = createFileRoute("/api/public/bkash/callback")({
               .from("subscription_payments")
               .update({ status: "failed", raw_response: { execute: exec } })
               .eq("id", pid);
+            await logAudit({
+              actor_role: "bkash_callback", action: "invoice.rejected",
+              target_type: "subscription_payment", target_id: pid,
+              details: { execute: exec },
+            });
             return redir("failed");
           }
 
@@ -36,7 +42,12 @@ export const Route = createFileRoute("/api/public/bkash/callback")({
             })
             .eq("id", pid);
 
-          await activatePaymentAndExtendShop(pid);
+          const r = await activatePaymentAndExtendShop(pid, { source: "bkash_callback" });
+          await logAudit({
+            actor_role: "bkash_callback", action: "invoice.paid",
+            target_type: "subscription_payment", target_id: pid,
+            details: { trxID: exec.trxID, alreadyProcessed: r.alreadyProcessed ?? false },
+          });
           return redir("success");
         } catch (e) {
           console.error("bKash callback error", e);

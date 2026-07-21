@@ -46,6 +46,7 @@ import { Route as AppProductsProductIdRouteImport } from './routes/app.products.
 import { Route as AdminShopsShopIdRouteImport } from './routes/admin.shops.$shopId'
 import { Route as AdminReceiptsPaymentIdRouteImport } from './routes/admin.receipts.$paymentId'
 import { Route as ApiPublicCronExpiryCheckRouteImport } from './routes/api/public/cron/expiry-check'
+import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicBkashCallbackRouteImport } from './routes/api/public/bkash/callback'
 import { Route as AdminReceiptsEnPaymentIdRouteImport } from './routes/admin.receipts.en.$paymentId'
 import { Route as AdminInvoicesEnSubscriptionIdRouteImport } from './routes/admin.invoices.en.$subscriptionId'
@@ -236,6 +237,11 @@ const ApiPublicCronExpiryCheckRoute =
     path: '/api/public/cron/expiry-check',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBkashWebhookRoute = ApiPublicBkashWebhookRouteImport.update({
+  id: '/api/public/bkash/webhook',
+  path: '/api/public/bkash/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBkashCallbackRoute = ApiPublicBkashCallbackRouteImport.update({
   id: '/api/public/bkash/callback',
   path: '/api/public/bkash/callback',
@@ -294,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRoutesByTo {
@@ -333,6 +340,7 @@ export interface FileRoutesByTo {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRoutesById {
@@ -376,6 +384,7 @@ export interface FileRoutesById {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
 }
 export interface FileRouteTypes {
@@ -420,6 +429,7 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -459,6 +469,7 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
   id:
     | '__root__'
@@ -501,6 +512,7 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
   fileRoutesById: FileRoutesById
 }
@@ -512,6 +524,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RenewRoute: typeof RenewRoute
   ApiPublicBkashCallbackRoute: typeof ApiPublicBkashCallbackRoute
+  ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronExpiryCheckRoute: typeof ApiPublicCronExpiryCheckRoute
 }
 
@@ -776,6 +789,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronExpiryCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bkash/webhook': {
+      id: '/api/public/bkash/webhook'
+      path: '/api/public/bkash/webhook'
+      fullPath: '/api/public/bkash/webhook'
+      preLoaderRoute: typeof ApiPublicBkashWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bkash/callback': {
       id: '/api/public/bkash/callback'
       path: '/api/public/bkash/callback'
@@ -908,6 +928,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RenewRoute: RenewRoute,
   ApiPublicBkashCallbackRoute: ApiPublicBkashCallbackRoute,
+  ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronExpiryCheckRoute: ApiPublicCronExpiryCheckRoute,
 }
 export const routeTree = rootRouteImport

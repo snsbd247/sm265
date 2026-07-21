@@ -407,17 +407,47 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     if (payErr || !pay) throw new Error(payErr?.message ?? "Payment not found");
     if (pay.status !== "pending") throw new Error("এই পেমেন্ট already processed");
 
+    // Delegate to shared idempotent activation so admin approve + bKash callback + webhook
+    // all go through the same path.
+    const { activatePaymentAndExtendShop } = await import("./subscription.server");
+    const { resolveActor } = await import("./audit.server");
+    const actor = await resolveActor(context.userId);
+    const r = await activatePaymentAndExtendShop(pay.id, {
+      actorUserId: context.userId,
+      actorEmail: actor.actor_email,
+      source: "admin_approval",
+    });
+
+    // Extra audit entry for the human action (activate function logs source=admin_approval already)
+    try {
+      const { logAudit } = await import("./audit.server");
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: pay.shop_id, action: "invoice.approved",
+        target_type: "subscription_payment", target_id: pay.id,
+        details: { invoice_no: (pay as any).invoice_no, amount: pay.amount, alreadyProcessed: r.alreadyProcessed ?? false },
+      });
+    } catch {}
+    return { ok: true, ...r };
+  });
+
+// Legacy inline activation kept below (unreachable) — remove once verified.
+const _unusedLegacyApprove = async ({ data, context }: any) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: pay } = await supabaseAdmin
+      .from("subscription_payments").select("*").eq("id", data.payment_id).single();
     const { data: shop } = await supabaseAdmin
-      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay.shop_id).single();
+      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay!.shop_id).single();
     if (!shop) throw new Error("Shop not found");
+    void context;
 
     // Determine billing cycle from linked subscription (if any) or shop default
     let months = 1;
     let pkgId: string | null = shop.package_id;
     let cycle: "monthly" | "yearly" = shop.billing_cycle as any;
-    if (pay.subscription_id) {
+    if (pay!.subscription_id) {
       const { data: sub } = await supabaseAdmin
-        .from("subscriptions").select("*").eq("id", pay.subscription_id).single();
+        .from("subscriptions").select("*").eq("id", pay!.subscription_id).single();
       if (sub) {
         cycle = sub.billing_cycle as any;
         pkgId = sub.package_id;
@@ -444,19 +474,19 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     await supabaseAdmin.from("subscription_payments").update({
       status: "success",
       paid_at: new Date().toISOString(),
-    }).eq("id", pay.id);
+    }).eq("id", pay!.id);
 
-    if (pay.subscription_id) {
+    if (pay!.subscription_id) {
       await supabaseAdmin.from("subscriptions").update({
         status: "active",
         ends_at: base.toISOString(),
-      }).eq("id", pay.subscription_id);
+      }).eq("id", pay!.subscription_id);
     } else {
       await supabaseAdmin.from("subscriptions").insert({
         shop_id: shop.id,
         package_id: pkgId!,
         billing_cycle: cycle,
-        amount: pay.amount,
+        amount: pay!.amount,
         status: "active",
         starts_at: start.toISOString(),
         ends_at: base.toISOString(),
@@ -473,12 +503,12 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
       if (isUpgrade) {
         await sendTemplateSMS("upgraded", shop.phone, {
           shop_name: shop.name, owner: shop.owner_name,
-          package: pkgRow?.name ?? "", end_date: endStr, amount: pay.amount,
+          package: pkgRow?.name ?? "", end_date: endStr, amount: pay!.amount,
         }, { shopId: shop.id });
       } else {
         await sendTemplateSMS("renewed", shop.phone, {
           shop_name: shop.name, owner: shop.owner_name,
-          package: pkgRow?.name ?? "", end_date: endStr, amount: pay.amount,
+          package: pkgRow?.name ?? "", end_date: endStr, amount: pay!.amount,
         }, { shopId: shop.id });
       }
     } catch (e) {
@@ -486,7 +516,7 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
-  });
+};
 
 export const rejectSubscriptionPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -497,6 +527,14 @@ export const rejectSubscriptionPayment = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("subscription_payments").update({ status: "failed" }).eq("id", data.payment_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        action: "invoice.rejected", target_type: "subscription_payment", target_id: data.payment_id,
+      });
+    } catch {}
     return { ok: true };
   });
 
