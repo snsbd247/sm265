@@ -840,22 +840,8 @@ function SuccessDialog({
         {!sale ? (
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
-          <div className="space-y-3">
-            <div className="rounded-lg border bg-slate-50 p-3">
-              <div className="flex items-baseline justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ইনভয়েস</div>
-                <div className="text-sm font-bold">{sale.invoice_no ?? String(sale.id).slice(0, 8)}</div>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between">
-                <div className="text-xs text-muted-foreground">{customer?.name ?? "Walk-in"}</div>
-                <div className="text-xl font-black text-slate-900">৳{Number(sale.total || 0).toFixed(2)}</div>
-              </div>
-              {Number(sale.due || 0) > 0 && (
-                <div className="mt-1 text-right text-xs font-semibold text-orange-600">
-                  বাকি: ৳{Number(sale.due).toFixed(2)}
-                </div>
-              )}
-            </div>
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+            <InvoicePreview sale={sale} />
 
             <div>
               <Label className="text-xs">পাবলিক শেয়ারযোগ্য লিংক</Label>
