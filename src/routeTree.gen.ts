@@ -38,6 +38,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminImpersonationLogsRouteImport } from './routes/admin.impersonation-logs'
+import { Route as AdminDemoRequestsRouteImport } from './routes/admin.demo-requests'
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
@@ -203,6 +204,11 @@ const AdminImpersonationLogsRoute = AdminImpersonationLogsRouteImport.update({
   path: '/impersonation-logs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDemoRequestsRoute = AdminDemoRequestsRouteImport.update({
+  id: '/demo-requests',
+  path: '/demo-requests',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
   id: '/audit-logs',
   path: '/audit-logs',
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -361,6 +368,7 @@ export interface FileRoutesByTo {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -411,6 +419,7 @@ export interface FileRoutesById {
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/audit-logs': typeof AdminAuditLogsRoute
+  '/admin/demo-requests': typeof AdminDemoRequestsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -511,6 +521,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -560,6 +571,7 @@ export interface FileRouteTypes {
     | '/renew'
     | '/admin/admins'
     | '/admin/audit-logs'
+    | '/admin/demo-requests'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -821,6 +833,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminImpersonationLogsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/demo-requests': {
+      id: '/admin/demo-requests'
+      path: '/demo-requests'
+      fullPath: '/admin/demo-requests'
+      preLoaderRoute: typeof AdminDemoRequestsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/audit-logs': {
       id: '/admin/audit-logs'
       path: '/audit-logs'
@@ -974,6 +993,7 @@ const AdminShopsRouteWithChildren = AdminShopsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
+  AdminDemoRequestsRoute: typeof AdminDemoRequestsRoute
   AdminImpersonationLogsRoute: typeof AdminImpersonationLogsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
@@ -991,6 +1011,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
+  AdminDemoRequestsRoute: AdminDemoRequestsRoute,
   AdminImpersonationLogsRoute: AdminImpersonationLogsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminPackagesRoute: AdminPackagesRoute,
