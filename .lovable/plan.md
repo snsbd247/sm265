@@ -1,52 +1,59 @@
-## সমস্যা
+## Overview
+Enforce customer/invoice/staff limits per package, add usage-history reports, harden single-active subscription invariants, expose payment history/audit UI for subscription invoices, and notify shop owners on activation/expiry.
 
-1. এখন একটি শপের জন্য একাধিক subscription row একসাথে `status = 'active'` থাকতে পারে (আপগ্রেড/ডাউনগ্রেড পেমেন্ট approve হওয়ার সময় পুরনোটা `expired` করা হয় না — শুধু নতুন insert হয়)। ছবিতে দেখানো "Standard + Premium দুইটাই active" ঠিক এই কারণেই।
-2. পেন্ডিং সাবস্ক্রিপশন ইনভয়েসের বিপরীতে এডমিন নিজে থেকে পেমেন্ট রিসিভ/রেকর্ড করে approve করার কোনো ফ্লো নেই — এখন শুধু দোকানদার bKash TrxID জমা দিলে এডমিন approve করতে পারে।
+## 1. Schema additions (single migration)
+Extend `packages`:
+- `max_customers int not null default 0` (-1 = unlimited)
+- `max_invoices_per_month int not null default 0`
+- `max_invoice_total_per_month numeric(14,2) not null default 0`
+- `max_staff int not null default 0` (distinct from `max_users` which stays as-is; if user prefers we can reuse `max_users`)
 
-## সমাধান (২ ভাগ)
+Extend `subscription_payments`:
+- `paid_via text` ('cash' | 'bank' | 'bkash-manual' | 'bkash-webhook' | 'admin')
+- `payment_note text`
 
-### Part A — এক শপে একটাই active subscription
+New table `subscription_payment_ledger` (append-only receipt log):
+- `id`, `payment_id fk`, `shop_id fk`, `amount numeric`, `method text`, `reference text`, `note text`, `received_by uuid`, `created_at`
+- Full grants + RLS (shop members SELECT own, super-admin ALL).
 
-**`src/lib/subscription.server.ts` (`activatePaymentAndExtendShop`)** — নতুন subscription insert বা active update করার ঠিক আগে একই shop-এর অন্য সব active row কে `superseded` করা হবে:
+## 2. limits.server.ts — expand
+Add `LimitKind` variants: `customers`, `invoices`, `invoice_total`, `staff`. Extend `loadShopPackageLimits`, `countUsage` (monthly window for invoice metrics), `getUsage`, `enforceLimit`. Reuse `LimitExceededError` with Bengali labels + upgrade-CTA hint.
 
-```text
-UPDATE subscriptions
-  SET status = 'expired', ends_at = now()
-WHERE shop_id = :shop_id
-  AND status = 'active'
-  AND id <> :current_sub_id   -- যদি current থাকে
-```
+## 3. Enforcement points
+- `saveCustomer` (create only) → `enforceLimit("customers")`
+- `createSale` server fn → `enforceLimit("invoices")` + check monthly total + new sale amount against `invoice_total`
+- Staff-add function (in `shop.functions.ts` / admin) → `enforceLimit("staff")`
+- All throw structured error → existing `UpgradeDialog` on the frontend picks up `LIMIT_EXCEEDED`. Wire the dialog in Customers page (import same component used in Products page).
 
-- Renewal (একই package + cycle): existing active row-এর `ends_at` extend হবে (আজকের লজিকই), অন্য কোনো stray active থাকলে সেটা close হয়ে যাবে।
-- Upgrade/Downgrade/Initial: পুরনো active row `expired` হবে, তারপর নতুন row insert হবে — ফলে একটাই active থাকবে।
+## 4. Usage history report
+New route `src/routes/app.usage.tsx`:
+- Server fn `getUsageHistory` (in `limits.server.ts` companion `usage.functions.ts`) returns last 12 months of used vs limit for products, staff, sms, customers, invoices, invoice_total (products/staff/customers use current snapshot; sms/invoices are month-bucketed via SQL `date_trunc`).
+- Render KPI cards + Recharts bar charts (reuse `TrendChart` component or new one).
+- Add sidebar link under "প্যাকেজ / সাবস্ক্রিপশন".
 
-**`src/lib/proration.server.ts` (`applyImmediateDowngrade`)** — একই supersede-then-insert প্যাটার্ন যোগ করা হবে (এখন insert-only)।
+## 5. Subscription invariants (race-safe)
+- Add unique partial index: `create unique index one_active_sub_per_shop on subscriptions(shop_id) where status='active'`.
+- Wrap `activatePaymentAndExtendShop` supersede+insert in an advisory lock: `pg_advisory_xact_lock(hashtext(shop_id::text))` via RPC `claim_shop_activation(shop_id uuid)`.
+- On unique-violation catch → retry once after re-expiring, log audit.
 
-**Backfill migration**: প্রতিটা শপের latest active ছাড়া বাকি সব active row কে `expired` মার্ক করে বর্তমান ডাটা পরিষ্কার করা হবে (partial unique index দেওয়া হবে না — race-safety application layer থেকেই আসবে, migration সহজ থাকবে)।
+## 6. Subscription payment history + audit UI
+- New server fn `getSubscriptionInvoiceDetail(paymentId)` returns invoice + ledger entries + audit_logs filtered by `target_id=payment_id`.
+- Extend admin subscription-payment approval flow: after marking `success`, insert ledger row and log audit (already done; verify).
+- Add manual "Receive Payment" dialog on `admin.subscriptions.tsx` supporting cash / bank / bkash-manual; each insert creates ledger row + updates status pending→paid; on full amount → triggers activation; partial amount → keeps `pending` with remaining balance surfaced.
+- Shop-side `/app/pay-invoice` page: show ledger of payments applied to each invoice with method/date/reference.
 
-### Part B — এডমিন থেকে সাবস্ক্রিপশন ইনভয়েসে ম্যানুয়াল পেমেন্ট রিসিভ
+## 7. Owner notifications on state change
+- Extend `activatePaymentAndExtendShop`: already sends SMS. Add in-app notification row (new `notifications` table if none — check first; if `notifications.functions.ts` exists, reuse).
+- Add nightly cron `expire-subscriptions` server route `/api/public/hooks/expire-subs` — scans shops where `subscription_end < now()` and status active → sets `expired`, SMS + notification.
 
-নতুন server function `recordManualSubscriptionPayment` (admin-only, `src/lib/admin.functions.ts`) যা করবে:
-
-1. একটি pending `subscription_payments` row-কে ইনপুট নেবে: `payment_id`, `method` (cash / bank / bkash-manual), `reference_no` (রসিদ/ট্রানজেকশন নাম্বার), `note`।
-2. `payment_method`, `transaction_id`, `raw_response.manual = true`, `raw_response.received_by = <admin email>` সেট করবে।
-3. তারপর existing `activatePaymentAndExtendShop(payment_id, { source: 'admin_manual' })` কল করবে — ফলে audit log, SMS, এবং Part A এর supersede লজিক সবই reuse হবে।
-
-**UI — `src/routes/admin.subscriptions.tsx`**: pending row-এ এখন যে `Check` (approve) বাটন আছে, সেটার পাশে "Receive Payment" (💵) বাটন যোগ হবে যা একটি ছোট dialog খুলবে: Method dropdown + Reference no + Note → submit করলে `recordManualSubscriptionPayment` কল হবে।
-
-**UI — `src/routes/admin.shops.$shopId.tsx`** (শপ ডিটেইলস পেজে): pending invoice থাকলে সেখান থেকেও একই dialog দিয়ে receive-payment করা যাবে (একই server fn)।
+## 8. Frontend upgrade-dialog wiring
+Ensure Customers page, POS (`sales.new.tsx`), Staff add form all catch `LIMIT_EXCEEDED` errors and open `<UpgradeDialog />` with the returned `kind` + package name.
 
 ## Technical notes
+- All new tables need `GRANT` + RLS following project conventions.
+- Monthly counters use UTC month buckets (matches existing sms count).
+- `credits.functions.ts`? Not needed.
+- Preserve existing `max_users` semantics; introduce `max_staff` only if user wants staff enforcement separate. Otherwise reuse `max_users` and skip that column.
 
-- একটাই `activatePaymentAndExtendShop` হেল্পার সব paths (bKash callback, admin approve, admin manual receive) থেকে ব্যবহৃত হবে — supersede লজিক এক জায়গায় থাকলে drift হবে না।
-- Existing atomic `paid_at` claim already prevents double-processing — manual receive সেটার সুবিধা পাবে।
-- কোনো schema change লাগবে না; শুধু একটা data-cleanup migration (backfill)।
-
-## Files touched
-
-- `src/lib/subscription.server.ts` — supersede লজিক যোগ
-- `src/lib/proration.server.ts` — supersede লজিক যোগ
-- `src/lib/admin.functions.ts` — `recordManualSubscriptionPayment` server fn
-- `src/routes/admin.subscriptions.tsx` — "Receive Payment" dialog
-- `src/routes/admin.shops.$shopId.tsx` — pending invoice এ same dialog
-- একটি migration — বর্তমান duplicate active rows পরিষ্কার
+## Open question
+Should `max_staff` reuse existing `max_users` column or be a new column? Existing `enforceLimit("users")` already covers this — I'll reuse `max_users` and just wire it into the staff-add UI to keep schema minimal.
