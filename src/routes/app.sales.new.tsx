@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2 } from "lucide-react";
+import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
@@ -777,6 +778,7 @@ function Page() {
         onNewSale={() => { setSuccessOpen(false); clearCart(); barcodeRef.current?.focus(); }}
         onOpenFullReceipt={(id) => nav({ to: "/app/sales/$saleId", params: { saleId: id } })}
       />
+      <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
     </div>
   );
 }
