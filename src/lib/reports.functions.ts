@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { monthProfitFromItems, stockValues, sumPositive, topProductsFromItems } from "./dashboard-aggregate";
 
 async function getShopId(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
@@ -204,13 +205,11 @@ export const getReportSnapshot = createServerFn({ method: "GET" })
     ]);
 
     const sum = (arr: any[] | null, k: string) => (arr ?? []).reduce((s, r) => s + (+r[k] || 0), 0);
-    const sumPositive = (arr: any[] | null, k: string) =>
-      (arr ?? []).reduce((s, r) => s + Math.max(+r[k] || 0, 0), 0);
     return {
       sales_today: sum(salesToday.data, "total"),
       sales_month: sum(salesMonth.data, "total"),
       purchase_month: sum(purchasesMonth.data, "total"),
-      customer_due: sumPositive(dueTotal.data, "current_balance"),
+      customer_due: sumPositive(dueTotal.data as any[], (r: any) => Number(r.current_balance)),
     };
   });
 
@@ -268,6 +267,7 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
 
     const productList = (products.data ?? []) as any[];
     const lowStock = productList.filter((p) => Number(p.stock_quantity) <= Number(p.low_stock_alert || 0));
+    const stock = stockValues(productList as any);
 
     const sum = (arr: any[] | null | undefined, k: string, filter?: (r: any) => boolean) =>
       (arr ?? []).filter(filter ?? (() => true)).reduce((s, r) => s + (+r[k] || 0), 0);
@@ -282,23 +282,9 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
     const trend = days.map((d) => ({ date: d, total: trendMap.get(d) ?? 0 }));
 
     // Top products this month
-    const topMap = new Map<string, { name: string; qty: number; revenue: number }>();
-    for (const it of (topItems.data ?? []) as any[]) {
-      const key = it.product_id as string;
-      const cur = topMap.get(key) ?? { name: it.product?.name ?? "-", qty: 0, revenue: 0 };
-      cur.qty += Number(it.quantity || 0);
-      cur.revenue += Number(it.line_total || 0);
-      topMap.set(key, cur);
-    }
-    const topProducts = Array.from(topMap.values()).sort((a, b) => b.qty - a.qty).slice(0, 5);
-
+    const topProducts = topProductsFromItems((topItems.data ?? []) as any[], 5);
     // Month profit
-    let mRev = 0, mCost = 0;
-    for (const it of (monthProfit.data ?? []) as any[]) {
-      const q = Number(it.quantity || 0);
-      mRev += Number(it.line_total || 0);
-      mCost += (it.unit_cost != null ? Number(it.unit_cost) : 0) * q;
-    }
+    const { revenue: mRev, cost: mCost } = monthProfitFromItems((monthProfit.data ?? []) as any[]);
 
     return {
       productsCount: productList.length,
@@ -321,8 +307,8 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
       cashOutTodayRows: ((supOut.data ?? []) as any[]).filter((r) => r.payment_date === today),
       monthProfit: mRev - mCost,
       monthRevenue: mRev,
-      stockValue: productList.reduce((s, p) => s + Number(p.stock_quantity || 0) * Number(p.purchase_price || 0), 0),
-      stockRetailValue: productList.reduce((s, p) => s + Number(p.stock_quantity || 0) * Number(p.sale_price || 0), 0),
+      stockValue: stock.cost,
+      stockRetailValue: stock.retail,
     };
   });
 
