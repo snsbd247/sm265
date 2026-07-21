@@ -204,11 +204,13 @@ export const getReportSnapshot = createServerFn({ method: "GET" })
     ]);
 
     const sum = (arr: any[] | null, k: string) => (arr ?? []).reduce((s, r) => s + (+r[k] || 0), 0);
+    const sumPositive = (arr: any[] | null, k: string) =>
+      (arr ?? []).reduce((s, r) => s + Math.max(+r[k] || 0, 0), 0);
     return {
       sales_today: sum(salesToday.data, "total"),
       sales_month: sum(salesMonth.data, "total"),
       purchase_month: sum(purchasesMonth.data, "total"),
-      customer_due: sum(dueTotal.data, "current_balance"),
+      customer_due: sumPositive(dueTotal.data, "current_balance"),
     };
   });
 
