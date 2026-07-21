@@ -68,6 +68,8 @@ function Page() {
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState("");
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
