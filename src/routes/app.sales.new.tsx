@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale, getSale, cancelSale } from "@/lib/sales.functions";
+import { listCustomers, createSale, getSale, cancelSale, saveCustomer } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
 import { snapshotSale } from "@/lib/sale-revisions.functions";
@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
@@ -43,6 +43,7 @@ function Page() {
   const cancelFn = useServerFn(cancelSale);
   const sendEmailFn = useServerFn(sendInvoiceLinkEmail);
   const snapshotFn = useServerFn(snapshotSale);
+  const saveCustomerFn = useServerFn(saveCustomer);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
@@ -71,7 +72,9 @@ function Page() {
   const [activeCat, setActiveCat] = useState<string>("all");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickName, setQuickName] = useState("");
+  const [quickPhone, setQuickPhone] = useState("");
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -81,6 +84,7 @@ function Page() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const customerSelectRef = useRef<HTMLButtonElement>(null);
   const qc = useQueryClient();
 
   const subtotal = useMemo(
@@ -146,6 +150,8 @@ function Page() {
         e.preventDefault(); barcodeRef.current?.focus();
       } else if (e.key === "F9" && !inField) {
         e.preventDefault(); if (lines.length) setCheckoutOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault(); customerSelectRef.current?.click();
       }
     };
     window.addEventListener("keydown", onKey);
