@@ -47,7 +47,8 @@ function ShopDashboard() {
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
-  const [drill, setDrill] = useState<null | "today" | "month" | "due" | "lowStock" | "topProducts">(null);
+  type Drill = null | "today" | "month" | "due" | "lowStock" | "topProducts" | "purchaseMonth" | "supplierDue" | "cashToday" | "products";
+  const [drill, setDrill] = useState<Drill>(null);
 
   const { data } = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
   const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn(), refetchInterval: 60_000 });
@@ -68,18 +69,19 @@ function ShopDashboard() {
   const allRecentSales = (recentSalesQ.data ?? []) as any[];
   const today = new Date().toISOString().slice(0, 10);
   const todaySales = allRecentSales.filter((s: any) => (s.sale_date ?? "").slice(0, 10) === today);
+  const monthStartStr = today.slice(0, 8) + "01";
+  const monthSales = allRecentSales.filter((s: any) => (s.sale_date ?? "") >= monthStartStr && (s.sale_date ?? "") <= today);
 
-  type Drill = null | "today" | "month" | "due" | "lowStock" | "topProducts";
   const stats: { label: string; value: string; sub: string; icon: any; tone: Tone; drill?: Drill }[] = [
     { label: "আজকের বিক্রয়",  value: fmt(snap?.sales_today ?? 0),      sub: "আজকের মোট আয়",         icon: TrendingUp,   tone: "emerald", drill: "today" },
     { label: "এ মাসের বিক্রয়", value: fmt(snap?.sales_month ?? 0),      sub: "চলতি মাস",              icon: Receipt,      tone: "blue", drill: "month" },
-    { label: "এ মাসের ক্রয়",   value: fmt(snap?.purchase_month ?? 0),   sub: "সাপ্লায়ার থেকে",         icon: TrendingDown, tone: "amber" },
+    { label: "এ মাসের ক্রয়",   value: fmt(snap?.purchase_month ?? 0),   sub: "সাপ্লায়ার থেকে",         icon: TrendingDown, tone: "amber", drill: "purchaseMonth" },
     { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet", drill: "topProducts" },
     { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose", drill: "due" },
-    { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange" },
+    { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange", drill: "supplierDue" },
     { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky", drill: "lowStock" },
-    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink", drill: "lowStock" },
-    { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal" },
+    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink", drill: "products" },
+    { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal", drill: "cashToday" },
   ];
 
   const salesCols: DrillColumn[] = [
@@ -89,21 +91,47 @@ function ShopDashboard() {
     { key: "total", label: "মোট", align: "right", render: (r: any) => fmt(r.total) },
     { key: "due", label: "বাকি", align: "right", render: (r: any) => Number(r.due) > 0 ? <span className="font-semibold text-rose-600">{fmt(r.due)}</span> : "-" },
   ];
-  const overdueCols: DrillColumn[] = [
-    { key: "customer", label: "কাস্টমার", render: (r: any) => r.sale?.customer?.name ?? "-" },
-    { key: "invoice", label: "ইনভয়েস", render: (r: any) => `#${r.sale?.invoice_no ?? "-"}` },
-    { key: "due_date", label: "তারিখ" },
-    { key: "amount", label: "বাকি", align: "right", render: (r: any) => <span className="font-semibold text-rose-600">{fmt(Number(r.amount) - Number(r.paid_amount || 0))}</span> },
+  const customerDueCols: DrillColumn[] = [
+    { key: "name", label: "কাস্টমার" },
+    { key: "phone", label: "মোবাইল", render: (r: any) => r.phone ?? "-" },
+    { key: "current_balance", label: "বাকি", align: "right", render: (r: any) => <span className="font-semibold text-rose-600">{fmt(r.current_balance)}</span> },
+  ];
+  const supplierDueCols: DrillColumn[] = [
+    { key: "name", label: "সাপ্লায়ার" },
+    { key: "phone", label: "মোবাইল", render: (r: any) => r.phone ?? "-" },
+    { key: "current_balance", label: "বাকি", align: "right", render: (r: any) => <span className="font-semibold text-orange-600">{fmt(r.current_balance)}</span> },
+  ];
+  const purchaseCols: DrillColumn[] = [
+    { key: "invoice_no", label: "ইনভয়েস", render: (r: any) => `#${r.invoice_no ?? r.id.slice(0,8)}` },
+    { key: "supplier", label: "সাপ্লায়ার", render: (r: any) => r.supplier?.name ?? "-" },
+    { key: "purchase_date", label: "তারিখ", render: (r: any) => new Date(r.purchase_date).toLocaleDateString("bn-BD") },
+    { key: "total", label: "মোট", align: "right", render: (r: any) => fmt(r.total) },
+    { key: "due", label: "বাকি", align: "right", render: (r: any) => Number(r.due) > 0 ? <span className="font-semibold text-rose-600">{fmt(r.due)}</span> : "-" },
+  ];
+  const cashCols: DrillColumn[] = [
+    { key: "type", label: "ধরন", render: (r: any) => r._kind === "in" ? <span className="text-emerald-700">ইন</span> : <span className="text-rose-600">আউট</span> },
+    { key: "party", label: "পার্টি", render: (r: any) => r.customer?.name ?? r.supplier?.name ?? "-" },
+    { key: "payment_method", label: "মাধ্যম" },
+    { key: "amount", label: "পরিমাণ", align: "right", render: (r: any) => fmt(r.amount) },
   ];
   const lowStockCols: DrillColumn[] = [
     { key: "name", label: "পণ্য" },
     { key: "stock_quantity", label: "স্টক", align: "right", render: (r: any) => `${num(r.stock_quantity)} ${r.unit?.short_name ?? ""}` },
     { key: "low_stock_alert", label: "Alert", align: "right", render: (r: any) => num(r.low_stock_alert) },
   ];
+  const productsCols: DrillColumn[] = [
+    { key: "name", label: "পণ্য" },
+    { key: "stock_quantity", label: "স্টক", align: "right", render: (r: any) => `${num(r.stock_quantity)} ${r.unit?.short_name ?? ""}` },
+    { key: "sale_price", label: "বিক্রয় মূল্য", align: "right", render: (r: any) => fmt(r.sale_price) },
+  ];
   const topCols: DrillColumn[] = [
     { key: "name", label: "পণ্য" },
     { key: "qty", label: "একক", align: "right", render: (r: any) => num(r.qty) },
     { key: "revenue", label: "রেভিনিউ", align: "right", render: (r: any) => fmt(r.revenue) },
+  ];
+  const cashRows = [
+    ...((extras?.cashInTodayRows ?? []) as any[]).map((r) => ({ ...r, _kind: "in" })),
+    ...((extras?.cashOutTodayRows ?? []) as any[]).map((r) => ({ ...r, _kind: "out" })),
   ];
 
   const trendData = trendQ.data ?? [];
