@@ -822,13 +822,14 @@ function Page() {
 }
 
 function SuccessDialog({
-  open, onOpenChange, saleId, getSaleFn, sendSmsFn, onNewSale, onOpenFullReceipt, onEdit,
+  open, onOpenChange, saleId, getSaleFn, sendSmsFn, sendEmailFn, onNewSale, onOpenFullReceipt, onEdit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   saleId: string | null;
   getSaleFn: (args: { data: { id: string } }) => Promise<any>;
   sendSmsFn: (args: { data: { sale_id: string; phone?: string | null; origin: string } }) => Promise<any>;
+  sendEmailFn: (args: { data: { sale_id: string; email?: string | null; origin: string } }) => Promise<any>;
   onNewSale: () => void;
   onOpenFullReceipt: (id: string) => void;
   onEdit: (sale: any) => void | Promise<void>;
@@ -838,6 +839,13 @@ function SuccessDialog({
     queryFn: () => getSaleFn({ data: { id: saleId! } }),
     enabled: !!saleId && open,
   });
+  const tplFn = useServerFn(getInvoiceTemplate);
+  const tplQ = useQuery({
+    queryKey: ["invoice-template"],
+    queryFn: () => tplFn(),
+    staleTime: 5 * 60_000,
+  });
+  const tpl = { ...DEFAULT_TEMPLATE, ...(tplQ.data ?? {}) } as any;
   const sale: any = q.data?.sale;
   const customer = sale?.customer;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -847,11 +855,17 @@ function SuccessDialog({
   const [lastSmsAt, setLastSmsAt] = useState<Date | null>(null);
   const [smsSentTo, setSmsSentTo] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [lastEmailAt, setLastEmailAt] = useState<Date | null>(null);
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
   useEffect(() => {
     if (customer?.phone) setSmsPhone(customer.phone);
   }, [customer?.phone]);
   useEffect(() => {
-    if (!open) { setLastSmsAt(null); setSmsSentTo(null); }
+    if (customer?.email) setEmailTo(customer.email);
+  }, [customer?.email]);
+  useEffect(() => {
+    if (!open) { setLastSmsAt(null); setSmsSentTo(null); setLastEmailAt(null); setEmailSentTo(null); }
   }, [open]);
 
   const smsM = useMutation({
@@ -862,6 +876,15 @@ function SuccessDialog({
       toast.success("SMS পাঠানো হয়েছে");
     },
     onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
+  });
+  const emailM = useMutation({
+    mutationFn: () => sendEmailFn({ data: { sale_id: saleId!, email: emailTo || null, origin } }),
+    onSuccess: () => {
+      setLastEmailAt(new Date());
+      setEmailSentTo(emailTo);
+      toast.success("ইমেইল পাঠানো হয়েছে");
+    },
+    onError: (e: any) => toast.error(e.message ?? "ইমেইল পাঠানো যায়নি"),
   });
 
   const copyLink = async () => {
