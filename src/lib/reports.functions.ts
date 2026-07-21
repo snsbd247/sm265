@@ -300,5 +300,55 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
       recentPurchases: recentPurchases.data ?? [],
       monthProfit: mRev - mCost,
       monthRevenue: mRev,
+      stockValue: productList.reduce((s, p) => s + Number(p.stock_quantity || 0) * Number(p.purchase_price || 0), 0),
+      stockRetailValue: productList.reduce((s, p) => s + Number(p.stock_quantity || 0) * Number(p.sale_price || 0), 0),
     };
+  });
+
+/* -------- Shop trend (configurable range for chart) -------- */
+
+export const getShopTrend = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ days: z.number().int().min(7).max(365).default(30) }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const shopId = await getShopId(context);
+    const days: string[] = [];
+    for (let i = data.days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const from = days[0];
+    const to = days[days.length - 1];
+
+    const [sales, purchases, salePayments] = await Promise.all([
+      context.supabase.from("sales").select("sale_date, total, paid, due").eq("shop_id", shopId).gte("sale_date", from).lte("sale_date", to),
+      context.supabase.from("purchases").select("purchase_date, total").eq("shop_id", shopId).gte("purchase_date", from).lte("purchase_date", to),
+      context.supabase.from("customer_payments").select("payment_date, amount").eq("shop_id", shopId).gte("payment_date", from).lte("payment_date", to),
+    ]);
+
+    const salesMap = new Map<string, number>();
+    const purchMap = new Map<string, number>();
+    const paidMap = new Map<string, number>();
+    for (const d of days) { salesMap.set(d, 0); purchMap.set(d, 0); paidMap.set(d, 0); }
+    for (const r of (sales.data ?? []) as any[]) {
+      const d = String(r.sale_date).slice(0, 10);
+      salesMap.set(d, (salesMap.get(d) ?? 0) + Number(r.total || 0));
+    }
+    for (const r of (purchases.data ?? []) as any[]) {
+      const d = String(r.purchase_date).slice(0, 10);
+      purchMap.set(d, (purchMap.get(d) ?? 0) + Number(r.total || 0));
+    }
+    for (const r of (salePayments.data ?? []) as any[]) {
+      const d = String(r.payment_date).slice(0, 10);
+      paidMap.set(d, (paidMap.get(d) ?? 0) + Number(r.amount || 0));
+    }
+    return days.map((d) => ({
+      date: d,
+      sales: salesMap.get(d) ?? 0,
+      purchases: purchMap.get(d) ?? 0,
+      collections: paidMap.get(d) ?? 0,
+    }));
   });
