@@ -22,6 +22,12 @@ import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
+import { computeCartTotals, clampDiscount as clampD, validateSale } from "@/lib/pos-calc";
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
@@ -78,6 +84,7 @@ function Page() {
   const [quickAddress, setQuickAddress] = useState("");
   const [quickOpening, setQuickOpening] = useState(0);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => cryptoRandomId());
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -94,22 +101,12 @@ function Page() {
   };
   const qc = useQueryClient();
 
-  const subtotal = useMemo(
-    () => lines.reduce((s, l) => s + (l.quantity || 0) * (l.unit_price || 0), 0),
-    [lines],
+  const totals = useMemo(
+    () => computeCartTotals({ lines, order_discount: discount, tax_rate: taxRate, sale_type: saleType, paid }),
+    [lines, discount, taxRate, saleType, paid],
   );
-  const itemDiscountTotal = useMemo(
-    () => lines.reduce((s, l) => s + (l.discount_amount || 0), 0),
-    [lines],
-  );
-  const taxable = Math.max(0, subtotal - itemDiscountTotal - discount);
-  const taxAmount = Math.round((taxable * (taxRate || 0) / 100) * 100) / 100;
-  const total = Math.max(0, taxable + taxAmount);
-  const effectivePaid = saleType === "cash" ? total : paid;
-  const due = Math.max(0, total - effectivePaid);
-  const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
-  const discountBase = Math.max(0, subtotal - itemDiscountTotal);
-  const clampDiscount = (v: number) => Math.max(0, Math.min(discountBase, Number.isFinite(v) ? v : 0));
+  const { subtotal, itemDiscountTotal, discountBase, total, taxAmount, due, unitCount: totalUnits, paid: effectivePaid } = totals;
+  const clampDiscount = (v: number) => clampD(v, discountBase);
 
   // Auto-clamp discount if base shrinks (e.g. line removed)
   useEffect(() => {
@@ -243,11 +240,13 @@ function Page() {
           installments: st === "installment" ? installments : null,
           installment_frequency: instFreq,
           installment_start: instStart,
+            idempotency_key: idempotencyKey,
         },
       });
     },
     onSuccess: (saleId: any) => {
-      toast.success("বিক্রয় সংরক্ষিত");
+      if ((saleId as any)?.duplicate) toast.info("এই বিক্রয় ইতিমধ্যে সংরক্ষিত (ডুপ্লিকেট এড়ানো হয়েছে)");
+      else toast.success("বিক্রয় সংরক্ষিত");
       // Refresh inventory + low-stock badge in real time
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["shop-notifications"] });
@@ -258,6 +257,7 @@ function Page() {
         setLastSaleId(id);
         setCheckoutOpen(false);
         setSuccessOpen(true);
+        setIdempotencyKey(cryptoRandomId());
       } else {
         nav({ to: "/app/sales" });
       }
@@ -277,21 +277,11 @@ function Page() {
   const submit = (overrides: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
     const st = overrides.saleTypeOverride ?? saleType;
     const paidNow = overrides.paidOverride ?? (st === "cash" ? total : paid);
-    if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
-    if (total <= 0) return toast.error("মোট প্রদেয় ০ বা ঋণাত্মক — ছাড় ঠিক করুন");
+    if (m.isPending) return; // block duplicate submissions
+    const t2 = computeCartTotals({ lines, order_discount: discount, tax_rate: taxRate, sale_type: st, paid: paidNow });
+    const err = validateSale({ totals: t2, sale_type: st, hasCustomer: !!customerId, installments });
+    if (err) return toast.error(err);
     if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
-    if (st !== "cash" && !customerId)
-      return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
-    if (st !== "cash") {
-      if (paidNow < 0) return toast.error("পরিশোধ ঋণাত্মক হতে পারবে না");
-      if (paidNow > total) return toast.error(`পরিশোধ মোটের চেয়ে বেশি (৳${total.toFixed(2)})`);
-      if (st === "due" && paidNow >= total)
-        return toast.error("সম্পূর্ণ পরিশোধ হলে 'নগদ বিক্রি' বাছাই করুন");
-      if (st === "installment") {
-        if (paidNow >= total) return toast.error("কিস্তি বিক্রয়ে বাকি টাকা লাগবে");
-        if (!installments || installments < 1) return toast.error("কিস্তির সংখ্যা কমপক্ষে ১ দিন");
-      }
-    }
     for (const l of lines) {
       if (l.quantity > l.stock)
         return toast.error(`"${l.name}" এর স্টক অপর্যাপ্ত (${l.stock})`);
@@ -301,6 +291,7 @@ function Page() {
   };
 
   const fullDueSave = () => {
+    if (m.isPending) return;
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
     if (!customerId) {
       toast.error("ফুল বাকি বিক্রির জন্য কাস্টমার বাছাই করুন");
@@ -315,9 +306,11 @@ function Page() {
   const quickAddM = useMutation({
     mutationFn: () => {
       const phone = quickPhone.trim();
-      if (phone) {
-        const dup = (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === phone);
-        if (dup) throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${dup.name}`);
+      const existingByPhone = phone
+        ? (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === phone) ?? null
+        : null;
+      if (phone && existingByPhone) {
+        throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${existingByPhone.name}`);
       }
       return saveCustomerFn({ data: {
         name: quickName.trim(),
@@ -347,6 +340,12 @@ function Page() {
   const selectedCustomer = customerId
     ? (cust.data ?? []).find((c: any) => c.id === customerId)
     : null;
+
+  const existingQuickPhoneMatch = useMemo(() => {
+    const p = quickPhone.trim();
+    if (!p) return null;
+    return (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === p) ?? null;
+  }, [quickPhone, cust.data]);
 
   const OrderPanel = () => (
     <div className="flex h-full flex-col bg-white">
@@ -502,11 +501,11 @@ function Page() {
           </Button>
           <Button
             type="button"
-            disabled={lines.length === 0}
+            disabled={lines.length === 0 || m.isPending}
             onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
             className="h-11 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
           >
-            চেকআউট
+            {m.isPending ? "সেভ হচ্ছে..." : "চেকআউট"}
           </Button>
         </div>
       </div>
@@ -735,8 +734,26 @@ function Page() {
                 onChange={(e) => setQuickPhone(e.target.value)}
                 placeholder="01XXXXXXXXX"
               />
-              {quickPhone.trim() && (cust.data ?? []).some((c: any) => (c.phone ?? "").trim() === quickPhone.trim()) && (
-                <div className="mt-1 text-xs text-rose-600">এই ফোন নাম্বার ইতিমধ্যে ব্যবহৃত</div>
+              {existingQuickPhoneMatch && (
+                <div className="mt-2 flex items-start justify-between gap-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
+                  <div>
+                    <div className="font-semibold">এই ফোন ইতিমধ্যে আছে</div>
+                    <div>{existingQuickPhoneMatch.name} · {existingQuickPhoneMatch.phone}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 border-rose-300 bg-white text-rose-700 hover:bg-rose-100"
+                    onClick={() => {
+                      setCustomerId(existingQuickPhoneMatch.id);
+                      setQuickAddOpen(false);
+                      setQuickName(""); setQuickPhone(""); setQuickAddress(""); setQuickOpening(0);
+                      toast.success(`কাস্টমার বাছাই: ${existingQuickPhoneMatch.name}`);
+                    }}
+                  >
+                    এই কাস্টমার ব্যবহার
+                  </Button>
+                </div>
               )}
             </div>
             <div>
@@ -1327,6 +1344,35 @@ function InvoicePreview({ sale, tpl, publicUrl }: { sale: any; tpl?: any; public
           </div>
         )}
       </div>
+      {sale.payment_breakdown && (
+        <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px]">
+          <div className="mb-0.5 font-semibold" style={{ color: primary }}>Payment</div>
+          <div className="grid grid-cols-2 gap-x-2">
+            <div className="text-muted-foreground">Method</div>
+            <div className="text-right">{sale.payment_breakdown.method ?? "-"}</div>
+            <div className="text-muted-foreground">Paid now</div>
+            <div className="text-right">৳ {fmt(sale.payment_breakdown.paid_now)}</div>
+            {Number(sale.payment_breakdown.due || 0) > 0 && (
+              <>
+                <div className="text-muted-foreground">Remaining</div>
+                <div className="text-right">৳ {fmt(sale.payment_breakdown.due)}</div>
+              </>
+            )}
+            {sale.payment_breakdown.sale_type === "installment" && (
+              <>
+                <div className="text-muted-foreground">Installments</div>
+                <div className="text-right">{sale.payment_breakdown.installments} × {sale.payment_breakdown.installment_frequency}</div>
+              </>
+            )}
+            {sale.payment_breakdown.is_partial && (
+              <>
+                <div className="text-muted-foreground">Type</div>
+                <div className="text-right">আংশিক পেমেন্ট</div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {tpl?.terms_note && (
         <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px] opacity-80">
           <span className="font-semibold">শর্তাবলী: </span>{tpl.terms_note}
