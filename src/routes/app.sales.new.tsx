@@ -225,7 +225,16 @@ function Page() {
         nav({ to: "/app/sales" });
       }
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      const msg = e?.message ?? "";
+      if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
+        setUpgradeMsg(msg);
+        setUpgradeOpen(true);
+        setCheckoutOpen(false);
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const submit = () => {
