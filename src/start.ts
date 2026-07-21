@@ -7,6 +7,7 @@ import { renderErrorPage } from "./lib/error-page";
 // and returns null in the impersonation tab before verifyOtp resolves —
 // causing serverFn calls to 401 with "No authorization header provided".
 import { attachSupabaseBearer } from "@/lib/attach-supabase-bearer";
+import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -24,6 +25,6 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 });
 
 export const startInstance = createStart(() => ({
-  functionMiddleware: [attachSupabaseBearer],
+  functionMiddleware: [attachSupabaseAuth, attachSupabaseBearer],
   requestMiddleware: [errorMiddleware],
 }));
