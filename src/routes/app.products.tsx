@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { Plus, Pencil, Trash2, Search, MoreVertical, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, MoreVertical, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/app/products")({ component: Page });
 
@@ -33,6 +33,10 @@ function Page() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const save = useMutation({
     mutationFn: (d: any) => saveFn({ data: d }),
@@ -51,9 +55,16 @@ function Page() {
       const s = search.toLowerCase();
       const match = !s || p.name.toLowerCase().includes(s) || (p.sku ?? "").toLowerCase().includes(s) || (p.barcode ?? "").toLowerCase().includes(s);
       const catOk = catFilter === "all" || p.category_id === catFilter;
-      return match && catOk;
+      const created = (p.created_at ?? "").slice(0, 10);
+      const fromOk = !dateFrom || created >= dateFrom;
+      const toOk = !dateTo || created <= dateTo;
+      return match && catOk && fromOk && toOk;
     });
-  }, [prodQ.data, search, catFilter]);
+  }, [prodQ.data, search, catFilter, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageSafe = Math.min(page, totalPages);
+  const paged = useMemo(() => filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize), [filtered, pageSafe, pageSize]);
 
   return (
     <div className="p-4 sm:p-6">
@@ -77,18 +88,20 @@ function Page() {
         </Dialog>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
+        <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="নাম / SKU / বারকোড..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="নাম / SKU / বারকোড..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <Select value={catFilter} onValueChange={setCatFilter}>
-          <SelectTrigger className="sm:w-56"><SelectValue /></SelectTrigger>
+        <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setPage(1); }}>
+          <SelectTrigger className="sm:w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">সব ক্যাটাগরি</SelectItem>
             {(catQ.data ?? []).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Input type="date" className="sm:w-40" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} title="From" />
+        <Input type="date" className="sm:w-40" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} title="To" />
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-xl border bg-card">
@@ -105,7 +118,7 @@ function Page() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p: any) => {
+            {paged.map((p: any) => {
               const low = Number(p.stock_quantity) <= Number(p.low_stock_alert);
               return (
                 <tr
@@ -151,6 +164,23 @@ function Page() {
             {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">কোনো পণ্য নেই</td></tr>}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-3 flex flex-col items-center justify-between gap-2 sm:flex-row">
+        <div className="text-xs text-muted-foreground">
+          {filtered.length === 0 ? "0" : `${(pageSafe - 1) * pageSize + 1}–${Math.min(pageSafe * pageSize, filtered.length)}`} / {filtered.length}
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+            <SelectTrigger className="h-8 w-20"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="text-xs font-semibold">{pageSafe} / {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
       </div>
     </div>
   );

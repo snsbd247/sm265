@@ -2,13 +2,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyShop } from "@/lib/shop.functions";
-import { getReportSnapshot, getDashboardExtras } from "@/lib/reports.functions";
+import { getReportSnapshot, getDashboardExtras, getShopTrend } from "@/lib/reports.functions";
 import { listSales, listInstallments } from "@/lib/sales.functions";
 import {
   Package, Wallet, TrendingUp, TrendingDown, Users, Receipt, CalendarClock,
   ShoppingCart, ArrowRight, AlertTriangle, PackageX,
-  Coins, Smartphone, Trophy, Truck, LineChart as LineIcon, Plus,
+  Coins, Smartphone, Trophy, Truck, LineChart as LineIcon, Plus, Warehouse, Rows3, Grid3x3,
 } from "lucide-react";
+import { TrendChart } from "@/components/dashboard/trend-chart";
+import { KpiSkeleton, BlockSkeleton } from "@/components/dashboard/kpi-skeleton";
+import { useState } from "react";
 
 export const Route = createFileRoute("/app/")({ component: ShopDashboard });
 
@@ -37,12 +40,17 @@ function ShopDashboard() {
   const shopFn = useServerFn(getMyShop);
   const snapFn = useServerFn(getReportSnapshot);
   const extraFn = useServerFn(getDashboardExtras);
+  const trendFn = useServerFn(getShopTrend);
   const salesFn = useServerFn(listSales);
   const instFn = useServerFn(listInstallments);
+
+  const [range, setRange] = useState<7 | 30 | 90>(30);
+  const [compact, setCompact] = useState(false);
 
   const { data } = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
   const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn() });
   const extraQ = useQuery({ queryKey: ["dash-extras"], queryFn: () => extraFn() });
+  const trendQ = useQuery({ queryKey: ["shop-trend", range], queryFn: () => trendFn({ data: { days: range } }) });
   const recentSalesQ = useQuery({ queryKey: ["recent-sales"], queryFn: () => salesFn({ data: {} }) });
   const overdueQ = useQuery({ queryKey: ["overdue-inst"], queryFn: () => instFn({ data: { status: "overdue" } }) });
 
@@ -51,6 +59,7 @@ function ShopDashboard() {
   const daysLeft = end ? Math.ceil((end.getTime() - Date.now()) / (24 * 3600 * 1000)) : 0;
   const snap = snapQ.data;
   const extras = extraQ.data;
+  const isLoading = snapQ.isLoading || extraQ.isLoading;
 
   const recent = (recentSalesQ.data ?? []).slice(0, 6);
   const overdue = (overdueQ.data as any)?.rows ?? [];
@@ -62,12 +71,12 @@ function ShopDashboard() {
     { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet" },
     { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose" },
     { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange" },
-    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "sky" },
+    { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky" },
+    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink" },
     { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal" },
   ];
 
-  const trend = extras?.trend ?? [];
-  const maxTrend = Math.max(1, ...trend.map((t: any) => Number(t.total || 0)));
+  const trendData = trendQ.data ?? [];
 
   return (
     <div className="space-y-6 p-4 sm:p-8">
@@ -80,6 +89,14 @@ function ShopDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => setCompact((v) => !v)}
+            title={compact ? "স্বাভাবিক ভিউ" : "কম্প্যাক্ট ভিউ"}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            {compact ? <Grid3x3 className="h-3.5 w-3.5" /> : <Rows3 className="h-3.5 w-3.5" />}
+            {compact ? "নরমাল" : "কম্প্যাক্ট"}
+          </button>
           {daysLeft <= 7 && daysLeft >= 0 && (
             <Link to="/app/subscription"
               className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
@@ -98,54 +115,60 @@ function ShopDashboard() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {isLoading ? (
+        <KpiSkeleton count={stats.length} compact={compact} />
+      ) : (
+      <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${compact ? "xl:grid-cols-6" : "xl:grid-cols-3"}`}>
         {stats.map((s) => (
-          <div key={s.label} className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+          <div key={s.label} className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${compact ? "p-3" : "p-5"}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{s.label}</p>
-                <p className={`mt-2 truncate text-2xl font-bold leading-tight ${toneValue[s.tone]}`}>{s.value}</p>
-                <p className="mt-1 truncate text-xs text-slate-500">{s.sub}</p>
+                <p className={`mt-2 truncate font-bold leading-tight ${compact ? "text-lg" : "text-2xl"} ${toneValue[s.tone]}`}>{s.value}</p>
+                {!compact && <p className="mt-1 truncate text-xs text-slate-500">{s.sub}</p>}
               </div>
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${toneChip[s.tone]}`}>
+              <div className={`flex shrink-0 items-center justify-center rounded-lg border ${toneChip[s.tone]} ${compact ? "h-7 w-7" : "h-9 w-9"}`}>
                 <s.icon className="h-4.5 w-4.5" />
               </div>
             </div>
           </div>
         ))}
       </div>
+      )}
 
       {/* Trend + Overdue */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight text-slate-700">
-              <LineIcon className="h-4 w-4 text-emerald-600" /> শেষ ৭ দিনের বিক্রয়
+              <LineIcon className="h-4 w-4 text-emerald-600" /> বিক্রয় / ক্রয় / কালেকশন
             </h2>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">লাইভ</span>
-          </div>
-          <div className="p-6">
-            <div className="flex h-48 items-end gap-2">
-              {trend.map((t: any) => {
-                const h = Math.max(4, (Number(t.total) / maxTrend) * 100);
-                const d = new Date(t.date);
-                return (
-                  <div key={t.date} className="group flex flex-1 flex-col items-center gap-1.5">
-                    <div className="text-[10px] font-semibold text-slate-500 opacity-0 group-hover:opacity-100 transition">
-                      {fmt(t.total)}
-                    </div>
-                    <div className="flex w-full flex-1 items-end">
-                      <div
-                        className="w-full rounded-t-md bg-emerald-500/80 transition-all hover:bg-emerald-600"
-                        style={{ height: `${h}%` }}
-                      />
-                    </div>
-                    <div className="text-[10px] font-medium text-slate-400">{d.getDate()}/{d.getMonth() + 1}</div>
-                  </div>
-                );
-              })}
-              {trend.length === 0 && <div className="w-full text-center text-sm text-slate-400">কোনো ডেটা নেই</div>}
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold">
+              {([7, 30, 90] as const).map((d) => (
+                <button key={d} onClick={() => setRange(d)}
+                  className={`rounded px-2 py-0.5 transition ${range === d ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                  {d}দিন
+                </button>
+              ))}
             </div>
+          </div>
+          <div className="p-4">
+            {trendQ.isLoading ? (
+              <div className="h-[260px] w-full animate-pulse rounded-lg bg-slate-100" />
+            ) : trendData.length === 0 ? (
+              <div className="py-16 text-center text-sm text-slate-400">কোনো ডেটা নেই</div>
+            ) : (
+              <TrendChart
+                data={trendData}
+                compact={compact}
+                yFormatter={(v) => fmt(v)}
+                series={[
+                  { key: "sales", label: "বিক্রয়", color: "#10b981" },
+                  { key: "purchases", label: "ক্রয়", color: "#f59e0b" },
+                  { key: "collections", label: "কালেকশন", color: "#3b82f6" },
+                ]}
+              />
+            )}
           </div>
         </div>
 
@@ -157,7 +180,9 @@ function ShopDashboard() {
             <Link to="/app/installments" className="text-[11px] font-semibold text-emerald-600 hover:underline">সব</Link>
           </div>
           <div className="p-4">
-            {overdue.length === 0 ? (
+            {overdueQ.isLoading ? (
+              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-slate-100" />)}</div>
+            ) : overdue.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">সব ক্লিয়ার ✓</p>
             ) : (
               <div className="space-y-2">
