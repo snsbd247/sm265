@@ -23,7 +23,7 @@ export const snapshotSale = createServerFn({ method: "POST" })
     const shopId = await getShopId(context);
     const [{ data: sale, error: se }, { data: items }, { data: last }] = await Promise.all([
       context.supabase.from("sales")
-        .select("*, customer:customers(id, name, phone, email, address)")
+        .select("*, customer:customers(id, name, phone, address)")
         .eq("id", data.sale_id).eq("shop_id", shopId).maybeSingle(),
       context.supabase.from("sale_items")
         .select("*, product:products(name, sku, unit:units(short_name))")
