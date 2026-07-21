@@ -43,12 +43,33 @@ import { Route as AdminDemoRequestsRouteImport } from './routes/admin.demo-reque
 import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
+import { Route as AppReportsIndexRouteImport } from './routes/app.reports.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
 import { Route as AppCustomersIndexRouteImport } from './routes/app.customers.index'
 import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
 import { Route as AppSettingsInvoiceTemplateRouteImport } from './routes/app.settings.invoice-template'
 import { Route as AppSalesNewRouteImport } from './routes/app.sales.new'
 import { Route as AppSalesSaleIdRouteImport } from './routes/app.sales.$saleId'
+import { Route as AppReportsTaxRouteImport } from './routes/app.reports.tax'
+import { Route as AppReportsSupplierPurchaseRouteImport } from './routes/app.reports.supplier-purchase'
+import { Route as AppReportsStockMovementRouteImport } from './routes/app.reports.stock-movement'
+import { Route as AppReportsStockRouteImport } from './routes/app.reports.stock'
+import { Route as AppReportsShiftRouteImport } from './routes/app.reports.shift'
+import { Route as AppReportsSalesReturnRouteImport } from './routes/app.reports.sales-return'
+import { Route as AppReportsSalesRouteImport } from './routes/app.reports.sales'
+import { Route as AppReportsReceivableRouteImport } from './routes/app.reports.receivable'
+import { Route as AppReportsPurchaseRouteImport } from './routes/app.reports.purchase'
+import { Route as AppReportsProfitRouteImport } from './routes/app.reports.profit'
+import { Route as AppReportsProductSalesRouteImport } from './routes/app.reports.product-sales'
+import { Route as AppReportsPaymentMethodRouteImport } from './routes/app.reports.payment-method'
+import { Route as AppReportsPayableRouteImport } from './routes/app.reports.payable'
+import { Route as AppReportsLowStockRouteImport } from './routes/app.reports.low-stock'
+import { Route as AppReportsInstallmentRouteImport } from './routes/app.reports.installment'
+import { Route as AppReportsDiscountRouteImport } from './routes/app.reports.discount'
+import { Route as AppReportsCustomerSalesRouteImport } from './routes/app.reports.customer-sales'
+import { Route as AppReportsCategorySalesRouteImport } from './routes/app.reports.category-sales'
+import { Route as AppReportsCashBookRouteImport } from './routes/app.reports.cash-book'
+import { Route as AppReportsBkashBookRouteImport } from './routes/app.reports.bkash-book'
 import { Route as AppPurchasesNewRouteImport } from './routes/app.purchases.new'
 import { Route as AppProductsProductIdRouteImport } from './routes/app.products.$productId'
 import { Route as AppCustomersCustomerIdRouteImport } from './routes/app.customers.$customerId'
@@ -231,6 +252,11 @@ const AppSalesIndexRoute = AppSalesIndexRouteImport.update({
   path: '/sales/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsIndexRoute = AppReportsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppReportsRoute,
+} as any)
 const AppPurchasesIndexRoute = AppPurchasesIndexRouteImport.update({
   id: '/purchases/',
   path: '/purchases/',
@@ -261,6 +287,107 @@ const AppSalesSaleIdRoute = AppSalesSaleIdRouteImport.update({
   id: '/sales/$saleId',
   path: '/sales/$saleId',
   getParentRoute: () => AppRoute,
+} as any)
+const AppReportsTaxRoute = AppReportsTaxRouteImport.update({
+  id: '/tax',
+  path: '/tax',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsSupplierPurchaseRoute =
+  AppReportsSupplierPurchaseRouteImport.update({
+    id: '/supplier-purchase',
+    path: '/supplier-purchase',
+    getParentRoute: () => AppReportsRoute,
+  } as any)
+const AppReportsStockMovementRoute = AppReportsStockMovementRouteImport.update({
+  id: '/stock-movement',
+  path: '/stock-movement',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsStockRoute = AppReportsStockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsShiftRoute = AppReportsShiftRouteImport.update({
+  id: '/shift',
+  path: '/shift',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsSalesReturnRoute = AppReportsSalesReturnRouteImport.update({
+  id: '/sales-return',
+  path: '/sales-return',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsSalesRoute = AppReportsSalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsReceivableRoute = AppReportsReceivableRouteImport.update({
+  id: '/receivable',
+  path: '/receivable',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsPurchaseRoute = AppReportsPurchaseRouteImport.update({
+  id: '/purchase',
+  path: '/purchase',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsProfitRoute = AppReportsProfitRouteImport.update({
+  id: '/profit',
+  path: '/profit',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsProductSalesRoute = AppReportsProductSalesRouteImport.update({
+  id: '/product-sales',
+  path: '/product-sales',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsPaymentMethodRoute = AppReportsPaymentMethodRouteImport.update({
+  id: '/payment-method',
+  path: '/payment-method',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsPayableRoute = AppReportsPayableRouteImport.update({
+  id: '/payable',
+  path: '/payable',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsLowStockRoute = AppReportsLowStockRouteImport.update({
+  id: '/low-stock',
+  path: '/low-stock',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsInstallmentRoute = AppReportsInstallmentRouteImport.update({
+  id: '/installment',
+  path: '/installment',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsDiscountRoute = AppReportsDiscountRouteImport.update({
+  id: '/discount',
+  path: '/discount',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsCustomerSalesRoute = AppReportsCustomerSalesRouteImport.update({
+  id: '/customer-sales',
+  path: '/customer-sales',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsCategorySalesRoute = AppReportsCategorySalesRouteImport.update({
+  id: '/category-sales',
+  path: '/category-sales',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsCashBookRoute = AppReportsCashBookRouteImport.update({
+  id: '/cash-book',
+  path: '/cash-book',
+  getParentRoute: () => AppReportsRoute,
+} as any)
+const AppReportsBkashBookRoute = AppReportsBkashBookRouteImport.update({
+  id: '/bkash-book',
+  path: '/bkash-book',
+  getParentRoute: () => AppReportsRoute,
 } as any)
 const AppPurchasesNewRoute = AppPurchasesNewRouteImport.update({
   id: '/purchases/new',
@@ -346,7 +473,7 @@ export interface FileRoutesByFullPath {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
+  '/app/reports': typeof AppReportsRouteWithChildren
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -361,12 +488,33 @@ export interface FileRoutesByFullPath {
   '/app/customers/$customerId': typeof AppCustomersCustomerIdRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/reports/bkash-book': typeof AppReportsBkashBookRoute
+  '/app/reports/cash-book': typeof AppReportsCashBookRoute
+  '/app/reports/category-sales': typeof AppReportsCategorySalesRoute
+  '/app/reports/customer-sales': typeof AppReportsCustomerSalesRoute
+  '/app/reports/discount': typeof AppReportsDiscountRoute
+  '/app/reports/installment': typeof AppReportsInstallmentRoute
+  '/app/reports/low-stock': typeof AppReportsLowStockRoute
+  '/app/reports/payable': typeof AppReportsPayableRoute
+  '/app/reports/payment-method': typeof AppReportsPaymentMethodRoute
+  '/app/reports/product-sales': typeof AppReportsProductSalesRoute
+  '/app/reports/profit': typeof AppReportsProfitRoute
+  '/app/reports/purchase': typeof AppReportsPurchaseRoute
+  '/app/reports/receivable': typeof AppReportsReceivableRoute
+  '/app/reports/sales': typeof AppReportsSalesRoute
+  '/app/reports/sales-return': typeof AppReportsSalesReturnRoute
+  '/app/reports/shift': typeof AppReportsShiftRoute
+  '/app/reports/stock': typeof AppReportsStockRoute
+  '/app/reports/stock-movement': typeof AppReportsStockMovementRoute
+  '/app/reports/supplier-purchase': typeof AppReportsSupplierPurchaseRoute
+  '/app/reports/tax': typeof AppReportsTaxRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
+  '/app/reports/': typeof AppReportsIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
@@ -395,7 +543,6 @@ export interface FileRoutesByTo {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -410,12 +557,33 @@ export interface FileRoutesByTo {
   '/app/customers/$customerId': typeof AppCustomersCustomerIdRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/reports/bkash-book': typeof AppReportsBkashBookRoute
+  '/app/reports/cash-book': typeof AppReportsCashBookRoute
+  '/app/reports/category-sales': typeof AppReportsCategorySalesRoute
+  '/app/reports/customer-sales': typeof AppReportsCustomerSalesRoute
+  '/app/reports/discount': typeof AppReportsDiscountRoute
+  '/app/reports/installment': typeof AppReportsInstallmentRoute
+  '/app/reports/low-stock': typeof AppReportsLowStockRoute
+  '/app/reports/payable': typeof AppReportsPayableRoute
+  '/app/reports/payment-method': typeof AppReportsPaymentMethodRoute
+  '/app/reports/product-sales': typeof AppReportsProductSalesRoute
+  '/app/reports/profit': typeof AppReportsProfitRoute
+  '/app/reports/purchase': typeof AppReportsPurchaseRoute
+  '/app/reports/receivable': typeof AppReportsReceivableRoute
+  '/app/reports/sales': typeof AppReportsSalesRoute
+  '/app/reports/sales-return': typeof AppReportsSalesReturnRoute
+  '/app/reports/shift': typeof AppReportsShiftRoute
+  '/app/reports/stock': typeof AppReportsStockRoute
+  '/app/reports/stock-movement': typeof AppReportsStockMovementRoute
+  '/app/reports/supplier-purchase': typeof AppReportsSupplierPurchaseRoute
+  '/app/reports/tax': typeof AppReportsTaxRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops': typeof AdminShopsIndexRoute
   '/app/customers': typeof AppCustomersIndexRoute
   '/app/purchases': typeof AppPurchasesIndexRoute
+  '/app/reports': typeof AppReportsIndexRoute
   '/app/sales': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
@@ -449,7 +617,7 @@ export interface FileRoutesById {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
+  '/app/reports': typeof AppReportsRouteWithChildren
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -464,12 +632,33 @@ export interface FileRoutesById {
   '/app/customers/$customerId': typeof AppCustomersCustomerIdRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
+  '/app/reports/bkash-book': typeof AppReportsBkashBookRoute
+  '/app/reports/cash-book': typeof AppReportsCashBookRoute
+  '/app/reports/category-sales': typeof AppReportsCategorySalesRoute
+  '/app/reports/customer-sales': typeof AppReportsCustomerSalesRoute
+  '/app/reports/discount': typeof AppReportsDiscountRoute
+  '/app/reports/installment': typeof AppReportsInstallmentRoute
+  '/app/reports/low-stock': typeof AppReportsLowStockRoute
+  '/app/reports/payable': typeof AppReportsPayableRoute
+  '/app/reports/payment-method': typeof AppReportsPaymentMethodRoute
+  '/app/reports/product-sales': typeof AppReportsProductSalesRoute
+  '/app/reports/profit': typeof AppReportsProfitRoute
+  '/app/reports/purchase': typeof AppReportsPurchaseRoute
+  '/app/reports/receivable': typeof AppReportsReceivableRoute
+  '/app/reports/sales': typeof AppReportsSalesRoute
+  '/app/reports/sales-return': typeof AppReportsSalesReturnRoute
+  '/app/reports/shift': typeof AppReportsShiftRoute
+  '/app/reports/stock': typeof AppReportsStockRoute
+  '/app/reports/stock-movement': typeof AppReportsStockMovementRoute
+  '/app/reports/supplier-purchase': typeof AppReportsSupplierPurchaseRoute
+  '/app/reports/tax': typeof AppReportsTaxRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/customers/': typeof AppCustomersIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
+  '/app/reports/': typeof AppReportsIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
@@ -519,12 +708,33 @@ export interface FileRouteTypes {
     | '/app/customers/$customerId'
     | '/app/products/$productId'
     | '/app/purchases/new'
+    | '/app/reports/bkash-book'
+    | '/app/reports/cash-book'
+    | '/app/reports/category-sales'
+    | '/app/reports/customer-sales'
+    | '/app/reports/discount'
+    | '/app/reports/installment'
+    | '/app/reports/low-stock'
+    | '/app/reports/payable'
+    | '/app/reports/payment-method'
+    | '/app/reports/product-sales'
+    | '/app/reports/profit'
+    | '/app/reports/purchase'
+    | '/app/reports/receivable'
+    | '/app/reports/sales'
+    | '/app/reports/sales-return'
+    | '/app/reports/shift'
+    | '/app/reports/stock'
+    | '/app/reports/stock-movement'
+    | '/app/reports/supplier-purchase'
+    | '/app/reports/tax'
     | '/app/sales/$saleId'
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/customers/'
     | '/app/purchases/'
+    | '/app/reports/'
     | '/app/sales/'
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
@@ -553,7 +763,6 @@ export interface FileRouteTypes {
     | '/app/installments'
     | '/app/pay-invoice'
     | '/app/products'
-    | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
     | '/app/subscription'
@@ -568,12 +777,33 @@ export interface FileRouteTypes {
     | '/app/customers/$customerId'
     | '/app/products/$productId'
     | '/app/purchases/new'
+    | '/app/reports/bkash-book'
+    | '/app/reports/cash-book'
+    | '/app/reports/category-sales'
+    | '/app/reports/customer-sales'
+    | '/app/reports/discount'
+    | '/app/reports/installment'
+    | '/app/reports/low-stock'
+    | '/app/reports/payable'
+    | '/app/reports/payment-method'
+    | '/app/reports/product-sales'
+    | '/app/reports/profit'
+    | '/app/reports/purchase'
+    | '/app/reports/receivable'
+    | '/app/reports/sales'
+    | '/app/reports/sales-return'
+    | '/app/reports/shift'
+    | '/app/reports/stock'
+    | '/app/reports/stock-movement'
+    | '/app/reports/supplier-purchase'
+    | '/app/reports/tax'
     | '/app/sales/$saleId'
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops'
     | '/app/customers'
     | '/app/purchases'
+    | '/app/reports'
     | '/app/sales'
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
@@ -621,12 +851,33 @@ export interface FileRouteTypes {
     | '/app/customers/$customerId'
     | '/app/products/$productId'
     | '/app/purchases/new'
+    | '/app/reports/bkash-book'
+    | '/app/reports/cash-book'
+    | '/app/reports/category-sales'
+    | '/app/reports/customer-sales'
+    | '/app/reports/discount'
+    | '/app/reports/installment'
+    | '/app/reports/low-stock'
+    | '/app/reports/payable'
+    | '/app/reports/payment-method'
+    | '/app/reports/product-sales'
+    | '/app/reports/profit'
+    | '/app/reports/purchase'
+    | '/app/reports/receivable'
+    | '/app/reports/sales'
+    | '/app/reports/sales-return'
+    | '/app/reports/shift'
+    | '/app/reports/stock'
+    | '/app/reports/stock-movement'
+    | '/app/reports/supplier-purchase'
+    | '/app/reports/tax'
     | '/app/sales/$saleId'
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/customers/'
     | '/app/purchases/'
+    | '/app/reports/'
     | '/app/sales/'
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
@@ -890,6 +1141,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSalesIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/reports/': {
+      id: '/app/reports/'
+      path: '/'
+      fullPath: '/app/reports/'
+      preLoaderRoute: typeof AppReportsIndexRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
     '/app/purchases/': {
       id: '/app/purchases/'
       path: '/purchases'
@@ -931,6 +1189,146 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/sales/$saleId'
       preLoaderRoute: typeof AppSalesSaleIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/app/reports/tax': {
+      id: '/app/reports/tax'
+      path: '/tax'
+      fullPath: '/app/reports/tax'
+      preLoaderRoute: typeof AppReportsTaxRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/supplier-purchase': {
+      id: '/app/reports/supplier-purchase'
+      path: '/supplier-purchase'
+      fullPath: '/app/reports/supplier-purchase'
+      preLoaderRoute: typeof AppReportsSupplierPurchaseRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/stock-movement': {
+      id: '/app/reports/stock-movement'
+      path: '/stock-movement'
+      fullPath: '/app/reports/stock-movement'
+      preLoaderRoute: typeof AppReportsStockMovementRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/stock': {
+      id: '/app/reports/stock'
+      path: '/stock'
+      fullPath: '/app/reports/stock'
+      preLoaderRoute: typeof AppReportsStockRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/shift': {
+      id: '/app/reports/shift'
+      path: '/shift'
+      fullPath: '/app/reports/shift'
+      preLoaderRoute: typeof AppReportsShiftRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/sales-return': {
+      id: '/app/reports/sales-return'
+      path: '/sales-return'
+      fullPath: '/app/reports/sales-return'
+      preLoaderRoute: typeof AppReportsSalesReturnRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/sales': {
+      id: '/app/reports/sales'
+      path: '/sales'
+      fullPath: '/app/reports/sales'
+      preLoaderRoute: typeof AppReportsSalesRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/receivable': {
+      id: '/app/reports/receivable'
+      path: '/receivable'
+      fullPath: '/app/reports/receivable'
+      preLoaderRoute: typeof AppReportsReceivableRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/purchase': {
+      id: '/app/reports/purchase'
+      path: '/purchase'
+      fullPath: '/app/reports/purchase'
+      preLoaderRoute: typeof AppReportsPurchaseRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/profit': {
+      id: '/app/reports/profit'
+      path: '/profit'
+      fullPath: '/app/reports/profit'
+      preLoaderRoute: typeof AppReportsProfitRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/product-sales': {
+      id: '/app/reports/product-sales'
+      path: '/product-sales'
+      fullPath: '/app/reports/product-sales'
+      preLoaderRoute: typeof AppReportsProductSalesRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/payment-method': {
+      id: '/app/reports/payment-method'
+      path: '/payment-method'
+      fullPath: '/app/reports/payment-method'
+      preLoaderRoute: typeof AppReportsPaymentMethodRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/payable': {
+      id: '/app/reports/payable'
+      path: '/payable'
+      fullPath: '/app/reports/payable'
+      preLoaderRoute: typeof AppReportsPayableRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/low-stock': {
+      id: '/app/reports/low-stock'
+      path: '/low-stock'
+      fullPath: '/app/reports/low-stock'
+      preLoaderRoute: typeof AppReportsLowStockRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/installment': {
+      id: '/app/reports/installment'
+      path: '/installment'
+      fullPath: '/app/reports/installment'
+      preLoaderRoute: typeof AppReportsInstallmentRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/discount': {
+      id: '/app/reports/discount'
+      path: '/discount'
+      fullPath: '/app/reports/discount'
+      preLoaderRoute: typeof AppReportsDiscountRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/customer-sales': {
+      id: '/app/reports/customer-sales'
+      path: '/customer-sales'
+      fullPath: '/app/reports/customer-sales'
+      preLoaderRoute: typeof AppReportsCustomerSalesRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/category-sales': {
+      id: '/app/reports/category-sales'
+      path: '/category-sales'
+      fullPath: '/app/reports/category-sales'
+      preLoaderRoute: typeof AppReportsCategorySalesRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/cash-book': {
+      id: '/app/reports/cash-book'
+      path: '/cash-book'
+      fullPath: '/app/reports/cash-book'
+      preLoaderRoute: typeof AppReportsCashBookRouteImport
+      parentRoute: typeof AppReportsRoute
+    }
+    '/app/reports/bkash-book': {
+      id: '/app/reports/bkash-book'
+      path: '/bkash-book'
+      fullPath: '/app/reports/bkash-book'
+      preLoaderRoute: typeof AppReportsBkashBookRouteImport
+      parentRoute: typeof AppReportsRoute
     }
     '/app/purchases/new': {
       id: '/app/purchases/new'
@@ -1090,6 +1488,58 @@ const AppProductsRouteWithChildren = AppProductsRoute._addFileChildren(
   AppProductsRouteChildren,
 )
 
+interface AppReportsRouteChildren {
+  AppReportsBkashBookRoute: typeof AppReportsBkashBookRoute
+  AppReportsCashBookRoute: typeof AppReportsCashBookRoute
+  AppReportsCategorySalesRoute: typeof AppReportsCategorySalesRoute
+  AppReportsCustomerSalesRoute: typeof AppReportsCustomerSalesRoute
+  AppReportsDiscountRoute: typeof AppReportsDiscountRoute
+  AppReportsInstallmentRoute: typeof AppReportsInstallmentRoute
+  AppReportsLowStockRoute: typeof AppReportsLowStockRoute
+  AppReportsPayableRoute: typeof AppReportsPayableRoute
+  AppReportsPaymentMethodRoute: typeof AppReportsPaymentMethodRoute
+  AppReportsProductSalesRoute: typeof AppReportsProductSalesRoute
+  AppReportsProfitRoute: typeof AppReportsProfitRoute
+  AppReportsPurchaseRoute: typeof AppReportsPurchaseRoute
+  AppReportsReceivableRoute: typeof AppReportsReceivableRoute
+  AppReportsSalesRoute: typeof AppReportsSalesRoute
+  AppReportsSalesReturnRoute: typeof AppReportsSalesReturnRoute
+  AppReportsShiftRoute: typeof AppReportsShiftRoute
+  AppReportsStockRoute: typeof AppReportsStockRoute
+  AppReportsStockMovementRoute: typeof AppReportsStockMovementRoute
+  AppReportsSupplierPurchaseRoute: typeof AppReportsSupplierPurchaseRoute
+  AppReportsTaxRoute: typeof AppReportsTaxRoute
+  AppReportsIndexRoute: typeof AppReportsIndexRoute
+}
+
+const AppReportsRouteChildren: AppReportsRouteChildren = {
+  AppReportsBkashBookRoute: AppReportsBkashBookRoute,
+  AppReportsCashBookRoute: AppReportsCashBookRoute,
+  AppReportsCategorySalesRoute: AppReportsCategorySalesRoute,
+  AppReportsCustomerSalesRoute: AppReportsCustomerSalesRoute,
+  AppReportsDiscountRoute: AppReportsDiscountRoute,
+  AppReportsInstallmentRoute: AppReportsInstallmentRoute,
+  AppReportsLowStockRoute: AppReportsLowStockRoute,
+  AppReportsPayableRoute: AppReportsPayableRoute,
+  AppReportsPaymentMethodRoute: AppReportsPaymentMethodRoute,
+  AppReportsProductSalesRoute: AppReportsProductSalesRoute,
+  AppReportsProfitRoute: AppReportsProfitRoute,
+  AppReportsPurchaseRoute: AppReportsPurchaseRoute,
+  AppReportsReceivableRoute: AppReportsReceivableRoute,
+  AppReportsSalesRoute: AppReportsSalesRoute,
+  AppReportsSalesReturnRoute: AppReportsSalesReturnRoute,
+  AppReportsShiftRoute: AppReportsShiftRoute,
+  AppReportsStockRoute: AppReportsStockRoute,
+  AppReportsStockMovementRoute: AppReportsStockMovementRoute,
+  AppReportsSupplierPurchaseRoute: AppReportsSupplierPurchaseRoute,
+  AppReportsTaxRoute: AppReportsTaxRoute,
+  AppReportsIndexRoute: AppReportsIndexRoute,
+}
+
+const AppReportsRouteWithChildren = AppReportsRoute._addFileChildren(
+  AppReportsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppChangePasswordRoute: typeof AppChangePasswordRoute
@@ -1097,7 +1547,7 @@ interface AppRouteChildren {
   AppInstallmentsRoute: typeof AppInstallmentsRoute
   AppPayInvoiceRoute: typeof AppPayInvoiceRoute
   AppProductsRoute: typeof AppProductsRouteWithChildren
-  AppReportsRoute: typeof AppReportsRoute
+  AppReportsRoute: typeof AppReportsRouteWithChildren
   AppShiftsRoute: typeof AppShiftsRoute
   AppStockRoute: typeof AppStockRoute
   AppSubscriptionRoute: typeof AppSubscriptionRoute
@@ -1120,7 +1570,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInstallmentsRoute: AppInstallmentsRoute,
   AppPayInvoiceRoute: AppPayInvoiceRoute,
   AppProductsRoute: AppProductsRouteWithChildren,
-  AppReportsRoute: AppReportsRoute,
+  AppReportsRoute: AppReportsRouteWithChildren,
   AppShiftsRoute: AppShiftsRoute,
   AppStockRoute: AppStockRoute,
   AppSubscriptionRoute: AppSubscriptionRoute,
