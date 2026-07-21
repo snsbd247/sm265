@@ -240,11 +240,13 @@ function Page() {
           installments: st === "installment" ? installments : null,
           installment_frequency: instFreq,
           installment_start: instStart,
+            idempotency_key: idempotencyKey,
         },
       });
     },
     onSuccess: (saleId: any) => {
-      toast.success("বিক্রয় সংরক্ষিত");
+      if ((saleId as any)?.duplicate) toast.info("এই বিক্রয় ইতিমধ্যে সংরক্ষিত (ডুপ্লিকেট এড়ানো হয়েছে)");
+      else toast.success("বিক্রয় সংরক্ষিত");
       // Refresh inventory + low-stock badge in real time
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["shop-notifications"] });
@@ -255,6 +257,7 @@ function Page() {
         setLastSaleId(id);
         setCheckoutOpen(false);
         setSuccessOpen(true);
+        setIdempotencyKey(cryptoRandomId());
       } else {
         nav({ to: "/app/sales" });
       }
