@@ -1,59 +1,59 @@
-## Overview
-Enforce customer/invoice/staff limits per package, add usage-history reports, harden single-active subscription invariants, expose payment history/audit UI for subscription invoices, and notify shop owners on activation/expiry.
+## POS পেজের নতুন লেআউট ও ফ্লো
 
-## 1. Schema additions (single migration)
-Extend `packages`:
-- `max_customers int not null default 0` (-1 = unlimited)
-- `max_invoices_per_month int not null default 0`
-- `max_invoice_total_per_month numeric(14,2) not null default 0`
-- `max_staff int not null default 0` (distinct from `max_users` which stays as-is; if user prefers we can reuse `max_users`)
+### লক্ষ্য
+POS পেজে কাস্টমার সিলেকশনকে টপে ইনলাইন সার্চ-ড্রপডাউনে রূপান্তর, ডান সাইডকে শুধু "কার্ট + সামারি + অ্যাকশন" এ সরলীকরণ, এবং দুইটি ভিন্ন ফ্লো — "ফুল বাকি" (এক ক্লিকে সেভ) ও "চেকআউট" (পেমেন্ট মোডাল)।
 
-Extend `subscription_payments`:
-- `paid_via text` ('cash' | 'bank' | 'bkash-manual' | 'bkash-webhook' | 'admin')
-- `payment_note text`
+### লেআউট পরিবর্তন
 
-New table `subscription_payment_ledger` (append-only receipt log):
-- `id`, `payment_id fk`, `shop_id fk`, `amount numeric`, `method text`, `reference text`, `note text`, `received_by uuid`, `created_at`
-- Full grants + RLS (shop members SELECT own, super-admin ALL).
+```text
+┌──────────────────────────────────────────────────────────┐
+│ [টপ বার] কাস্টমার সার্চ (ID/ফোন/নাম)  |  Walk-in ডিফল্ট │
+├────────────────────────────────┬─────────────────────────┤
+│                                │  কার্ট আইটেম লিস্ট     │
+│   প্রোডাক্ট গ্রিড              │  ────────────────       │
+│   (ক্যাটেগরি + সার্চ +         │  ৫ আইটেম · ১২ ইউনিট    │
+│    বারকোড)                     │  ছাড় [ % ] [ ৳ ]        │
+│                                │  ────────────────       │
+│                                │  মোট প্রদেয়: ৳ ১২৩০     │
+│                                │  [বাতিল][ফুল বাকি][চেকআউট]│
+└────────────────────────────────┴─────────────────────────┘
+```
 
-## 2. limits.server.ts — expand
-Add `LimitKind` variants: `customers`, `invoices`, `invoice_total`, `staff`. Extend `loadShopPackageLimits`, `countUsage` (monthly window for invoice metrics), `getUsage`, `enforceLimit`. Reuse `LimitExceededError` with Bengali labels + upgrade-CTA hint.
+### কাস্টমার সিলেক্টর (টপ বার)
+- ডিফল্ট: "Walk-in Customer" সিলেক্ট থাকবে (customerId = null)।
+- ইনলাইন `SearchableSelect` কম্পোনেন্ট — ক্লিক করলেই ড্রপডাউন খুলবে, পপ-আপ ডায়ালগ নয়।
+- সার্চ কী: কাস্টমার নাম, ফোন, বা ID (`keywords` ফিল্ডে সব যুক্ত)।
+- অপশনগুলোতে দেখাবে: নাম (হেডলাইন) + ফোন/বকেয়া (hint)।
+- পাশে "+ নতুন কাস্টমার" বাটন — quick-add ডায়ালগ (নাম + ফোন)।
+- বর্তমান `customerPickerOpen` Sheet ও `OrderPanel` এর ভিতরের ডেসক্রিট বাটন সরানো হবে।
 
-## 3. Enforcement points
-- `saveCustomer` (create only) → `enforceLimit("customers")`
-- `createSale` server fn → `enforceLimit("invoices")` + check monthly total + new sale amount against `invoice_total`
-- Staff-add function (in `shop.functions.ts` / admin) → `enforceLimit("staff")`
-- All throw structured error → existing `UpgradeDialog` on the frontend picks up `LIMIT_EXCEEDED`. Wire the dialog in Customers page (import same component used in Products page).
+### কার্ট প্যানেল (ডান সাইড)
+- শুধু কার্ট লাইন লিস্ট (বর্তমান স্টাইল রাখা হবে)।
+- নিচে নতুন সামারি ব্লক:
+  1. `{n} আইটেম · {u} ইউনিট`
+  2. ছাড়: `[% ইনপুট]` ও `[৳ ইনপুট]` (দুইটাই — একটা বদলালে অন্যটা রিক্যালকুলেট)।
+  3. **মোট প্রদেয়** (বড় ফন্ট)।
+  4. অ্যাকশন সারি:
+     - **বাতিল** (আউটলাইন) → `clearCart()`
+     - **ফুল বাকি** (অরেঞ্জ/সেকেন্ডারি) → sale_type = "due", paid = 0, ডাইরেক্ট সেভ → ইনভয়েস প্রিভিউ। কাস্টমার Walk-in হলে টোস্ট "কাস্টমার বাছাই করুন"।
+     - **চেকআউট** (প্রাইমারি) → বর্তমান checkout ডায়ালগ ওপেন।
 
-## 4. Usage history report
-New route `src/routes/app.usage.tsx`:
-- Server fn `getUsageHistory` (in `limits.server.ts` companion `usage.functions.ts`) returns last 12 months of used vs limit for products, staff, sms, customers, invoices, invoice_total (products/staff/customers use current snapshot; sms/invoices are month-bucketed via SQL `date_trunc`).
-- Render KPI cards + Recharts bar charts (reuse `TrendChart` component or new one).
-- Add sidebar link under "প্যাকেজ / সাবস্ক্রিপশন".
+### চেকআউট মোডাল (unchanged বেসিক, minor tune)
+- পেমেন্ট মেথড: নগদ/কার্ড/বিকাশ/ব্যাংক
+- পেমেন্ট টাইপ: নগদ (ফুল) / আংশিক / কিস্তি
+- আংশিক হলে `paid` ইনপুট, কিস্তি হলে সংখ্যা+ফ্রিকোয়েন্সি+স্টার্ট ডেট।
+- **বিক্রয় নিশ্চিত করুন** → সেভ → সাকসেস ডায়ালগ (ইনভয়েস প্রিভিউ, প্রিন্ট/PDF/SMS)।
 
-## 5. Subscription invariants (race-safe)
-- Add unique partial index: `create unique index one_active_sub_per_shop on subscriptions(shop_id) where status='active'`.
-- Wrap `activatePaymentAndExtendShop` supersede+insert in an advisory lock: `pg_advisory_xact_lock(hashtext(shop_id::text))` via RPC `claim_shop_activation(shop_id uuid)`.
-- On unique-violation catch → retry once after re-expiring, log audit.
+### অতিরিক্ত সাজেশন (আপনার জন্য)
+1. **কীবোর্ড শর্টকাট**: `F4` = ফুল বাকি সেভ, `F9` = চেকআউট (ইতিমধ্যে আছে), `Ctrl+K` = কাস্টমার সার্চ ফোকাস।
+2. **কাস্টমার তথ্য চিপ**: সিলেক্ট করার পর টপ বারে একটা ছোট চিপে "নাম · ফোন · বর্তমান বকেয়া ৳X" দেখাবে যাতে বিক্রেতা সাথে সাথে বকেয়া অবস্থা জানে।
+3. **মোবাইল রেসপন্সিভ**: ছোট স্ক্রিনে ডান কার্ট প্যানেল একটা floating "কার্ট (৳X)" বাটনে কনভার্ট হবে যা Sheet খুলবে (এখনকার `cartOpen` লজিক পুনঃব্যবহার)।
+4. **"ফুল বাকি" গার্ড**: যদি কাস্টমার Walk-in থাকে, স্বয়ংক্রিয়ভাবে কাস্টমার সার্চে ফোকাস করবে + টোস্ট।
 
-## 6. Subscription payment history + audit UI
-- New server fn `getSubscriptionInvoiceDetail(paymentId)` returns invoice + ledger entries + audit_logs filtered by `target_id=payment_id`.
-- Extend admin subscription-payment approval flow: after marking `success`, insert ledger row and log audit (already done; verify).
-- Add manual "Receive Payment" dialog on `admin.subscriptions.tsx` supporting cash / bank / bkash-manual; each insert creates ledger row + updates status pending→paid; on full amount → triggers activation; partial amount → keeps `pending` with remaining balance surfaced.
-- Shop-side `/app/pay-invoice` page: show ledger of payments applied to each invoice with method/date/reference.
+### টেকনিক্যাল স্কোপ
+- ফাইল: `src/routes/app.sales.new.tsx` (একটাই ফাইল edit)।
+- নতুন কম্পোনেন্ট/সার্ভার fn লাগবে না — বিদ্যমান `SearchableSelect`, `createSale`, checkout ডায়ালগ পুনঃব্যবহার।
+- ডাটাবেস মাইগ্রেশন **নেই**।
+- ব্যাকএন্ড লজিক অপরিবর্তিত (create_sale RPC আগের মতোই কাজ করবে)।
 
-## 7. Owner notifications on state change
-- Extend `activatePaymentAndExtendShop`: already sends SMS. Add in-app notification row (new `notifications` table if none — check first; if `notifications.functions.ts` exists, reuse).
-- Add nightly cron `expire-subscriptions` server route `/api/public/hooks/expire-subs` — scans shops where `subscription_end < now()` and status active → sets `expired`, SMS + notification.
-
-## 8. Frontend upgrade-dialog wiring
-Ensure Customers page, POS (`sales.new.tsx`), Staff add form all catch `LIMIT_EXCEEDED` errors and open `<UpgradeDialog />` with the returned `kind` + package name.
-
-## Technical notes
-- All new tables need `GRANT` + RLS following project conventions.
-- Monthly counters use UTC month buckets (matches existing sms count).
-- `credits.functions.ts`? Not needed.
-- Preserve existing `max_users` semantics; introduce `max_staff` only if user wants staff enforcement separate. Otherwise reuse `max_users` and skip that column.
-
-## Open question
-Should `max_staff` reuse existing `max_users` column or be a new column? Existing `enforceLimit("users")` already covers this — I'll reuse `max_users` and just wire it into the staff-add UI to keep schema minimal.
+আপনি এপ্রুভ করলে বাস্তবায়ন শুরু করবো।

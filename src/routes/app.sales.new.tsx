@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale, getSale, cancelSale } from "@/lib/sales.functions";
+import { listCustomers, createSale, getSale, cancelSale, saveCustomer } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
 import { snapshotSale } from "@/lib/sale-revisions.functions";
@@ -20,7 +20,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
@@ -43,6 +43,7 @@ function Page() {
   const cancelFn = useServerFn(cancelSale);
   const sendEmailFn = useServerFn(sendInvoiceLinkEmail);
   const snapshotFn = useServerFn(snapshotSale);
+  const saveCustomerFn = useServerFn(saveCustomer);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
@@ -71,7 +72,9 @@ function Page() {
   const [activeCat, setActiveCat] = useState<string>("all");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickName, setQuickName] = useState("");
+  const [quickPhone, setQuickPhone] = useState("");
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -81,6 +84,11 @@ function Page() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const customerBoxRef = useRef<HTMLDivElement>(null);
+  const focusCustomerPicker = () => {
+    const btn = customerBoxRef.current?.querySelector<HTMLButtonElement>('button[role="combobox"]');
+    btn?.click();
+  };
   const qc = useQueryClient();
 
   const subtotal = useMemo(
@@ -97,6 +105,7 @@ function Page() {
   const effectivePaid = saleType === "cash" ? total : paid;
   const due = Math.max(0, total - effectivePaid);
   const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
+  const discountBase = Math.max(0, subtotal - itemDiscountTotal);
 
   const addProduct = (pid: string) => {
     if (!pid) return;
@@ -146,6 +155,8 @@ function Page() {
         e.preventDefault(); barcodeRef.current?.focus();
       } else if (e.key === "F9" && !inField) {
         e.preventDefault(); if (lines.length) setCheckoutOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault(); focusCustomerPicker();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -195,16 +206,18 @@ function Page() {
   }, [prod.data, search, activeCat]);
 
   const m = useMutation({
-    mutationFn: () =>
-      createFn({
+    mutationFn: (vars: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
+      const st = vars.saleTypeOverride ?? saleType;
+      const p = vars.paidOverride ?? (st === "cash" ? total : paid);
+      return createFn({
         data: {
           customer_id: customerId || null,
           invoice_no: invoiceNo || null,
           sale_date: saleDate,
           discount,
-          paid: effectivePaid,
-          payment_method: saleType === "cash" ? method : saleType === "due" ? "due" : method,
-          sale_type: saleType,
+          paid: p,
+          payment_method: st === "cash" ? method : st === "due" ? "due" : method,
+          sale_type: st,
           note: note || null,
           items: lines.map((l) => ({
             product_id: l.product_id,
@@ -214,11 +227,12 @@ function Page() {
             discount_amount: l.discount_amount || 0,
             tax_rate: taxRate || 0,
           })),
-          installments: saleType === "installment" ? installments : null,
+          installments: st === "installment" ? installments : null,
           installment_frequency: instFreq,
           installment_start: instStart,
         },
-      }),
+      });
+    },
     onSuccess: (saleId: any) => {
       toast.success("বিক্রয় সংরক্ষিত");
       // Refresh inventory + low-stock badge in real time
@@ -247,17 +261,46 @@ function Page() {
     },
   });
 
-  const submit = () => {
+  const submit = (overrides: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
+    const st = overrides.saleTypeOverride ?? saleType;
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
     if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
-    if (saleType !== "cash" && !customerId)
+    if (st !== "cash" && !customerId)
       return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
     for (const l of lines) {
       if (l.quantity > l.stock)
         return toast.error(`"${l.name}" এর স্টক অপর্যাপ্ত (${l.stock})`);
     }
-    m.mutate();
+    m.mutate(overrides);
   };
+
+  const fullDueSave = () => {
+    if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
+    if (!customerId) {
+      toast.error("ফুল বাকি বিক্রির জন্য কাস্টমার বাছাই করুন");
+      focusCustomerPicker();
+      return;
+    }
+    setSaleType("due");
+    setPaid(0);
+    submit({ saleTypeOverride: "due", paidOverride: 0 });
+  };
+
+  const quickAddM = useMutation({
+    mutationFn: () => saveCustomerFn({ data: {
+      name: quickName.trim(), phone: quickPhone.trim() || null,
+      opening_balance: 0, is_active: true,
+    } as any }),
+    onSuccess: async (res: any) => {
+      toast.success("কাস্টমার যোগ হয়েছে");
+      await qc.invalidateQueries({ queryKey: ["customers"] });
+      const newId = res?.id;
+      if (newId) setCustomerId(newId);
+      setQuickAddOpen(false);
+      setQuickName(""); setQuickPhone("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "যোগ করা যায়নি"),
+  });
 
   const catList: { id: string; name: string }[] = [
     { id: "all", name: "সব" },
@@ -283,32 +326,6 @@ function Page() {
             <Trash2 className="mr-1 h-4 w-4" /> ক্লিয়ার
           </Button>
         )}
-      </div>
-
-      <div className="border-b px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCustomerPickerOpen(true)}
-          className={`flex w-full items-center gap-3 rounded-lg border-2 border-dashed px-3 py-2.5 text-left transition ${
-            customerId
-              ? "border-emerald-400 bg-emerald-50/40"
-              : "border-orange-300 bg-orange-50/40 hover:bg-orange-50"
-          }`}
-        >
-          <div className={`flex h-9 w-9 items-center justify-center rounded-md ${customerId ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
-            <User className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">
-              {selectedCustomer ? selectedCustomer.name : "কাস্টমার যোগ করুন"}
-            </div>
-            <div className="truncate text-[11px] text-muted-foreground">
-              {selectedCustomer
-                ? selectedCustomer.phone ?? "—"
-                : "লয়ালটি অর্জন করুন, অর্ডার সংযুক্ত করুন"}
-            </div>
-          </div>
-        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
@@ -396,20 +413,35 @@ function Page() {
       </div>
 
       <div className="border-t bg-white px-4 py-3">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {lines.length} আইটেম · {totalUnits.toFixed(2)} ইউনিট
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            <span className="font-semibold text-slate-700">{lines.length}</span> আইটেম ·{" "}
+            <span className="font-semibold text-slate-700">{totalUnits.toFixed(2)}</span> ইউনিট
           </span>
           <span className="text-slate-700">৳{subtotal.toFixed(2)}</span>
         </div>
+
         <div className="mt-2 flex items-center gap-2">
           <Percent className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">ছাড়</span>
           <Input
+            type="number" step="0.01" min="0" max="100"
+            value={discountBase > 0 ? Number(((discount / discountBase) * 100).toFixed(2)) : 0}
+            onChange={(e) => {
+              const pct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+              setDiscount(Math.max(0, +(discountBase * pct / 100).toFixed(2)));
+            }}
+            className="ml-auto h-8 w-16 text-right"
+            placeholder="%"
+          />
+          <span className="text-xs text-muted-foreground">%</span>
+          <Input
             type="number" step="0.01" min="0" value={discount}
             onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-            className="ml-auto h-8 w-24 text-right"
+            className="h-8 w-20 text-right"
+            placeholder="৳"
           />
+          <span className="text-xs text-muted-foreground">৳</span>
         </div>
 
         <div className="mt-3 flex items-baseline justify-between border-t pt-3">
@@ -420,22 +452,22 @@ function Page() {
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Button type="button" variant="outline" className="h-11" onClick={() => nav({ to: "/app/sales" })}>
+          <Button type="button" variant="outline" className="h-11" onClick={clearCart}>
             বাতিল
           </Button>
           <Button
             type="button"
-            variant="outline"
-            className="h-11"
-            disabled={lines.length === 0}
-            onClick={() => { setSaleType("due"); setCheckoutOpen(true); }}
+            className="h-11 bg-amber-500 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={fullDueSave}
+            title="ফুল বাকি — সরাসরি সেভ ও ইনভয়েস"
           >
-            বাকি
+            ফুল বাকি
           </Button>
           <Button
             type="button"
             disabled={lines.length === 0}
-            onClick={() => setCheckoutOpen(true)}
+            onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
             className="h-11 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
           >
             চেকআউট
@@ -456,6 +488,49 @@ function Page() {
         </div>
       )}
       {/* Top bar */}
+      {/* Customer bar */}
+      <div ref={customerBoxRef} className="flex flex-wrap items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <User className="h-4 w-4" /> কাস্টমার
+        </div>
+        <div className="min-w-0 flex-1">
+          <SearchableSelect
+            value={customerId}
+            onChange={(v) => setCustomerId(v)}
+            placeholder="Walk-in Customer (ডিফল্ট)"
+            searchPlaceholder="আইডি / ফোন / নাম দিয়ে সার্চ..."
+            options={(cust.data ?? []).map((c: any) => ({
+              value: c.id,
+              label: c.name,
+              hint: [c.phone, Number(c.current_balance) > 0 ? `বকেয়া ৳${Number(c.current_balance).toFixed(0)}` : null]
+                .filter(Boolean).join(" · "),
+              keywords: `${c.name} ${c.phone ?? ""} ${String(c.id).slice(0, 8)}`,
+            }))}
+          />
+        </div>
+        {selectedCustomer && (
+          <div className="hidden items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-800 sm:inline-flex">
+            <Phone className="h-3 w-3" />
+            <span>{selectedCustomer.phone ?? "—"}</span>
+            {Number(selectedCustomer.current_balance) > 0 && (
+              <span className="ml-1 rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-700">
+                বকেয়া ৳{Number(selectedCustomer.current_balance).toFixed(0)}
+              </span>
+            )}
+          </div>
+        )}
+        {customerId && (
+          <Button size="sm" variant="ghost" className="h-8 text-rose-600" onClick={() => setCustomerId("")}>
+            <X className="mr-1 h-3.5 w-3.5" /> Walk-in
+          </Button>
+        )}
+        <Button size="sm" variant="outline" className="h-8" onClick={() => setQuickAddOpen(true)}>
+          <UserPlus className="mr-1 h-3.5 w-3.5" /> নতুন
+        </Button>
+        <kbd className="hidden rounded border bg-slate-50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline-block">Ctrl+K</kbd>
+      </div>
+
+      {/* Search bar */}
       <div className="flex items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -601,29 +676,41 @@ function Page() {
         </aside>
       </div>
 
-      {/* Customer picker dialog */}
-      <Dialog open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
-        <DialogContent className="max-w-md">
+      {/* Quick add customer dialog */}
+      <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>কাস্টমার বাছাই করুন</DialogTitle>
+            <DialogTitle>দ্রুত কাস্টমার যোগ</DialogTitle>
           </DialogHeader>
-          <SearchableSelect
-            value={customerId}
-            onChange={(v) => { setCustomerId(v); setCustomerPickerOpen(false); }}
-            placeholder="Walk-in (ঐচ্ছিক)"
-            searchPlaceholder="নাম / ফোন সার্চ..."
-            options={(cust.data ?? []).map((c: any) => ({
-              value: c.id,
-              label: c.name,
-              hint: c.phone ?? "",
-              keywords: `${c.name} ${c.phone ?? ""}`,
-            }))}
-          />
-          {customerId && (
-            <Button variant="ghost" className="mt-2 text-rose-600" onClick={() => { setCustomerId(""); setCustomerPickerOpen(false); }}>
-              <X className="mr-1 h-4 w-4" /> কাস্টমার সরান
+          <div className="space-y-3">
+            <div>
+              <Label>নাম *</Label>
+              <Input
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
+                placeholder="কাস্টমারের নাম"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label>ফোন</Label>
+              <Input
+                value={quickPhone}
+                onChange={(e) => setQuickPhone(e.target.value)}
+                placeholder="01XXXXXXXXX"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickAddOpen(false)}>বাতিল</Button>
+            <Button
+              disabled={!quickName.trim() || quickAddM.isPending}
+              onClick={() => quickAddM.mutate()}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              <UserPlus className="mr-1 h-4 w-4" /> যোগ করুন
             </Button>
-          )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -767,7 +854,7 @@ function Page() {
             </Button>
             <Button
               disabled={m.isPending}
-              onClick={submit}
+              onClick={() => submit()}
               className="bg-orange-500 hover:bg-orange-600"
             >
               <Plus className="mr-1 h-4 w-4" /> বিক্রয় নিশ্চিত করুন
