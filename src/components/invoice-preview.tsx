@@ -32,6 +32,8 @@ export function InvoicePreview({
   installments,
   domId = "pos-invoice-preview",
   className,
+  onRegenerateLink,
+  regenerating = false,
 }: InvoicePreviewProps) {
   const items = sale?.items ?? [];
   const primary = tpl?.primary_color ?? "#0f766e";
@@ -40,6 +42,24 @@ export function InvoicePreview({
   const logoSrc = (tpl?.show_logo !== false) ? (tpl?.logo_url || shop?.logo_url) : null;
   const cancelled = sale?.status === "cancelled";
   const returned = sale?.status === "returned" || sale?.status === "partial_return";
+  const showQr = tpl?.show_qr !== false;
+  const isValidHttpUrl = !!publicUrl && /^https?:\/\/\S+\/i\/[0-9a-f-]{8,}/i.test(publicUrl);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelledFlag = false;
+    if (!showQr || !isValidHttpUrl || !publicUrl) { setQrDataUrl(null); setQrError(null); return; }
+    // High error-correction + 512px raster => crisp on screen, print, PDF.
+    QRCode.toDataURL(publicUrl, {
+      errorCorrectionLevel: "H",
+      margin: 1,
+      width: 512,
+      color: { dark: "#0f172a", light: "#ffffff" },
+    })
+      .then((url) => { if (!cancelledFlag) { setQrDataUrl(url); setQrError(null); } })
+      .catch((e) => { if (!cancelledFlag) { setQrError(String(e?.message ?? e)); setQrDataUrl(null); } });
+    return () => { cancelledFlag = true; };
+  }, [publicUrl, showQr, isValidHttpUrl]);
 
   return (
     <div
