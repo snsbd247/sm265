@@ -1018,6 +1018,7 @@ function SuccessDialog({
   });
   const tpl = { ...DEFAULT_TEMPLATE, ...(tplQ.data ?? {}) } as any;
   const sale: any = q.data?.sale;
+  const shop: any = q.data?.shop;
   const customer = sale?.customer;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = sale?.share_token ? `${origin}/i/${sale.share_token}` : "";
@@ -1143,7 +1144,7 @@ function SuccessDialog({
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
           <div className="space-y-3 max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
-            <InvoicePreview sale={sale} tpl={tpl} publicUrl={publicUrl} />
+            <InvoicePreview sale={sale} shop={shop} tpl={tpl} publicUrl={publicUrl} />
 
             <div className="flex flex-wrap gap-2 print:hidden">
               <Button size="sm" variant="outline" onClick={printInvoice} className="flex-1 min-w-[110px]">
