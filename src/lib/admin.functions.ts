@@ -832,3 +832,92 @@ export const resetAdminPassword = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------- Admin dashboard extras (charts + drilldowns) ----------
+export const getAdminExtras = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ days: z.number().int().min(7).max(365).default(30) }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const days: string[] = [];
+    for (let i = data.days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const from = days[0];
+    const fromIso = new Date(from + "T00:00:00").toISOString();
+
+    const [shops, payments, packages, expiring, smsRows] = await Promise.all([
+      supabaseAdmin.from("shops").select("id, status, package_id, created_at, subscription_end, name, owner_name"),
+      supabaseAdmin.from("subscription_payments").select("amount, created_at, status").eq("status", "success").gte("created_at", fromIso),
+      supabaseAdmin.from("packages").select("id, name"),
+      supabaseAdmin.from("shops").select("id, name, owner_name, subscription_end, status")
+        .in("status", ["active", "expired"]).order("subscription_end", { ascending: true }).limit(10),
+      supabaseAdmin.from("sms_logs").select("status, created_at").gte("created_at", fromIso),
+    ]);
+
+    const shopRows = (shops.data ?? []) as any[];
+    const payRows = (payments.data ?? []) as any[];
+    const pkgRows = (packages.data ?? []) as any[];
+
+    // trend maps
+    const shopMap = new Map<string, number>();
+    const revenueMap = new Map<string, number>();
+    for (const d of days) { shopMap.set(d, 0); revenueMap.set(d, 0); }
+    for (const s of shopRows) {
+      const d = String(s.created_at).slice(0, 10);
+      if (shopMap.has(d)) shopMap.set(d, (shopMap.get(d) ?? 0) + 1);
+    }
+    for (const p of payRows) {
+      const d = String(p.created_at).slice(0, 10);
+      if (revenueMap.has(d)) revenueMap.set(d, (revenueMap.get(d) ?? 0) + Number(p.amount || 0));
+    }
+    const trend = days.map((d) => ({
+      date: d,
+      shops: shopMap.get(d) ?? 0,
+      revenue: revenueMap.get(d) ?? 0,
+    }));
+
+    // status breakdown
+    const statusBreakdown = ["active", "expired", "locked", "suspended", "pending"].map((s) => ({
+      status: s,
+      count: shopRows.filter((r) => r.status === s).length,
+    }));
+
+    // top packages
+    const pkgName = new Map(pkgRows.map((p) => [p.id, p.name]));
+    const pkgCount = new Map<string, number>();
+    for (const s of shopRows) {
+      const k = s.package_id ?? "none";
+      pkgCount.set(k, (pkgCount.get(k) ?? 0) + 1);
+    }
+    const topPackages = Array.from(pkgCount.entries())
+      .map(([id, count]) => ({ id, name: pkgName.get(id) ?? "—", count }))
+      .sort((a, b) => b.count - a.count).slice(0, 6);
+
+    // sms stats
+    const smsAll = (smsRows.data ?? []) as any[];
+    const smsStats = {
+      total: smsAll.length,
+      sent: smsAll.filter((r) => r.status === "sent").length,
+      failed: smsAll.filter((r) => r.status === "failed").length,
+    };
+
+    // revenue total (period)
+    const revenuePeriod = payRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+    return {
+      trend,
+      statusBreakdown,
+      topPackages,
+      upcomingExpirations: expiring.data ?? [],
+      smsStats,
+      revenuePeriod,
+      newShopsPeriod: trend.reduce((s, t) => s + t.shops, 0),
+    };
+  });
