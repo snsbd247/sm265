@@ -143,8 +143,18 @@ function Page() {
         <DialogContent>
           <DialogHeader><DialogTitle>শিফট বন্ধ</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-lg bg-slate-50 p-3 text-sm">
-              <div className="flex justify-between"><span>প্রত্যাশিত ক্যাশ</span><b>{money(totals?.expected_cash)}</b></div>
+            <div className="rounded-lg border bg-slate-50 p-3 text-sm space-y-1.5">
+              <div className="flex justify-between"><span>বিক্রয় সংখ্যা</span><b>{totals?.count ?? 0}</b></div>
+              <div className="flex justify-between"><span>মোট বিক্রয়</span><b>{money(totals?.total_sales)}</b></div>
+              <div className="my-1 border-t" />
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">পেমেন্ট মেথড ব্রেকডাউন</div>
+              <div className="flex justify-between"><span>নগদ</span><b>{money(totals?.cash)}</b></div>
+              <div className="flex justify-between"><span>কার্ড</span><b>{money(totals?.card)}</b></div>
+              <div className="flex justify-between"><span>বিকাশ</span><b>{money(totals?.bkash)}</b></div>
+              <div className="flex justify-between"><span>ব্যাংক</span><b>{money(totals?.bank)}</b></div>
+              <div className="my-1 border-t" />
+              <div className="flex justify-between"><span>প্রারম্ভিক ক্যাশ</span><b>{money(shift?.opening_cash)}</b></div>
+              <div className="flex justify-between text-base"><span>প্রত্যাশিত ক্যাশ</span><b>{money(totals?.expected_cash)}</b></div>
             </div>
             <div>
               <Label>প্রকৃত গণনাকৃত ক্যাশ (৳)</Label>
@@ -154,16 +164,41 @@ function Page() {
               <Label>নোট</Label>
               <Textarea rows={2} value={closeNote} onChange={(e) => setCloseNote(e.target.value)} placeholder="যেমন: শর্ট/এক্সট্রা কারণ" />
             </div>
-            <div className="text-sm">
-              ভ্যারিয়েন্স:{" "}
-              <b className={closingCash - (totals?.expected_cash ?? 0) < 0 ? "text-rose-600" : "text-emerald-600"}>
-                {money(closingCash - (totals?.expected_cash ?? 0))}
-              </b>
-            </div>
+            {(() => {
+              const variance = closingCash - (totals?.expected_cash ?? 0);
+              const abs = Math.abs(variance);
+              if (abs < 0.01) {
+                return (
+                  <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    ✅ ক্যাশ ঠিকঠাক মিলেছে। ভ্যারিয়েন্স: <b>{money(0)}</b>
+                  </div>
+                );
+              }
+              return (
+                <div className={`rounded-md border px-3 py-2 text-sm ${variance < 0 ? "border-rose-300 bg-rose-50 text-rose-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>
+                  ⚠️ ক্যাশ মিল নেই। ভ্যারিয়েন্স: <b>{money(variance)}</b> ({variance < 0 ? "শর্ট" : "এক্সট্রা"})।
+                  <div className="mt-1 text-[11px]">কারণ নোটে উল্লেখ করুন — এটি অডিটে সংরক্ষিত হবে।</div>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCloseDlg(false)}>বাতিল</Button>
-            <Button variant="destructive" onClick={() => closeM.mutate()} disabled={closeM.isPending}>বন্ধ করুন</Button>
+            <Button
+              variant="destructive"
+              onClick={() => closeM.mutate()}
+              disabled={
+                closeM.isPending ||
+                (Math.abs(closingCash - (totals?.expected_cash ?? 0)) >= 0.01 && closeNote.trim().length < 3)
+              }
+              title={
+                Math.abs(closingCash - (totals?.expected_cash ?? 0)) >= 0.01 && closeNote.trim().length < 3
+                  ? "ভ্যারিয়েন্স থাকলে কারণ নোট বাধ্যতামূলক"
+                  : undefined
+              }
+            >
+              বন্ধ করুন
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

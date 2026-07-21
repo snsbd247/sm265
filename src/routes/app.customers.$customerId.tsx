@@ -161,10 +161,45 @@ function Page() {
         </>
       )}
 
+      {(() => {
+        const payments = entries.filter((e: any) => e.type === "payment");
+        if (payments.length === 0) return null;
+        return (
+          <>
+            <h2 className="mt-8 text-lg font-bold">পেমেন্ট হিস্টরি</h2>
+            <div className="mt-3 overflow-x-auto rounded-xl border bg-card">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="bg-muted/50 text-left">
+                  <tr>
+                    <th className="px-4 py-3">তারিখ</th>
+                    <th className="px-4 py-3">বিবরণ</th>
+                    <th className="px-4 py-3 text-right">পরিমাণ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...payments].reverse().map((p: any, i: number) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-4 py-3 whitespace-nowrap">{(p.date ?? "").slice(0, 10)}</td>
+                      <td className="px-4 py-3">{p.description}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-emerald-600">{money(p.credit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
+
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>পেমেন্ট গ্রহণ — {c.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>পেমেন্ট গ্রহণ — {c.name}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-3">
+            <div className="rounded-md border bg-slate-50 p-2 text-xs">
+              বর্তমান বকেয়া: <b className={Number(balance) > 0 ? "text-orange-600" : "text-emerald-600"}>{money(balance)}</b>
+            </div>
             <div><Label>পরিমাণ (৳)</Label><Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></div>
             <div>
               <Label>পেমেন্ট মেথড</Label>
