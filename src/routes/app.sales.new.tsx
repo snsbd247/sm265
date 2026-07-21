@@ -778,6 +778,35 @@ function Page() {
         sendSmsFn={sendSmsFn}
         onNewSale={() => { setSuccessOpen(false); clearCart(); barcodeRef.current?.focus(); }}
         onOpenFullReceipt={(id) => nav({ to: "/app/sales/$saleId", params: { saleId: id } })}
+        onEdit={async (sale) => {
+          if (!confirm("বর্তমান বিক্রয়টি বাতিল করে সম্পাদনার জন্য কার্টে ফেরত আনা হবে। চালিয়ে যাবেন?")) return;
+          try {
+            await cancelFn({ data: { sale_id: sale.id, reason: "Edit before finalize" } });
+            // Restore cart lines from sale
+            const restored: Line[] = (sale.items ?? []).map((it: any) => ({
+              product_id: it.product_id,
+              name: it.product?.name ?? "-",
+              sku: it.product?.sku ?? "",
+              unit_price: Number(it.unit_price ?? 0),
+              unit_cost: Number(it.unit_cost ?? 0),
+              quantity: Number(it.quantity ?? 1),
+              stock: Number(it.product?.stock_quantity ?? 999999),
+              discount_amount: Number(it.discount_amount ?? 0),
+              image_url: it.product?.image_url ?? null,
+            }));
+            setLines(restored);
+            if (sale.customer_id) setCustomerId(sale.customer_id);
+            if (sale.discount) setDiscount(Number(sale.discount) || 0);
+            if (sale.note) setNote(sale.note);
+            setSaleType(sale.sale_type || "cash");
+            setSuccessOpen(false);
+            qc.invalidateQueries({ queryKey: ["products"] });
+            qc.invalidateQueries({ queryKey: ["sales"] });
+            toast.success("বিক্রয় বাতিল হয়েছে — কার্টে সম্পাদনা করুন");
+          } catch (e: any) {
+            toast.error(e?.message ?? "বাতিল ব্যর্থ");
+          }
+        }}
       />
       <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
     </div>
