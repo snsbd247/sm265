@@ -731,7 +731,7 @@ export const getPaymentReceipt = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pay, error } = await supabaseAdmin
       .from("subscription_payments")
-      .select("*, shop:shops(name, owner_name, phone, email, address, package:packages(name)), subscription:subscriptions(billing_cycle, starts_at, ends_at, package:packages(name))")
+      .select("*, shop:shops(name, owner_name, phone, email, address, package:packages!package_id(name)), subscription:subscriptions(billing_cycle, starts_at, ends_at, package:packages(name))")
       .eq("id", data.payment_id)
       .single();
     if (error) throw new Error(error.message);
