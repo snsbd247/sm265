@@ -145,6 +145,7 @@ const saleSchema = z.object({
   installments: z.number().int().min(1).max(60).optional().nullable(),
   installment_frequency: z.enum(["weekly", "monthly"]).default("monthly").optional(),
   installment_start: z.string().optional().nullable(),
+  idempotency_key: z.string().trim().min(8).max(80).optional().nullable(),
 });
 
 export const createSale = createServerFn({ method: "POST" })
@@ -152,6 +153,12 @@ export const createSale = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => saleSchema.parse(d))
   .handler(async ({ data, context }) => {
     const shopId = await getShopId(context);
+    // Idempotency: same shop + key returns the previously created sale.
+    if (data.idempotency_key) {
+      const { data: existing } = await context.supabase.from("sales")
+        .select("id").eq("shop_id", shopId).eq("idempotency_key", data.idempotency_key).maybeSingle();
+      if (existing?.id) return { ok: true, id: existing.id, duplicate: true };
+    }
     // Enforce monthly invoice count + amount limits before creating the sale
     const saleTotal = data.items.reduce((s, it) => {
       const line = it.quantity * it.unit_price - (it.discount_amount ?? 0);
@@ -180,7 +187,33 @@ export const createSale = createServerFn({ method: "POST" })
       _installment_start: data.installment_start ?? null,
     } as any);
     if (error) throw new Error(error.message);
-    return { ok: true, id: sid };
+    // Persist payment breakdown snapshot + idempotency key for retries
+    const breakdown = {
+      sale_type: data.sale_type,
+      method: data.payment_method,
+      total: Math.round(saleTotal * 100) / 100,
+      paid_now: data.paid,
+      due: Math.max(0, Math.round((saleTotal - data.paid) * 100) / 100),
+      installments: data.sale_type === "installment" ? (data.installments ?? 0) : 0,
+      installment_frequency: data.sale_type === "installment" ? (data.installment_frequency ?? "monthly") : null,
+      is_partial: data.sale_type !== "cash" && data.paid > 0 && data.paid < saleTotal,
+    };
+    try {
+      await context.supabase.from("sales").update({
+        payment_breakdown: breakdown,
+        idempotency_key: data.idempotency_key ?? null,
+      }).eq("id", sid);
+    } catch { /* non-fatal */ }
+    // Fire-and-forget audit log for the sale + payment breakdown
+    try {
+      const { logAudit } = await import("./audit.server");
+      await logAudit({
+        actor_user_id: context.userId, shop_id: shopId,
+        action: "invoice.created", target_type: "sale", target_id: sid,
+        details: { breakdown, invoice_no: data.invoice_no ?? null, customer_id: data.customer_id ?? null },
+      });
+    } catch { /* non-fatal */ }
+    return { ok: true, id: sid, duplicate: false };
   });
 
 /* -------- Cancel & Return -------- */
