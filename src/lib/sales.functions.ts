@@ -131,6 +131,8 @@ const saleSchema = z.object({
     quantity: z.number().positive(),
     unit_price: z.number().nonnegative(),
     unit_cost: z.number().nonnegative().optional().nullable(),
+    discount_amount: z.number().nonnegative().optional().default(0),
+    tax_rate: z.number().nonnegative().optional().default(0),
   })).min(1),
   installments: z.number().int().min(1).max(60).optional().nullable(),
   installment_frequency: z.enum(["weekly", "monthly"]).default("monthly").optional(),
@@ -159,6 +161,57 @@ export const createSale = createServerFn({ method: "POST" })
     } as any);
     if (error) throw new Error(error.message);
     return { ok: true, id: sid };
+  });
+
+/* -------- Cancel & Return -------- */
+
+export const cancelSale = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    sale_id: z.string().uuid(),
+    reason: z.string().max(300).optional().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await getShopId(context);
+    const { error } = await context.supabase.rpc("cancel_sale", {
+      _sale_id: data.sale_id, _reason: data.reason ?? null,
+    } as any);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const createSaleReturn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    sale_id: z.string().uuid(),
+    items: z.array(z.object({
+      sale_item_id: z.string().uuid(),
+      quantity: z.number().positive(),
+    })).min(1),
+    refund_amount: z.number().nonnegative().default(0),
+    refund_method: z.enum(["cash", "card", "bkash", "bank"]).default("cash"),
+    reason: z.string().max(300).optional().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await getShopId(context);
+    const { data: id, error } = await context.supabase.rpc("create_sale_return", {
+      _sale_id: data.sale_id, _items: data.items,
+      _refund_amount: data.refund_amount, _refund_method: data.refund_method,
+      _reason: data.reason ?? null,
+    } as any);
+    if (error) throw new Error(error.message);
+    return { ok: true, id };
+  });
+
+export const listSaleReturns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sale_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await getShopId(context);
+    const { data: rows } = await context.supabase.from("sale_returns")
+      .select("*, items:sale_return_items(*, product:products(name))")
+      .eq("sale_id", data.sale_id).order("created_at", { ascending: false });
+    return rows ?? [];
   });
 
 export const listSales = createServerFn({ method: "GET" })

@@ -530,6 +530,80 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_shifts: {
+        Row: {
+          bank_sales_total: number
+          bkash_sales_total: number
+          card_sales_total: number
+          cash_sales_total: number
+          closed_at: string | null
+          closing_cash_actual: number | null
+          closing_cash_expected: number
+          created_at: string
+          id: string
+          note: string | null
+          opened_at: string
+          opened_by: string
+          opening_cash: number
+          other_sales_total: number
+          sales_count: number
+          shop_id: string
+          status: string
+          total_sales: number
+          variance: number | null
+        }
+        Insert: {
+          bank_sales_total?: number
+          bkash_sales_total?: number
+          card_sales_total?: number
+          cash_sales_total?: number
+          closed_at?: string | null
+          closing_cash_actual?: number | null
+          closing_cash_expected?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_cash?: number
+          other_sales_total?: number
+          sales_count?: number
+          shop_id: string
+          status?: string
+          total_sales?: number
+          variance?: number | null
+        }
+        Update: {
+          bank_sales_total?: number
+          bkash_sales_total?: number
+          card_sales_total?: number
+          cash_sales_total?: number
+          closed_at?: string | null
+          closing_cash_actual?: number | null
+          closing_cash_expected?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_cash?: number
+          other_sales_total?: number
+          sales_count?: number
+          shop_id?: string
+          status?: string
+          total_sales?: number
+          variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_shifts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           barcode: string | null
@@ -760,34 +834,43 @@ export type Database = {
       sale_items: {
         Row: {
           created_at: string
+          discount_amount: number
           id: string
           line_total: number
           product_id: string
           quantity: number
           sale_id: string
           shop_id: string
+          tax_amount: number
+          tax_rate: number
           unit_cost: number | null
           unit_price: number
         }
         Insert: {
           created_at?: string
+          discount_amount?: number
           id?: string
           line_total: number
           product_id: string
           quantity: number
           sale_id: string
           shop_id: string
+          tax_amount?: number
+          tax_rate?: number
           unit_cost?: number | null
           unit_price: number
         }
         Update: {
           created_at?: string
+          discount_amount?: number
           id?: string
           line_total?: number
           product_id?: string
           quantity?: number
           sale_id?: string
           shop_id?: string
+          tax_amount?: number
+          tax_rate?: number
           unit_cost?: number | null
           unit_price?: number
         }
@@ -815,12 +898,132 @@ export type Database = {
           },
         ]
       }
+      sale_return_items: {
+        Row: {
+          created_at: string
+          id: string
+          line_total: number
+          product_id: string
+          quantity: number
+          return_id: string
+          sale_item_id: string | null
+          shop_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_total: number
+          product_id: string
+          quantity: number
+          return_id: string
+          sale_item_id?: string | null
+          shop_id: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_total?: number
+          product_id?: string
+          quantity?: number
+          return_id?: string
+          sale_item_id?: string | null
+          shop_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_return_items_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "sale_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_return_items_sale_item_id_fkey"
+            columns: ["sale_item_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_return_items_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_returns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          reason: string | null
+          refund_amount: number
+          refund_method: string
+          return_date: string
+          sale_id: string
+          shop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          reason?: string | null
+          refund_amount?: number
+          refund_method?: string
+          return_date?: string
+          sale_id: string
+          shop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          reason?: string | null
+          refund_amount?: number
+          refund_method?: string
+          return_date?: string
+          sale_id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_returns_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_returns_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           created_at: string
           created_by: string | null
           customer_id: string | null
           discount: number
+          discount_type: string
           due: number
           id: string
           invoice_no: string | null
@@ -829,8 +1032,11 @@ export type Database = {
           payment_method: string
           sale_date: string
           sale_type: string
+          shift_id: string | null
           shop_id: string
+          status: string
           subtotal: number
+          tax_amount: number
           total: number
         }
         Insert: {
@@ -838,6 +1044,7 @@ export type Database = {
           created_by?: string | null
           customer_id?: string | null
           discount?: number
+          discount_type?: string
           due?: number
           id?: string
           invoice_no?: string | null
@@ -846,8 +1053,11 @@ export type Database = {
           payment_method?: string
           sale_date?: string
           sale_type?: string
+          shift_id?: string | null
           shop_id: string
+          status?: string
           subtotal?: number
+          tax_amount?: number
           total?: number
         }
         Update: {
@@ -855,6 +1065,7 @@ export type Database = {
           created_by?: string | null
           customer_id?: string | null
           discount?: number
+          discount_type?: string
           due?: number
           id?: string
           invoice_no?: string | null
@@ -863,8 +1074,11 @@ export type Database = {
           payment_method?: string
           sale_date?: string
           sale_type?: string
+          shift_id?: string | null
           shop_id?: string
+          status?: string
           subtotal?: number
+          tax_amount?: number
           total?: number
         }
         Relationships: [
@@ -891,6 +1105,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit_balance: number
+          default_tax_rate: number
           email: string | null
           id: string
           logo_url: string | null
@@ -903,6 +1118,7 @@ export type Database = {
           status: Database["public"]["Enums"]["shop_status"]
           subscription_end: string | null
           subscription_start: string | null
+          tax_inclusive: boolean
           updated_at: string
         }
         Insert: {
@@ -911,6 +1127,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_balance?: number
+          default_tax_rate?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -923,6 +1140,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["shop_status"]
           subscription_end?: string | null
           subscription_start?: string | null
+          tax_inclusive?: boolean
           updated_at?: string
         }
         Update: {
@@ -931,6 +1149,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_balance?: number
+          default_tax_rate?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -943,6 +1162,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["shop_status"]
           subscription_end?: string | null
           subscription_start?: string | null
+          tax_inclusive?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1457,6 +1677,14 @@ export type Database = {
         }
         Returns: string
       }
+      cancel_sale: {
+        Args: { _reason: string; _sale_id: string }
+        Returns: undefined
+      }
+      close_shift: {
+        Args: { _closing_cash_actual: number; _note: string; _shift_id: string }
+        Returns: undefined
+      }
       create_purchase: {
         Args: {
           _discount: number
@@ -1489,6 +1717,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_sale_return: {
+        Args: {
+          _items: Json
+          _reason: string
+          _refund_amount: number
+          _refund_method: string
+          _sale_id: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1501,6 +1739,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      open_shift: {
+        Args: { _note: string; _opening_cash: number; _shop_id: string }
+        Returns: string
+      }
       pay_supplier: {
         Args: {
           _amount: number

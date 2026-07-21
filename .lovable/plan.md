@@ -1,112 +1,74 @@
-# ইনভয়েস-ভিত্তিক শপ তৈরি ও প্যাকেজ আপগ্রেড (Prorated Billing)
+# POS Enhancement Plan
 
-## লক্ষ্য
-- নতুন শপ তৈরির সাথে সাথে **Invoice জেনারেট** হবে। পেমেন্ট না হওয়া পর্যন্ত শপ **`pending_payment` (locked)** অবস্থায় থাকবে — লগইন করা যাবে কিন্তু ড্যাশবোর্ডে শুধু "ইনভয়েস পরিশোধ করুন" স্ক্রিন দেখাবে।
-- প্যাকেজ পরিবর্তন করলে **আগের প্যাকেজের অব্যবহৃত মূল্য ক্যালকুলেট** করে পার্থক্যের ইনভয়েস তৈরি হবে। ইনভয়েস পরিশোধের আগ পর্যন্ত পুরনো প্যাকেজ সক্রিয় থাকবে; পরিশোধের পর নতুন প্যাকেজ activate হবে।
+চারটি বড় ফিচার — ধাপে ধাপে বিল্ড করব।
 
-## অতিরিক্ত সাজেশন (আমার সুপারিশ)
-1. **Downgrade rule**: নতুন প্যাকেজ সস্তা হলে টাকা রিফান্ড না দিয়ে **credit balance** হিসেবে জমা রাখুন — পরের রিনিউয়ালে adjust হবে। রিফান্ড না দেওয়াই সাধারণ SaaS practice।
-2. **Same-package cycle change** (monthly → yearly): শুধু পার্থক্যের ইনভয়েস (yearly price − remaining monthly value)।
-3. **Grace period**: `subscription_end` পার হওয়ার পরে ৩ দিন grace — এর মধ্যে পরিশোধ করলে আগের `end_date` থেকে extend হবে, নাহলে current date থেকে।
-4. **Invoice number**: human-readable sequential (`INV-2026-000123`) — শুধু UUID না।
-5. **Invoice PDF / print**: এডমিন ও শপ দুই side থেকেই ডাউনলোডযোগ্য (আপনার existing `admin.invoices.en.$subscriptionId.tsx` reuse)।
-6. **Auto-lock cron**: `subscription_end + grace` পার হলে auto-expire (already partially exists — এতে integrate)।
-7. **Pending upgrade cancel**: শপ owner চাইলে unpaid upgrade invoice cancel করে আগের প্যাকেজেই থাকতে পারবে।
-8. **Audit trail**: প্রতিটি package change (who/when/from/to/prorated amount) `subscriptions` টেবিলেই note ফিল্ডে save।
+## 1. আইটেম/অর্ডার ডিসকাউন্ট + VAT/ট্যাক্স
 
-## ডাটা মডেল পরিবর্তন
+**DB (migration):**
+- `sale_items`: `discount_amount NUMERIC DEFAULT 0`, `tax_rate NUMERIC DEFAULT 0`, `tax_amount NUMERIC DEFAULT 0` যোগ।
+- `sales`: `tax_amount NUMERIC DEFAULT 0`, `discount_type TEXT DEFAULT 'flat'` (flat/percent) যোগ।
+- `shops`: `default_tax_rate NUMERIC DEFAULT 0`, `tax_inclusive BOOLEAN DEFAULT false` যোগ।
+- `create_sale` RPC আপডেট — per-item discount ও tax গণনা, subtotal/total এ রিফ্লেক্ট।
 
-### `shops` টেবিল
-- নতুন status value: **`pending_payment`** (enum-এ যোগ)। অর্থ: অ্যাকাউন্ট আছে কিন্তু initial invoice unpaid।
-- নতুন কলাম: `credit_balance NUMERIC DEFAULT 0` — downgrade credit।
-- নতুন কলাম: `pending_package_id UUID`, `pending_billing_cycle TEXT` — approved হওয়ার অপেক্ষায় থাকা upgrade।
+**UI:**
+- POS কার্ট আইটেমে ছোট "%" আইকন → per-item discount input popover।
+- চেকআউট ডায়ালগে: অর্ডার ডিসকাউন্ট (flat/percent টগল), VAT % ইনপুট (শপ ডিফল্ট প্রি-ফিলড), লাইভ ব্রেকডাউন (Subtotal, Item Disc, Order Disc, Tax, Total)।
+- Receipt এ ডিসকাউন্ট/ট্যাক্স লাইন।
 
-### `subscription_payments` টেবিল
-- নতুন কলাম: `invoice_no TEXT UNIQUE` — human-readable।
-- নতুন কলাম: `invoice_type TEXT` — `initial | renewal | upgrade | downgrade`।
-- নতুন কলাম: `proration_details JSONB` — { old_pkg, new_pkg, days_used, unused_value, credit_applied, net_amount }।
-- নতুন কলাম: `due_date DATE` — invoice payment deadline।
+## 2. অর্ডার ক্যান্সেল/রিটার্ন
 
-### Sequence
-- `CREATE SEQUENCE invoice_seq;` — invoice number জেনারেশনের জন্য।
+**DB:**
+- `sales.status TEXT DEFAULT 'completed'` (completed/cancelled/returned/partial_return)।
+- নতুন টেবিল `sale_returns` (id, shop_id, sale_id, return_date, reason, refund_amount, refund_method, created_by)।
+- `sale_return_items` (id, return_id, sale_item_id, product_id, quantity, unit_price, line_total)।
+- RPC `cancel_sale(_sale_id)` — completed → cancelled, stock restore, customer balance reverse, payment reverse।
+- RPC `create_sale_return(_sale_id, _items, _refund_amount, _refund_method, _reason)` — partial/full return, stock_movement 'return_in', customer refund/credit।
 
-## Server functions পরিবর্তন
+**UI:**
+- `/app/sales/$saleId`: "ক্যান্সেল" ও "রিটার্ন" বাটন (status অনুযায়ী disabled)।
+- Return dialog: প্রতি আইটেমে রিটার্ন quantity ইনপুট + refund method।
+- সেলস লিস্টে status badge।
+- Success এ products + notifications invalidate → লো-স্টক ব্যাজ auto-refresh।
 
-### `createShop` (rewrite)
-- `status: 'pending_payment'` set করবে (আগের `'active'` না)।
-- `subscription_end` এখনই set করবে **না** — payment approve হলে set হবে।
-- সাথে সাথে `subscription_payments` এ pending invoice তৈরি করবে:
-  - `invoice_no`: `INV-YYYY-NNNNNN`
-  - `invoice_type: 'initial'`
-  - `amount`: package monthly/yearly price
-  - `due_date`: 7 দিন পরে
-- Existing `account_created` SMS-এ invoice_no + amount যোগ।
+## 3. শিফট (ক্যাশ ড্রয়ার)
 
-### `upgradeShopPackage` (rewrite → `requestPackageChange`)
-- **Proration logic**:
-  ```
-  total_days = billing_cycle অনুযায়ী period days (30 বা 365)
-  used_days = today − subscription_start
-  remaining_days = total_days − used_days
-  old_daily = old_amount / total_days
-  unused_value = old_daily × remaining_days
-  new_amount = new_package price (new cycle)
-  net = new_amount − unused_value − shop.credit_balance
-  ```
-- `net > 0` → **upgrade invoice** তৈরি (`invoice_type: 'upgrade'`), `pending_package_id` + `pending_billing_cycle` set, শপ status **পরিবর্তন হবে না**।
-- `net ≤ 0` → **downgrade**: immediate switch, `credit_balance += |net|`, subscription টেবিলে log।
+**DB:**
+- `pos_shifts` (id, shop_id, opened_by, opened_at, closed_at, opening_cash, closing_cash_expected, closing_cash_actual, cash_sales_total, card_sales_total, bkash_sales_total, other_sales_total, total_sales, note, status)।
+- `sales.shift_id UUID NULLABLE` — বিক্রয়ের সাথে অ্যাসাইন।
+- RPC `open_shift(_opening_cash, _note)` — একটাই open shift/user।
+- RPC `close_shift(_shift_id, _closing_cash_actual, _note)` — সব সেল অ্যাগ্রিগেট।
 
-### `approveSubscriptionPayment` (extend)
-- `invoice_type` চেক করে:
-  - `initial`: `pending_payment → active`, subscription_start = today, end = today + period।
-  - `renewal`: existing behavior।
-  - `upgrade`: `pending_package_id` → `package_id`, নতুন period শুরু, `pending_*` clear।
-- Credit balance ব্যবহার হয়ে থাকলে shop.credit_balance = 0।
+**UI:**
+- নতুন রুট `/app/shifts` — শিফট লিস্ট + ওপেন/ক্লোজ বাটন।
+- POS পেজ: শিফট open না থাকলে "শিফট শুরু করুন" মোডাল (opening cash), সেল ব্লক।
+- শিফট ক্লোজ মোডাল: expected vs actual cash, variance, সামারি।
+- সাইডবার Sales গ্রুপে "শিফট" মেনু।
 
-### নতুন: `cancelPendingUpgrade`
-- Shop owner unpaid upgrade invoice cancel করতে পারবে। `pending_package_id` clear, invoice `status: 'cancelled'`।
+## 4. কাস্টমার লেজার পেজ
 
-## Frontend পরিবর্তন
+**Backend:** `getCustomerLedger` (আছে) — লেজার এন্ট্রি + বকেয়া সামারি।
 
-### Admin: `admin.shops.tsx` (Create dialog)
-- Create করার পর success toast-এ invoice_no + amount দেখাবে।
-- Shop card-এ `pending_payment` badge (orange)।
+**UI:**
+- নতুন রুট `/app/customers/$customerId` — 
+  - হেডার: নাম, ফোন, মোট বকেয়া, লাইফটাইম বিক্রয়।
+  - ট্যাব: লেজার (debit/credit/balance টেবিল), সেলস হিস্টরি, ইনস্টলমেন্ট, পেমেন্টস।
+  - "পেমেন্ট গ্রহণ" বাটন → existing receiveCustomerPayment ডায়ালগ।
+  - CSV এক্সপোর্ট, প্রিন্ট।
+- `app.customers.tsx` লিস্টে প্রতি রো ক্লিকে লেজারে যাবে।
+- POS এ কাস্টমার সিলেক্ট করলে "লেজার দেখুন" লিংক।
 
-### Admin: `admin.shops.$shopId.tsx`
-- "প্যাকেজ পরিবর্তন" dialog: নতুন package/cycle select করলে **প্রিভিউ কার্ড** দেখাবে:
-  - পুরনো প্যাকেজে কতদিন ব্যবহার হয়েছে
-  - অব্যবহৃত মূল্য (unused_value)
-  - Credit balance
-  - **নেট payable**
-- Confirm করলে invoice তৈরি, "পরিশোধের অপেক্ষায়" badge।
-- Pending upgrade থাকলে top-এ alert banner + "Cancel Pending" বাটন।
+## ধাপক্রম (এই টার্নে সব বিল্ড)
 
-### Shop-side: `app.tsx` layout guard
-- `shop.status === 'pending_payment'` হলে সব `/app/*` route redirect → `/app/pay-invoice`।
-- নতুন route `app.pay-invoice.tsx`: unpaid initial invoice দেখাবে, bKash pay বাটন (existing `initiateBkashPayment` reuse) + manual TrxID submit।
+1. Migration — সব DB পরিবর্তন এক ব্যাচে।
+2. Server functions — shifts, returns, ledger helpers।
+3. UI — POS আপডেট, নতুন রুট, নেভিগেশন।
+4. QA — বিল্ড ও কী flows verify।
 
-### Shop-side: `app.subscription.tsx`
-- Pending upgrade থাকলে top-এ prominent card: "নতুন প্যাকেজ approve-এর অপেক্ষায় — invoice #XXX, ৳YYY"।
-- Pay/Cancel বাটন।
+## Technical Notes
 
-### Invoice view: `admin.invoices.en.$subscriptionId.tsx` extend
-- `invoice_type` অনুযায়ী breakdown (Proration table upgrade-এর জন্য)।
+- Idempotency: cancel/return RPC গুলোতে status check।
+- Shift enforcement: server-side check `create_sale`-এ open shift না থাকলে reject।
+- Tax formula: `line = qty * price - item_disc; tax = line * rate/100; total = Σline + Σtax - order_disc`।
+- Backward compat: existing sales এ status default 'completed', shift_id NULL allowed।
 
-## Cron / background
-- `api/public/cron/expiry-check.ts`: `pending_payment` invoices যেগুলোর due_date পার — শপ owner-কে reminder SMS পাঠাবে (৩, ৭, ১৪ দিন পর)। ১৪ দিন পার হলে invoice auto-cancel + শপ soft-delete flag।
-
-## Migration ধাপ
-1. `shops.status` enum-এ `pending_payment` যোগ, `credit_balance`, `pending_package_id`, `pending_billing_cycle` columns।
-2. `subscription_payments`-এ `invoice_no`, `invoice_type`, `proration_details`, `due_date` columns; `invoice_seq` sequence; trigger যা INSERT-এ auto invoice_no set করবে।
-3. Existing rows-এর জন্য backfill (`invoice_type = 'renewal'`, invoice_no generate)।
-
-## রোলআউট ক্রম
-1. Migration (schema + trigger)।
-2. Server functions rewrite (`createShop`, upgrade flow, approve)।
-3. Admin UI (create dialog, upgrade preview, pending banner)।
-4. Shop UI (pay-invoice route, layout guard, subscription page pending card)।
-5. Cron reminder job।
-6. Playwright test: create shop → locked → pay → active; upgrade → invoice → old package thakbe → pay → new package active।
-
----
-**অনুমোদন দিলে ১ থেকে ৬ পর্যন্ত পর্যায়ক্রমে ইমপ্লিমেন্ট শুরু করবো।**
+শুরু করব?

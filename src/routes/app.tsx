@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog } from "lucide-react";
+import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog, Wallet } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 export const Route = createFileRoute("/app")({ ssr: false, component: AppLayout });
@@ -55,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/app/customers", label: "কাস্টমার", icon: Users },
       { to: "/app/sales", label: "বিক্রয়", icon: Receipt },
       { to: "/app/installments", label: "কিস্তি", icon: CalendarClock },
+      { to: "/app/shifts", label: "শিফট", icon: Wallet },
     ],
   },
   {
