@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, XCircle, RotateCcw, Printer } from "lucide-react";
 import { ReceiptShell } from "@/components/receipt-preview";
+import { SaleDeliveryHistory } from "@/components/invoice-delivery-history";
+import { SaleRevisionsList } from "@/components/sale-revisions-list";
 import {
   useReceiptConfig,
   receiptStyleCss,
@@ -229,6 +231,21 @@ function InvoicePage() {
       </ReceiptShell>
 
       <style>{receiptStyleCss(cfg)}</style>
+
+      <div className="mx-auto mt-4 grid max-w-md gap-4 px-2 print:hidden">
+        <section className="rounded-lg border bg-card p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SMS / ইমেইল হিস্ট্রি</div>
+          </div>
+          <SaleDeliveryHistory saleId={saleId} />
+        </section>
+        <section className="rounded-lg border bg-card p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">সম্পাদনার হিস্ট্রি</div>
+          </div>
+          <SaleRevisionsList saleId={saleId} />
+        </section>
+      </div>
 
       <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
         <DialogContent className="max-w-lg">
