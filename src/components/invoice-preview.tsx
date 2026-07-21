@@ -1,4 +1,6 @@
 import type React from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
@@ -11,6 +13,9 @@ export type InvoicePreviewProps = {
   installments?: any[];
   domId?: string;
   className?: string;
+  /** Called when the user taps "Regenerate link" in the QR fallback. */
+  onRegenerateLink?: () => void;
+  regenerating?: boolean;
 };
 
 /**
