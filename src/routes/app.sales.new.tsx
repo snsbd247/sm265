@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listCustomers, createSale, getSale, cancelSale } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
+import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
+import { snapshotSale } from "@/lib/sale-revisions.functions";
+import { getInvoiceTemplate, DEFAULT_TEMPLATE } from "@/lib/invoice-template.functions";
+import { SaleDeliveryHistory } from "@/components/invoice-delivery-history";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
@@ -16,7 +20,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
@@ -37,6 +41,8 @@ function Page() {
   const getSaleFn = useServerFn(getSale);
   const sendSmsFn = useServerFn(sendInvoiceLinkSms);
   const cancelFn = useServerFn(cancelSale);
+  const sendEmailFn = useServerFn(sendInvoiceLinkEmail);
+  const snapshotFn = useServerFn(snapshotSale);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
@@ -776,11 +782,13 @@ function Page() {
         saleId={lastSaleId}
         getSaleFn={getSaleFn}
         sendSmsFn={sendSmsFn}
+        sendEmailFn={sendEmailFn}
         onNewSale={() => { setSuccessOpen(false); clearCart(); barcodeRef.current?.focus(); }}
         onOpenFullReceipt={(id) => nav({ to: "/app/sales/$saleId", params: { saleId: id } })}
         onEdit={async (sale) => {
           if (!confirm("বর্তমান বিক্রয়টি বাতিল করে সম্পাদনার জন্য কার্টে ফেরত আনা হবে। চালিয়ে যাবেন?")) return;
           try {
+            try { await snapshotFn({ data: { sale_id: sale.id, reason: "Edit before finalize" } }); } catch { /* non-fatal */ }
             await cancelFn({ data: { sale_id: sale.id, reason: "Edit before finalize" } });
             // Restore cart lines from sale
             const restored: Line[] = (sale.items ?? []).map((it: any) => ({
@@ -814,13 +822,14 @@ function Page() {
 }
 
 function SuccessDialog({
-  open, onOpenChange, saleId, getSaleFn, sendSmsFn, onNewSale, onOpenFullReceipt, onEdit,
+  open, onOpenChange, saleId, getSaleFn, sendSmsFn, sendEmailFn, onNewSale, onOpenFullReceipt, onEdit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   saleId: string | null;
   getSaleFn: (args: { data: { id: string } }) => Promise<any>;
   sendSmsFn: (args: { data: { sale_id: string; phone?: string | null; origin: string } }) => Promise<any>;
+  sendEmailFn: (args: { data: { sale_id: string; email?: string | null; origin: string } }) => Promise<any>;
   onNewSale: () => void;
   onOpenFullReceipt: (id: string) => void;
   onEdit: (sale: any) => void | Promise<void>;
@@ -830,6 +839,13 @@ function SuccessDialog({
     queryFn: () => getSaleFn({ data: { id: saleId! } }),
     enabled: !!saleId && open,
   });
+  const tplFn = useServerFn(getInvoiceTemplate);
+  const tplQ = useQuery({
+    queryKey: ["invoice-template"],
+    queryFn: () => tplFn(),
+    staleTime: 5 * 60_000,
+  });
+  const tpl = { ...DEFAULT_TEMPLATE, ...(tplQ.data ?? {}) } as any;
   const sale: any = q.data?.sale;
   const customer = sale?.customer;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -839,11 +855,17 @@ function SuccessDialog({
   const [lastSmsAt, setLastSmsAt] = useState<Date | null>(null);
   const [smsSentTo, setSmsSentTo] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [lastEmailAt, setLastEmailAt] = useState<Date | null>(null);
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
   useEffect(() => {
     if (customer?.phone) setSmsPhone(customer.phone);
   }, [customer?.phone]);
   useEffect(() => {
-    if (!open) { setLastSmsAt(null); setSmsSentTo(null); }
+    if (customer?.email) setEmailTo(customer.email);
+  }, [customer?.email]);
+  useEffect(() => {
+    if (!open) { setLastSmsAt(null); setSmsSentTo(null); setLastEmailAt(null); setEmailSentTo(null); }
   }, [open]);
 
   const smsM = useMutation({
@@ -854,6 +876,15 @@ function SuccessDialog({
       toast.success("SMS পাঠানো হয়েছে");
     },
     onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
+  });
+  const emailM = useMutation({
+    mutationFn: () => sendEmailFn({ data: { sale_id: saleId!, email: emailTo || null, origin } }),
+    onSuccess: () => {
+      setLastEmailAt(new Date());
+      setEmailSentTo(emailTo);
+      toast.success("ইমেইল পাঠানো হয়েছে");
+    },
+    onError: (e: any) => toast.error(e.message ?? "ইমেইল পাঠানো যায়নি"),
   });
 
   const copyLink = async () => {
@@ -941,7 +972,7 @@ function SuccessDialog({
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
           <div className="space-y-3 max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
-            <InvoicePreview sale={sale} />
+            <InvoicePreview sale={sale} tpl={tpl} publicUrl={publicUrl} />
 
             <div className="flex flex-wrap gap-2 print:hidden">
               <Button size="sm" variant="outline" onClick={printInvoice} className="flex-1 min-w-[110px]">
@@ -1002,6 +1033,49 @@ function SuccessDialog({
                 </div>
               )}
             </div>
+
+            <div className="print:hidden">
+              <Label className="text-xs">ইমেইলে পাঠান</Label>
+              <div className="mt-1 flex items-center gap-1">
+                <Input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="h-9 text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 shrink-0"
+                  disabled={emailM.isPending || !emailTo.trim()}
+                  onClick={() => emailM.mutate()}
+                >
+                  <Mail className="mr-1 h-4 w-4" />
+                  {emailM.isPending ? "পাঠাচ্ছে..." : lastEmailAt ? "আবার" : "পাঠান"}
+                </Button>
+              </div>
+              {emailM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
+                  <X className="h-3 w-3" /> {(emailM.error as any)?.message ?? "পাঠানো যায়নি"}
+                </div>
+              )}
+              {lastEmailAt && !emailM.isPending && !emailM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+                  <CheckCheck className="h-3 w-3" />
+                  পাঠানো হয়েছে {emailSentTo && `→ ${emailSentTo}`} • {lastEmailAt.toLocaleTimeString("bn-BD")}
+                </div>
+              )}
+            </div>
+
+            {saleId && (
+              <div className="print:hidden">
+                <Label className="text-xs">ডেলিভারি হিস্ট্রি</Label>
+                <div className="mt-1">
+                  <SaleDeliveryHistory saleId={saleId} />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1022,15 +1096,31 @@ function SuccessDialog({
   );
 }
 
-function InvoicePreview({ sale }: { sale: any }) {
+function InvoicePreview({ sale, tpl, publicUrl }: { sale: any; tpl?: any; publicUrl?: string }) {
   const items = sale.items ?? [];
   const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
+  const primary = tpl?.primary_color ?? "#0f766e";
+  const accent = tpl?.accent_color ?? "#f0fdfa";
+  const textColor = tpl?.text_color ?? "#0f172a";
   return (
-    <div id="pos-invoice-preview" className="rounded-lg border bg-white p-3 text-[12px] leading-tight text-black">
-      <div className="text-center">
-        <div className="text-base font-black uppercase tracking-wide">INVOICE</div>
+    <div id="pos-invoice-preview" className="overflow-hidden rounded-lg border bg-white text-[12px] leading-tight" style={{ color: textColor }}>
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: primary, color: "#ffffff" }}>
+        {tpl?.show_logo && tpl?.logo_url && (
+          <img src={tpl.logo_url} alt="logo" className="h-9 w-9 rounded bg-white/15 object-contain p-0.5" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] uppercase tracking-widest opacity-80">Invoice</div>
+          <div className="truncate text-sm font-black uppercase">{tpl?.header_title ?? "SALES INVOICE"}</div>
+        </div>
       </div>
+      {(tpl?.address_line || tpl?.contact_line) && (
+        <div className="px-3 py-1.5 text-[10px]" style={{ background: accent }}>
+          {tpl?.address_line && <div>{tpl.address_line}</div>}
+          {tpl?.contact_line && <div className="opacity-80">{tpl.contact_line}</div>}
+        </div>
+      )}
+      <div className="p-3">
       <div className="my-1.5 border-t border-dashed" />
       <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
         <div className="text-muted-foreground">Invoice</div>
@@ -1073,7 +1163,7 @@ function InvoicePreview({ sale }: { sale: any }) {
         {Number(sale.tax_amount || 0) > 0 && (
           <div className="flex justify-between"><span>VAT</span><span>+{fmt(sale.tax_amount)}</span></div>
         )}
-        <div className="mt-0.5 flex justify-between border-t pt-0.5 text-sm font-black">
+        <div className="mt-0.5 flex justify-between border-t pt-0.5 text-sm font-black" style={{ color: primary }}>
           <span>TOTAL</span><span>৳ {fmt(sale.total)}</span>
         </div>
         <div className="flex justify-between"><span>Paid</span><span>{fmt(sale.paid)}</span></div>
@@ -1082,6 +1172,37 @@ function InvoicePreview({ sale }: { sale: any }) {
             <span>Due</span><span>{fmt(sale.due)}</span>
           </div>
         )}
+      </div>
+      {tpl?.terms_note && (
+        <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px] opacity-80">
+          <span className="font-semibold">শর্তাবলী: </span>{tpl.terms_note}
+        </div>
+      )}
+      {tpl?.show_signature && (
+        <div className="mt-3 grid grid-cols-2 gap-3 text-[10px]">
+          <div className="text-center">
+            <div className="mx-auto mb-0.5 h-6 border-b" />
+            <div>কাস্টমার</div>
+          </div>
+          <div className="text-center">
+            <div className="mx-auto mb-0.5 h-6 border-b" />
+            <div>{tpl?.signature_label || "অনুমোদনকারী"}</div>
+          </div>
+        </div>
+      )}
+      {tpl?.footer_note && (
+        <div className="mt-2 border-t pt-1.5 text-center text-[10px] opacity-70">{tpl.footer_note}</div>
+      )}
+      {tpl?.show_qr && publicUrl && (
+        <div className="mt-2 flex flex-col items-center gap-0.5">
+          <img
+            alt="qr"
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=88x88&data=${encodeURIComponent(publicUrl)}`}
+            className="h-16 w-16"
+          />
+          <div className="text-[9px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
+        </div>
+      )}
       </div>
     </div>
   );

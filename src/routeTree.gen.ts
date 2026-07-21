@@ -43,6 +43,7 @@ import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
 import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
+import { Route as AppSettingsInvoiceTemplateRouteImport } from './routes/app.settings.invoice-template'
 import { Route as AppSalesNewRouteImport } from './routes/app.sales.new'
 import { Route as AppSalesSaleIdRouteImport } from './routes/app.sales.$saleId'
 import { Route as AppPurchasesNewRouteImport } from './routes/app.purchases.new'
@@ -227,6 +228,12 @@ const AdminShopsIndexRoute = AdminShopsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminShopsRoute,
 } as any)
+const AppSettingsInvoiceTemplateRoute =
+  AppSettingsInvoiceTemplateRouteImport.update({
+    id: '/settings/invoice-template',
+    path: '/settings/invoice-template',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppSalesNewRoute = AppSalesNewRouteImport.update({
   id: '/sales/new',
   path: '/sales/new',
@@ -336,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
+  '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -382,6 +390,7 @@ export interface FileRoutesByTo {
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
+  '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops': typeof AdminShopsIndexRoute
   '/app/purchases': typeof AppPurchasesIndexRoute
   '/app/sales': typeof AppSalesIndexRoute
@@ -432,6 +441,7 @@ export interface FileRoutesById {
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
   '/app/sales/new': typeof AppSalesNewRoute
+  '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -483,6 +493,7 @@ export interface FileRouteTypes {
     | '/app/purchases/new'
     | '/app/sales/$saleId'
     | '/app/sales/new'
+    | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/purchases/'
     | '/app/sales/'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/app/purchases/new'
     | '/app/sales/$saleId'
     | '/app/sales/new'
+    | '/app/settings/invoice-template'
     | '/admin/shops'
     | '/app/purchases'
     | '/app/sales'
@@ -578,6 +590,7 @@ export interface FileRouteTypes {
     | '/app/purchases/new'
     | '/app/sales/$saleId'
     | '/app/sales/new'
+    | '/app/settings/invoice-template'
     | '/admin/shops/'
     | '/app/purchases/'
     | '/app/sales/'
@@ -843,6 +856,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShopsIndexRouteImport
       parentRoute: typeof AdminShopsRoute
     }
+    '/app/settings/invoice-template': {
+      id: '/app/settings/invoice-template'
+      path: '/settings/invoice-template'
+      fullPath: '/app/settings/invoice-template'
+      preLoaderRoute: typeof AppSettingsInvoiceTemplateRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/sales/new': {
       id: '/app/sales/new'
       path: '/sales/new'
@@ -1028,6 +1048,7 @@ interface AppRouteChildren {
   AppPurchasesNewRoute: typeof AppPurchasesNewRoute
   AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
   AppSalesNewRoute: typeof AppSalesNewRoute
+  AppSettingsInvoiceTemplateRoute: typeof AppSettingsInvoiceTemplateRoute
   AppPurchasesIndexRoute: typeof AppPurchasesIndexRoute
   AppSalesIndexRoute: typeof AppSalesIndexRoute
 }
@@ -1049,6 +1070,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPurchasesNewRoute: AppPurchasesNewRoute,
   AppSalesSaleIdRoute: AppSalesSaleIdRoute,
   AppSalesNewRoute: AppSalesNewRoute,
+  AppSettingsInvoiceTemplateRoute: AppSettingsInvoiceTemplateRoute,
   AppPurchasesIndexRoute: AppPurchasesIndexRoute,
   AppSalesIndexRoute: AppSalesIndexRoute,
 }

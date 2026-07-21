@@ -47,7 +47,12 @@ const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFract
 const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
 
 function PublicInvoicePage() {
-  const { sale, shop } = useLoaderData({ from: "/i/$token" }) as any;
+  const { sale, shop, template } = useLoaderData({ from: "/i/$token" }) as any;
+  const tpl = template ?? {};
+  const primary = tpl.primary_color ?? "#0f766e";
+  const accent = tpl.accent_color ?? "#f0fdfa";
+  const textColor = tpl.text_color ?? "#0f172a";
+  const logoSrc = (tpl.show_logo !== false) ? (tpl.logo_url || shop?.logo_url) : null;
   const items = sale.items ?? [];
 
   const share = async () => {
@@ -78,16 +83,27 @@ function PublicInvoicePage() {
 
       <div
         id="pos-receipt"
-        className="mx-auto max-w-md rounded-lg border bg-white p-4 text-[13px] leading-tight text-black shadow-sm print:border-0 print:shadow-none"
+        className="mx-auto max-w-md overflow-hidden rounded-lg border bg-white text-[13px] leading-tight shadow-sm print:border-0 print:shadow-none"
+        style={{ color: textColor }}
       >
-        <div className="text-center">
-          {shop?.logo_url && (
-            <img src={shop.logo_url} alt={shop?.name ?? ""} className="mx-auto mb-1 h-12 object-contain" />
+        <div className="flex items-center gap-3 px-4 py-3" style={{ background: primary, color: "#ffffff" }}>
+          {logoSrc && (
+            <img src={logoSrc} alt={shop?.name ?? ""} className="h-10 w-10 rounded bg-white/15 object-contain p-0.5" />
           )}
-          <div className="text-lg font-black uppercase tracking-wide">{shop?.name ?? "Shop"}</div>
-          {shop?.address && <div className="text-[11px]">{shop.address}</div>}
-          {shop?.phone && <div className="text-[11px]">ফোন: {shop.phone}</div>}
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] uppercase tracking-widest opacity-80">Invoice</div>
+            <div className="truncate text-lg font-black uppercase">{shop?.name ?? "Shop"}</div>
+          </div>
         </div>
+        {(tpl.address_line || tpl.contact_line || shop?.address || shop?.phone) && (
+          <div className="px-4 py-2 text-[11px]" style={{ background: accent }}>
+            {(tpl.address_line || shop?.address) && <div>{tpl.address_line || shop.address}</div>}
+            {(tpl.contact_line || shop?.phone) && (
+              <div className="opacity-80">{tpl.contact_line || `ফোন: ${shop.phone}`}</div>
+            )}
+          </div>
+        )}
+        <div className="p-4">
 
         <div className="my-2 border-t border-dashed" />
         <div className="text-center font-bold">SALES INVOICE</div>
@@ -165,7 +181,29 @@ function PublicInvoicePage() {
         </div>
 
         <div className="my-2 border-t border-dashed" />
-        <div className="text-center text-xs">ধন্যবাদ, আবার আসবেন।</div>
+        {tpl.terms_note && (
+          <div className="mb-2 rounded-md border border-dashed p-2 text-[11px] opacity-80">
+            <span className="font-semibold">শর্তাবলী: </span>{tpl.terms_note}
+          </div>
+        )}
+        {tpl.show_signature && (
+          <div className="my-3 grid grid-cols-2 gap-4 text-[11px]">
+            <div className="text-center"><div className="mx-auto mb-1 h-8 border-b" /><div>কাস্টমার</div></div>
+            <div className="text-center"><div className="mx-auto mb-1 h-8 border-b" /><div>{tpl.signature_label || "অনুমোদনকারী"}</div></div>
+          </div>
+        )}
+        {tpl.show_qr !== false && typeof window !== "undefined" && (
+          <div className="mt-2 flex flex-col items-center gap-0.5">
+            <img
+              alt="qr"
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.href)}`}
+              className="h-20 w-20"
+            />
+            <div className="text-[10px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
+          </div>
+        )}
+        <div className="mt-2 text-center text-xs">{tpl.footer_note || "ধন্যবাদ, আবার আসবেন।"}</div>
+        </div>
       </div>
 
       <style>{`
