@@ -1344,6 +1344,35 @@ function InvoicePreview({ sale, tpl, publicUrl }: { sale: any; tpl?: any; public
           </div>
         )}
       </div>
+      {sale.payment_breakdown && (
+        <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px]">
+          <div className="mb-0.5 font-semibold" style={{ color: primary }}>Payment</div>
+          <div className="grid grid-cols-2 gap-x-2">
+            <div className="text-muted-foreground">Method</div>
+            <div className="text-right">{sale.payment_breakdown.method ?? "-"}</div>
+            <div className="text-muted-foreground">Paid now</div>
+            <div className="text-right">৳ {fmt(sale.payment_breakdown.paid_now)}</div>
+            {Number(sale.payment_breakdown.due || 0) > 0 && (
+              <>
+                <div className="text-muted-foreground">Remaining</div>
+                <div className="text-right">৳ {fmt(sale.payment_breakdown.due)}</div>
+              </>
+            )}
+            {sale.payment_breakdown.sale_type === "installment" && (
+              <>
+                <div className="text-muted-foreground">Installments</div>
+                <div className="text-right">{sale.payment_breakdown.installments} × {sale.payment_breakdown.installment_frequency}</div>
+              </>
+            )}
+            {sale.payment_breakdown.is_partial && (
+              <>
+                <div className="text-muted-foreground">Type</div>
+                <div className="text-right">আংশিক পেমেন্ট</div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {tpl?.terms_note && (
         <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px] opacity-80">
           <span className="font-semibold">শর্তাবলী: </span>{tpl.terms_note}
