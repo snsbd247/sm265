@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { ArrowLeft, HandCoins, Phone, MapPin, Download } from "lucide-react";
 import { downloadCSV } from "@/lib/export-utils";
+import { CustomerDeliveryHistory } from "@/components/invoice-delivery-history";
 
 export const Route = createFileRoute("/app/customers/$customerId")({ component: Page });
 
@@ -220,6 +221,11 @@ function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <h2 className="mt-8 text-lg font-bold">SMS / ইমেইল হিস্ট্রি</h2>
+      <div className="mt-3">
+        <CustomerDeliveryHistory customerId={customerId} />
+      </div>
     </div>
   );
 }
