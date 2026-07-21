@@ -11,6 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MODULES, ALL_MODULE_KEYS, ALWAYS_ON } from "@/lib/modules";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -28,6 +30,7 @@ const empty = {
   max_sms_per_month: 100,
   is_active: true,
   sort_order: 0,
+  allowed_modules: [...ALL_MODULE_KEYS] as string[],
 };
 
 function PackagesPage() {
@@ -42,8 +45,30 @@ function PackagesPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["packages"] });
 
-  const openEdit = (p: any) => { setForm({ ...p }); setOpen(true); };
-  const openNew = () => { setForm(empty); setOpen(true); };
+  const openEdit = (p: any) => {
+    setForm({
+      ...p,
+      allowed_modules: Array.isArray(p.allowed_modules) ? p.allowed_modules : [...ALL_MODULE_KEYS],
+    });
+    setOpen(true);
+  };
+  const openNew = () => { setForm({ ...empty, allowed_modules: [...ALL_MODULE_KEYS] }); setOpen(true); };
+
+  const toggleModule = (key: string, checked: boolean) => {
+    setForm((f) => {
+      const cur = new Set(f.allowed_modules ?? []);
+      if (checked) cur.add(key); else cur.delete(key);
+      // Always keep ALWAYS_ON modules on
+      ALWAYS_ON.forEach((k) => cur.add(k));
+      return { ...f, allowed_modules: Array.from(cur) };
+    });
+  };
+
+  // Group modules by their group label for a compact grid
+  const moduleGroups = MODULES.reduce<Record<string, typeof MODULES>>((acc, m) => {
+    (acc[m.group] ||= []).push(m);
+    return acc;
+  }, {});
 
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +109,46 @@ function PackagesPage() {
                   <div><Label>সর্ট অর্ডার</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: +e.target.value })} /></div>
                 </div>
                 <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} /><Label>একটিভ</Label></div>
+                <div className="space-y-2 rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">মডিউল পার্মিশন</Label>
+                    <div className="flex gap-2 text-xs">
+                      <button type="button" className="text-primary hover:underline"
+                        onClick={() => setForm({ ...form, allowed_modules: [...ALL_MODULE_KEYS] })}>
+                        সব সিলেক্ট
+                      </button>
+                      <span className="text-muted-foreground">•</span>
+                      <button type="button" className="text-primary hover:underline"
+                        onClick={() => setForm({ ...form, allowed_modules: [...ALWAYS_ON] })}>
+                        সব বাদ
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    এই প্যাকেজে যে মডিউলগুলো অ্যাক্সেসযোগ্য হবে সেগুলো চেক করুন। ড্যাশবোর্ড, সাবস্ক্রিপশন ও পাসওয়ার্ড পরিবর্তন সবসময় চালু থাকে।
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {Object.entries(moduleGroups).map(([grp, mods]) => (
+                      <div key={grp} className="space-y-1.5">
+                        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{grp}</div>
+                        {mods.map((m) => {
+                          const checked = (form.allowed_modules ?? []).includes(m.key);
+                          const locked = ALWAYS_ON.includes(m.key);
+                          return (
+                            <label key={m.key} className={`flex items-center gap-2 text-sm ${locked ? "opacity-70" : "cursor-pointer"}`}>
+                              <Checkbox
+                                checked={checked}
+                                disabled={locked}
+                                onCheckedChange={(v) => toggleModule(m.key, !!v)}
+                              />
+                              <span>{m.label}{locked && <span className="ml-1 text-[10px] text-muted-foreground">(সবসময়)</span>}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <DialogFooter><Button type="submit">সেভ</Button></DialogFooter>
               </form>
             </DialogContent>
