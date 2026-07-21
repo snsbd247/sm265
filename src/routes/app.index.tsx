@@ -209,18 +209,38 @@ function ShopDashboard() {
       />
       <KpiDialog
         open={drill === "month"} onOpenChange={(v) => !v && setDrill(null)}
-        title="সাম্প্রতিক বিক্রয়" subtitle={`${allRecentSales.length} টি ইনভয়েস • এ মাসে ${fmt(snap?.sales_month ?? 0)}`}
-        columns={salesCols} rows={allRecentSales.slice(0, 100)}
+        title="এ মাসের বিক্রয়" subtitle={`${monthSales.length} টি ইনভয়েস • ${fmt(snap?.sales_month ?? 0)}`}
+        columns={salesCols} rows={monthSales.slice(0, 200)}
       />
       <KpiDialog
         open={drill === "due"} onOpenChange={(v) => !v && setDrill(null)}
-        title="বকেয়া কিস্তি" subtitle={`মোট বাকি ${fmt(snap?.customer_due ?? 0)}`}
-        columns={overdueCols} rows={overdue.slice(0, 100)}
+        title="কাস্টমার বাকি" subtitle={`${(extras?.customersWithDue ?? []).length} জন • মোট ${fmt(snap?.customer_due ?? 0)}`}
+        columns={customerDueCols} rows={(extras?.customersWithDue ?? []) as any[]}
+      />
+      <KpiDialog
+        open={drill === "supplierDue"} onOpenChange={(v) => !v && setDrill(null)}
+        title="সাপ্লায়ার বাকি" subtitle={`${(extras?.suppliersWithDue ?? []).length} জন • মোট ${fmt(extras?.supplierDue ?? 0)}`}
+        columns={supplierDueCols} rows={(extras?.suppliersWithDue ?? []) as any[]}
+      />
+      <KpiDialog
+        open={drill === "purchaseMonth"} onOpenChange={(v) => !v && setDrill(null)}
+        title="এ মাসের ক্রয়" subtitle={`${(extras?.monthPurchases ?? []).length} টি • ${fmt(snap?.purchase_month ?? 0)}`}
+        columns={purchaseCols} rows={(extras?.monthPurchases ?? []) as any[]}
+      />
+      <KpiDialog
+        open={drill === "cashToday"} onOpenChange={(v) => !v && setDrill(null)}
+        title="আজকের ক্যাশ লেনদেন" subtitle={`ইন ${fmt(extras?.cashInToday ?? 0)} • আউট ${fmt(extras?.cashOutToday ?? 0)}`}
+        columns={cashCols} rows={cashRows}
+      />
+      <KpiDialog
+        open={drill === "products"} onOpenChange={(v) => !v && setDrill(null)}
+        title="সব পণ্য" subtitle={`${num(extras?.productsCount ?? 0)} টি • ${num(extras?.lowStockCount ?? 0)} টি কম স্টক`}
+        columns={productsCols} rows={(extras?.productsAll ?? []) as any[]}
       />
       <KpiDialog
         open={drill === "lowStock"} onOpenChange={(v) => !v && setDrill(null)}
         title="স্টক শেষ প্রায়" subtitle={`${extras?.lowStockCount ?? 0} টি পণ্য`}
-        columns={lowStockCols} rows={(extras?.lowStock ?? []) as any[]}
+        columns={lowStockCols} rows={(extras?.lowStockAll ?? extras?.lowStock ?? []) as any[]}
       />
       <KpiDialog
         open={drill === "topProducts"} onOpenChange={(v) => !v && setDrill(null)}
