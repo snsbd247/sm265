@@ -7,14 +7,20 @@ import {
   rejectSubscriptionPayment,
   syncExpiredShops,
   getPaymentReceipt,
+  recordManualSubscriptionPayment,
 } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Check, X, RefreshCw, Printer } from "lucide-react";
+import { Check, X, RefreshCw, Printer, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/admin/subscriptions")({ component: Page });
 
@@ -25,6 +31,21 @@ function Page() {
   const approveFn = useServerFn(approveSubscriptionPayment);
   const rejectFn = useServerFn(rejectSubscriptionPayment);
   const syncFn = useServerFn(syncExpiredShops);
+  const receiveFn = useServerFn(recordManualSubscriptionPayment);
+
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveRow, setReceiveRow] = useState<any | null>(null);
+  const [rMethod, setRMethod] = useState<"cash" | "bank" | "bkash" | "card" | "other">("cash");
+  const [rRef, setRRef] = useState("");
+  const [rNote, setRNote] = useState("");
+
+  const openReceive = (row: any) => {
+    setReceiveRow(row);
+    setRMethod("cash");
+    setRRef("");
+    setRNote("");
+    setReceiveOpen(true);
+  };
 
   const openReceipt = (paymentId: string) => {
     window.open(`/admin/receipts/en/${paymentId}`, "_blank", "noopener");
@@ -49,6 +70,18 @@ function Page() {
   const sync = useMutation({
     mutationFn: () => syncFn(),
     onSuccess: (r: any) => { toast.success(`${r.updated}টি দোকান expired মার্ক হয়েছে`); qc.invalidateQueries(); },
+  });
+  const receive = useMutation({
+    mutationFn: () => receiveFn({ data: {
+      payment_id: receiveRow.id, method: rMethod,
+      reference_no: rRef || undefined, note: rNote || undefined,
+    } }),
+    onSuccess: () => {
+      toast.success("পেমেন্ট রিসিভ হয়েছে, একাউন্ট এক্টিভ");
+      setReceiveOpen(false); setReceiveRow(null);
+      qc.invalidateQueries();
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   return (
@@ -107,6 +140,9 @@ function Page() {
                     <div className="flex justify-end gap-1">
                       {p.status === "pending" && (
                         <>
+                          <Button size="sm" variant="ghost" title="পেমেন্ট রিসিভ করুন" onClick={() => openReceive(p)}>
+                            <Wallet className="h-4 w-4 text-primary" />
+                          </Button>
                           <Button size="sm" variant="ghost" title="অনুমোদন" onClick={() => approve.mutate(p.id)} disabled={approve.isPending}>
                             <Check className="h-4 w-4 text-emerald-600" />
                           </Button>
@@ -131,6 +167,50 @@ function Page() {
           </table>
         </div>
       </div>
+
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>পেমেন্ট রিসিভ করুন</DialogTitle>
+          </DialogHeader>
+          {receiveRow && (
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <div className="flex justify-between"><span>দোকান:</span><span className="font-medium">{receiveRow.shop?.name}</span></div>
+                <div className="flex justify-between"><span>এমাউন্ট:</span><span className="font-bold">৳{Number(receiveRow.amount).toLocaleString("bn-BD")}</span></div>
+                {receiveRow.invoice_no && <div className="flex justify-between text-xs text-muted-foreground"><span>ইনভয়েস:</span><span>{receiveRow.invoice_no}</span></div>}
+              </div>
+              <div>
+                <Label>পেমেন্ট মেথড</Label>
+                <Select value={rMethod} onValueChange={(v) => setRMethod(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">নগদ (Cash)</SelectItem>
+                    <SelectItem value="bkash">বিকাশ (Manual)</SelectItem>
+                    <SelectItem value="bank">ব্যাংক ট্রান্সফার</SelectItem>
+                    <SelectItem value="card">কার্ড</SelectItem>
+                    <SelectItem value="other">অন্যান্য</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>রেফারেন্স / TrxID (ঐচ্ছিক)</Label>
+                <Input value={rRef} onChange={(e) => setRRef(e.target.value)} placeholder="রসিদ নং বা ট্রানজেকশন আইডি" />
+              </div>
+              <div>
+                <Label>নোট (ঐচ্ছিক)</Label>
+                <Textarea value={rNote} onChange={(e) => setRNote(e.target.value)} rows={2} placeholder="সংক্ষিপ্ত মন্তব্য" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>বাতিল</Button>
+            <Button onClick={() => receive.mutate()} disabled={receive.isPending}>
+              রিসিভ ও এক্টিভ করুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }

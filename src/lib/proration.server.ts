@@ -103,6 +103,12 @@ export async function applyImmediateDowngrade(shopId: string, change: PackageCha
     pending_billing_cycle: null,
   }).eq("id", shopId);
 
+  // Supersede any existing active subscriptions — one active per shop.
+  await supabaseAdmin.from("subscriptions")
+    .update({ status: "expired", ends_at: new Date().toISOString() })
+    .eq("shop_id", shopId)
+    .eq("status", "active");
+
   await supabaseAdmin.from("subscriptions").insert({
     shop_id: shopId,
     package_id: change.new_package_id,
