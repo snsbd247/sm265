@@ -323,32 +323,6 @@ function Page() {
         )}
       </div>
 
-      <div className="border-b px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCustomerPickerOpen(true)}
-          className={`flex w-full items-center gap-3 rounded-lg border-2 border-dashed px-3 py-2.5 text-left transition ${
-            customerId
-              ? "border-emerald-400 bg-emerald-50/40"
-              : "border-orange-300 bg-orange-50/40 hover:bg-orange-50"
-          }`}
-        >
-          <div className={`flex h-9 w-9 items-center justify-center rounded-md ${customerId ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
-            <User className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">
-              {selectedCustomer ? selectedCustomer.name : "কাস্টমার যোগ করুন"}
-            </div>
-            <div className="truncate text-[11px] text-muted-foreground">
-              {selectedCustomer
-                ? selectedCustomer.phone ?? "—"
-                : "লয়ালটি অর্জন করুন, অর্ডার সংযুক্ত করুন"}
-            </div>
-          </div>
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
