@@ -492,14 +492,14 @@ function Page() {
                       </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">{l.unit ?? ""}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeLine(i)}
-                      className="ml-auto text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-rose-600"
-                      aria-label="মুছুন"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                     <button
+                       type="button"
+                       onClick={() => removeLine(i)}
+                       className="ml-auto text-slate-400 transition hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
+                       aria-label="মুছুন"
+                     >
+                       <Trash2 className="h-4 w-4" />
+                     </button>
                   </div>
                   <div className="mt-1 flex items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground">ছাড়</span>
