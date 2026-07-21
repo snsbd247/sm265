@@ -1,10 +1,14 @@
 import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSale, cancelSale, createSaleReturn } from "@/lib/sales.functions";
 import { getMyShop } from "@/lib/shop.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
+import { getInvoiceTemplate, DEFAULT_TEMPLATE } from "@/lib/invoice-template.functions";
+import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
+import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
+import { snapshotSale } from "@/lib/sale-revisions.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,16 +16,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { ArrowLeft, XCircle, RotateCcw, Printer } from "lucide-react";
-import { ReceiptShell } from "@/components/receipt-preview";
+import {
+  ArrowLeft, XCircle, RotateCcw, Printer, Download, Pencil, Share2,
+  Copy, MessageSquare, Mail, MoreVertical, Link2, MessageCircle,
+} from "lucide-react";
+import { InvoicePreview, InvoicePrintStyles } from "@/components/invoice-preview";
 import { SaleDeliveryHistory } from "@/components/invoice-delivery-history";
 import { SaleRevisionsList } from "@/components/sale-revisions-list";
 import {
-  useReceiptConfig,
-  receiptStyleCss,
-  separatorChar,
-} from "@/lib/receipt-config";
+  copyToClipboard, downloadInvoicePdf, nativeShare, openWhatsAppShare, printElement,
+} from "@/lib/invoice-share";
 
 export const Route = createFileRoute("/app/sales/$saleId")({ component: InvoicePage });
 
@@ -34,27 +44,45 @@ function InvoicePage() {
   const qc = useQueryClient();
   const saleFn = useServerFn(getSale);
   const shopFn = useServerFn(getMyShop);
+  const shiftFn = useServerFn(getCurrentShift);
   const cancelFn = useServerFn(cancelSale);
   const returnFn = useServerFn(createSaleReturn);
-  const shiftFn = useServerFn(getCurrentShift);
+  const tplFn = useServerFn(getInvoiceTemplate);
+  const smsFn = useServerFn(sendInvoiceLinkSms);
+  const emailFn = useServerFn(sendInvoiceLinkEmail);
+  const snapshotFn = useServerFn(snapshotSale);
 
   const q = useQuery({ queryKey: ["sale", saleId], queryFn: () => saleFn({ data: { id: saleId } }) });
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
   const shiftQ = useQuery({ queryKey: ["shift-current"], queryFn: () => shiftFn() });
-  const { cfg, ready } = useReceiptConfig();
+  const tplQ = useQuery({ queryKey: ["invoice-template"], queryFn: () => tplFn(), staleTime: 5 * 60_000 });
 
   const sale: any = q.data?.sale;
   const items: any[] = q.data?.items ?? [];
   const installments: any[] = q.data?.installments ?? [];
-  const shop: any = shopQ.data?.shop;
+  const shop: any = shopQ.data?.shop ?? q.data?.shop;
+  const tpl = { ...DEFAULT_TEMPLATE, ...(tplQ.data ?? {}) } as any;
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const publicUrl = sale?.share_token ? `${origin}/i/${sale.share_token}` : "";
+  const previewSale = useMemo(() => (sale ? { ...sale, items } : null), [sale, items]);
 
   const [returnOpen, setReturnOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [returnQty, setReturnQty] = useState<Record<string, number>>({});
   const [refundAmount, setRefundAmount] = useState(0);
   const [refundMethod, setRefundMethod] = useState<"cash" | "card" | "bkash" | "bank">("cash");
   const [returnReason, setReturnReason] = useState("");
+  const [smsPhone, setSmsPhone] = useState("");
+  const [emailTo, setEmailTo] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  useEffect(() => {
+    if (sale?.customer?.phone && !smsPhone) setSmsPhone(sale.customer.phone);
+    if (sale?.customer?.email && !emailTo) setEmailTo(sale.customer.email);
+  }, [sale?.customer?.phone, sale?.customer?.email]);
 
   const cancelM = useMutation({
     mutationFn: (reason: string) => cancelFn({ data: { sale_id: saleId, reason } }),
@@ -63,7 +91,6 @@ function InvoicePage() {
       qc.invalidateQueries({ queryKey: ["sale", saleId] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["shop-notifications"] });
       setCancelOpen(false); setCancelReason("");
     },
     onError: (e: any) => toast.error(e.message),
@@ -71,7 +98,7 @@ function InvoicePage() {
   const returnM = useMutation({
     mutationFn: () => returnFn({ data: {
       sale_id: saleId,
-      items: Object.entries(returnQty).filter(([, q]) => q > 0).map(([sale_item_id, quantity]) => ({ sale_item_id, quantity })),
+      items: Object.entries(returnQty).filter(([, qq]) => qq > 0).map(([sale_item_id, quantity]) => ({ sale_item_id, quantity })),
       refund_amount: refundAmount, refund_method: refundMethod, reason: returnReason || null,
     } }),
     onSuccess: () => {
@@ -79,174 +106,297 @@ function InvoicePage() {
       qc.invalidateQueries({ queryKey: ["sale", saleId] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["shop-notifications"] });
       setReturnOpen(false); setReturnQty({}); setRefundAmount(0); setReturnReason("");
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const smsM = useMutation({
+    mutationFn: () => smsFn({ data: { sale_id: saleId, phone: smsPhone || null, origin } }),
+    onSuccess: () => {
+      toast.success("SMS পাঠানো হয়েছে");
+      qc.invalidateQueries({ queryKey: ["sale-deliveries", saleId] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
+  });
+  const emailM = useMutation({
+    mutationFn: () => emailFn({ data: { sale_id: saleId, email: emailTo || null, origin } }),
+    onSuccess: () => {
+      toast.success("ইমেইল পাঠানো হয়েছে");
+      qc.invalidateQueries({ queryKey: ["sale-deliveries", saleId] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "ইমেইল পাঠানো যায়নি"),
+  });
 
-  useEffect(() => {
-    if (sale && ready && cfg.autoPrint) {
-      const t = setTimeout(() => {
-        try { window.print(); } catch { /* ignore */ }
-      }, 500);
-      return () => clearTimeout(t);
+  const handlePrint = () => printElement("pos-invoice-preview");
+  const handlePdf = async () => {
+    setPdfBusy(true);
+    try {
+      await downloadInvoicePdf(
+        "pos-invoice-preview",
+        `invoice-${sale?.invoice_no ?? saleId}.pdf`,
+      );
+    } finally { setPdfBusy(false); }
+  };
+  const handleEdit = async () => {
+    if (!sale) return;
+    if (isCancelled || isReturned) return;
+    if (!confirm("বর্তমান বিক্রয়টি বাতিল করে সম্পাদনার জন্য কার্টে ফেরত আনা হবে। চালিয়ে যাবেন?")) return;
+    try {
+      try { await snapshotFn({ data: { sale_id: saleId, reason: "Edit from detail page" } }); } catch { /* non-fatal */ }
+      // Stash restore payload for the POS page to consume
+      try {
+        sessionStorage.setItem("pos:restore-sale", JSON.stringify({
+          items,
+          customer_id: sale.customer_id ?? null,
+          discount: Number(sale.discount ?? 0),
+          sale_type: sale.sale_type ?? "cash",
+          note: sale.note ?? "",
+        }));
+      } catch { /* ignore quota */ }
+      await cancelFn({ data: { sale_id: saleId, reason: "Edit from detail page" } });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("বিক্রয় বাতিল হয়েছে — কার্টে সম্পাদনা করুন");
+      nav({ to: "/app/sales/new" });
+    } catch (e: any) {
+      toast.error(e?.message ?? "সম্পাদনা ব্যর্থ");
     }
-  }, [sale, ready, cfg.autoPrint]);
+  };
 
-  if (q.isLoading) return <div className="p-4 text-muted-foreground sm:p-6">লোড হচ্ছে...</div>;
-  if (!sale) return <div className="p-4 sm:p-6">ইনভয়েস পাওয়া যায়নি</div>;
+  if (q.isLoading) return <div className="p-6 text-muted-foreground">লোড হচ্ছে...</div>;
+  if (!sale) return <div className="p-6">ইনভয়েস পাওয়া যায়নি</div>;
 
-  const line = separatorChar(cfg.separator);
   const isCancelled = sale.status === "cancelled";
-  const isReturned = sale.status === "returned";
+  const isReturned = sale.status === "returned" || sale.status === "partial_return";
   const shiftOpen = !!shiftQ.data?.shift;
+  const statusBadge = isCancelled
+    ? { text: "ক্যান্সেল", variant: "destructive" as const }
+    : sale.status === "partial_return"
+    ? { text: "আংশিক রিটার্ন", variant: "secondary" as const }
+    : sale.status === "returned"
+    ? { text: "রিটার্ন", variant: "secondary" as const }
+    : { text: "সক্রিয়", variant: "default" as const };
 
-  const estimatedRefund = Object.entries(returnQty).reduce((s, [id, q]) => {
+  const estimatedRefund = Object.entries(returnQty).reduce((s, [id, qq]) => {
     const it = items.find((x) => x.id === id);
-    return s + (it ? Number(it.unit_price) * (q || 0) : 0);
+    return s + (it ? Number(it.unit_price) * (qq || 0) : 0);
   }, 0);
 
   return (
-    <div className="min-h-screen bg-muted/40 py-4 print:bg-white print:py-0">
-      <div className="mx-auto mb-2 flex max-w-md flex-wrap items-center justify-between gap-2 px-2 print:hidden">
-        <Button variant="ghost" size="sm" onClick={() => nav({ to: "/app/sales" })}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> ফিরে
-        </Button>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {(isCancelled || isReturned) && (
-            <Badge variant={isCancelled ? "destructive" : "secondary"}>
-              {isCancelled ? "ক্যান্সেল" : sale.status === "partial_return" ? "আংশিক রিটার্ন" : "রিটার্ন"}
-            </Badge>
-          )}
-          <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-1 h-3.5 w-3.5" /> প্রিন্ট
+    <div className="min-h-screen bg-muted/30 print:bg-white">
+      {/* Header bar */}
+      <div className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur invoice-hide-on-print">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+          <Button variant="ghost" size="sm" onClick={() => nav({ to: "/app/sales" })}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> ফিরে
           </Button>
-          {!isCancelled && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!shiftOpen}
-              title={!shiftOpen ? "রিটার্নের জন্য POS শিফট খুলুন" : undefined}
-              onClick={() => setReturnOpen(true)}
-            >
-              <RotateCcw className="mr-1 h-3.5 w-3.5" /> রিটার্ন
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-xs text-muted-foreground">Invoice</span>
+            <span className="truncate font-mono text-sm font-semibold">
+              #{sale.invoice_no ?? String(sale.id).slice(0, 8)}
+            </span>
+            <Badge variant={statusBadge.variant}>{statusBadge.text}</Badge>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <Button size="sm" variant="outline" onClick={handlePrint}>
+              <Printer className="mr-1 h-3.5 w-3.5" /> প্রিন্ট
             </Button>
-          )}
-          {!isCancelled && (
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={!shiftOpen}
-              title={!shiftOpen ? "ক্যান্সেলের জন্য POS শিফট খুলুন" : undefined}
-              onClick={() => setCancelOpen(true)}
-            >
-              <XCircle className="mr-1 h-3.5 w-3.5" /> ক্যান্সেল
+            <Button size="sm" variant="outline" disabled={pdfBusy} onClick={handlePdf}>
+              <Download className="mr-1 h-3.5 w-3.5" /> {pdfBusy ? "..." : "PDF"}
             </Button>
-          )}
+            <Button size="sm" variant="outline" onClick={() => setShareOpen(true)}>
+              <Share2 className="mr-1 h-3.5 w-3.5" /> শেয়ার
+            </Button>
+            {!isCancelled && !isReturned && (
+              <Button size="sm" variant="outline" onClick={handleEdit}>
+                <Pencil className="mr-1 h-3.5 w-3.5" /> সম্পাদনা
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="px-2"><MoreVertical className="h-4 w-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>অ্যাকশন</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => copyToClipboard(sale.invoice_no ?? sale.id, "ইনভয়েস নম্বর কপি হয়েছে")}>
+                  <Copy className="mr-2 h-4 w-4" /> ইনভয়েস নম্বর কপি
+                </DropdownMenuItem>
+                {publicUrl && (
+                  <DropdownMenuItem onClick={() => copyToClipboard(publicUrl, "লিংক কপি হয়েছে")}>
+                    <Link2 className="mr-2 h-4 w-4" /> পাবলিক লিংক কপি
+                  </DropdownMenuItem>
+                )}
+                {publicUrl && (
+                  <DropdownMenuItem
+                    onClick={() => openWhatsAppShare(publicUrl, sale.invoice_no, sale.customer?.phone)}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" /> WhatsApp-এ পাঠান
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {!isCancelled && (
+                  <DropdownMenuItem
+                    disabled={!shiftOpen}
+                    onClick={() => setReturnOpen(true)}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" /> রিটার্ন
+                  </DropdownMenuItem>
+                )}
+                {!isCancelled && (
+                  <DropdownMenuItem
+                    disabled={!shiftOpen}
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setCancelOpen(true)}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> ক্যান্সেল
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+        {!shiftOpen && !isCancelled && (
+          <div className="mx-auto max-w-6xl border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-900">
+            ⚠️ POS শিফট বন্ধ — রিটার্ন / ক্যান্সেল করতে হলে আগে শিফট শুরু করুন।
+          </div>
+        )}
       </div>
 
-      {!shiftOpen && !isCancelled && (
-        <div className="mx-auto mb-2 max-w-md rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 print:hidden">
-          ⚠️ POS শিফট বন্ধ। রিটার্ন / ক্যান্সেল করতে হলে আগে শিফট শুরু করুন।
+      {/* Main body */}
+      <div className="mx-auto grid max-w-6xl gap-4 px-3 py-5 lg:grid-cols-[minmax(0,1fr)_360px] print:block print:max-w-none print:px-0 print:py-0">
+        {/* Left: preview */}
+        <div className="invoice-print-root">
+          <InvoicePreview
+            sale={previewSale}
+            shop={shop}
+            tpl={tpl}
+            publicUrl={publicUrl}
+            installments={installments}
+          />
         </div>
-      )}
 
-      <ReceiptShell autoOpen={!cfg.autoPrint}>
-        <div
-          id="pos-receipt"
-          className="mx-auto bg-white p-3 leading-tight text-black shadow-sm print:shadow-none"
-        >
-          <div className="text-center">
-            <div className="r-title r-wrap font-bold uppercase">{shop?.name ?? "Shop"}</div>
-            {shop?.address && <div className="r-wrap text-[11px]">{shop.address}</div>}
-            {shop?.phone && <div>ফোন: {shop.phone}</div>}
-          </div>
-          <div className="my-1 text-center">{line}</div>
-          <div className="text-center font-bold">SALES INVOICE</div>
-          <div className="my-1 text-center">{line}</div>
-
-          <div className="flex justify-between gap-2"><span>Inv#</span><span className="r-wrap text-right">{sale.invoice_no ?? sale.id.slice(0, 8)}</span></div>
-          <div className="flex justify-between gap-2"><span>Date</span><span className="r-wrap text-right">{new Date(sale.sale_date).toLocaleString("en-GB")}</span></div>
-          <div className="flex justify-between gap-2"><span>Type</span><span>{typeLabel[sale.sale_type] ?? sale.sale_type}</span></div>
-          {sale.payment_method && <div className="flex justify-between gap-2"><span>Method</span><span>{sale.payment_method}</span></div>}
-          <div className="flex justify-between gap-2"><span>Customer</span><span className="r-wrap text-right">{sale.customer?.name ?? "Walk-in"}</span></div>
-          {sale.customer?.phone && <div className="flex justify-between gap-2"><span>Phone</span><span>{sale.customer.phone}</span></div>}
-
-          <div className="my-1 text-center">{line}</div>
-
-          <div className="grid grid-cols-[1fr_auto] gap-x-2 font-bold">
-            <div>Item</div><div className="text-right">Total</div>
-          </div>
-          <div className="text-center">{line}</div>
-
-          {items.map((it: any, i: number) => (
-            <div key={it.id} className="grid grid-cols-[1fr_auto] gap-x-2">
-              <div className="r-wrap">{i + 1}. {it.product?.name ?? "-"}</div>
-              <div className="text-right">{fmt(it.line_total)}</div>
-              <div className="r-wrap col-span-2 text-[11px] text-neutral-700">
-                {it.quantity} {it.product?.unit?.short_name ?? ""} × {fmt(it.unit_price)}
-                {Number(it.discount_amount || 0) > 0 && ` − ছাড় ${fmt(it.discount_amount)}`}
-                {Number(it.tax_rate || 0) > 0 && ` + VAT ${it.tax_rate}%`}
-              </div>
+        {/* Right sidebar */}
+        <div className="space-y-4 invoice-hide-on-print">
+          <section className="rounded-lg border bg-card p-4 text-sm">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">সংক্ষেপ</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              <div className="text-muted-foreground">কাস্টমার</div>
+              <div className="text-right font-medium">{sale.customer?.name ?? "Walk-in"}</div>
+              {sale.customer?.phone && (<>
+                <div className="text-muted-foreground">ফোন</div>
+                <div className="text-right">{sale.customer.phone}</div>
+              </>)}
+              <div className="text-muted-foreground">ধরন</div>
+              <div className="text-right">{typeLabel[sale.sale_type] ?? sale.sale_type}</div>
+              <div className="text-muted-foreground">মোট</div>
+              <div className="text-right font-semibold">৳{fmt(sale.total)}</div>
+              <div className="text-muted-foreground">পরিশোধ</div>
+              <div className="text-right text-emerald-600">৳{fmt(sale.paid)}</div>
+              {Number(sale.due) > 0 && (<>
+                <div className="text-muted-foreground">বাকি</div>
+                <div className="text-right font-bold text-rose-600">৳{fmt(sale.due)}</div>
+              </>)}
+              <div className="text-muted-foreground">আইটেম</div>
+              <div className="text-right">{items.length} টি</div>
             </div>
-          ))}
+          </section>
 
-          <div className="my-1 text-center">{line}</div>
-
-          <div className="flex justify-between"><span>Subtotal</span><span>{fmt(sale.subtotal)}</span></div>
-          {Number(sale.discount || 0) > 0 && (
-            <div className="flex justify-between"><span>Discount</span><span>-{fmt(sale.discount)}</span></div>
-          )}
-          {Number(sale.tax_amount || 0) > 0 && (
-            <div className="flex justify-between"><span>VAT / ট্যাক্স</span><span>+{fmt(sale.tax_amount)}</span></div>
-          )}
-          <div className="r-total flex justify-between font-bold">
-            <span>TOTAL</span><span>BDT {fmt(sale.total)}</span>
-          </div>
-          <div className="flex justify-between"><span>Paid</span><span>{fmt(sale.paid)}</span></div>
-          {Number(sale.due || 0) > 0 && (
-            <div className="flex justify-between font-bold"><span>Due</span><span>{fmt(sale.due)}</span></div>
-          )}
-
-          {installments.length > 0 && (
-            <>
-              <div className="my-1 text-center">{line}</div>
-              <div className="font-bold">Installments</div>
-              {installments.map((ins: any) => (
-                <div key={ins.id} className="grid grid-cols-[auto_1fr_auto] gap-x-2">
-                  <div>#{ins.installment_no}</div>
-                  <div className="r-wrap">{ins.due_date}</div>
-                  <div className="text-right">{fmt(ins.amount)} <span className="text-[10px]">({ins.status})</span></div>
+          {/* Quick send */}
+          <section className="rounded-lg border bg-card p-4">
+            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              কাস্টমারকে পাঠান
+            </div>
+            <div className="space-y-2">
+              <div>
+                <Label className="text-xs">SMS</Label>
+                <div className="mt-1 flex gap-1">
+                  <Input value={smsPhone} onChange={(e) => setSmsPhone(e.target.value)} placeholder="01XXXXXXXXX" className="h-9 text-sm" />
+                  <Button size="sm" className="h-9 shrink-0" disabled={smsM.isPending || !smsPhone.trim()} onClick={() => smsM.mutate()}>
+                    <MessageSquare className="mr-1 h-4 w-4" /> {smsM.isPending ? "..." : "পাঠান"}
+                  </Button>
                 </div>
-              ))}
-            </>
-          )}
+              </div>
+              <div>
+                <Label className="text-xs">ইমেইল</Label>
+                <div className="mt-1 flex gap-1">
+                  <Input type="email" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="customer@example.com" className="h-9 text-sm" />
+                  <Button size="sm" variant="outline" className="h-9 shrink-0" disabled={emailM.isPending || !emailTo.trim()} onClick={() => emailM.mutate()}>
+                    <Mail className="mr-1 h-4 w-4" /> {emailM.isPending ? "..." : "পাঠান"}
+                  </Button>
+                </div>
+              </div>
+              {publicUrl && (
+                <div>
+                  <Label className="text-xs">পাবলিক লিংক</Label>
+                  <div className="mt-1 flex gap-1">
+                    <Input readOnly value={publicUrl} className="h-9 text-xs" onFocus={(e) => e.currentTarget.select()} />
+                    <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(publicUrl, "লিংক কপি হয়েছে")}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => nativeShare(publicUrl, `Invoice #${sale.invoice_no ?? ""}`)}>
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
 
-          <div className="my-1 text-center">{line}</div>
-          <div className="r-wrap text-center text-[11px]">ধন্যবাদ, আবার আসবেন।</div>
-          <div className="text-center text-[10px]">Printed: {new Date().toLocaleString("en-GB")}</div>
+          {/* Tabs: delivery / revisions */}
+          <section className="rounded-lg border bg-card p-1">
+            <Tabs defaultValue="delivery" className="w-full">
+              <TabsList className="w-full">
+                <TabsTrigger value="delivery" className="flex-1">ডেলিভারি</TabsTrigger>
+                <TabsTrigger value="revisions" className="flex-1">সম্পাদনা</TabsTrigger>
+              </TabsList>
+              <TabsContent value="delivery" className="p-3">
+                <SaleDeliveryHistory saleId={saleId} />
+              </TabsContent>
+              <TabsContent value="revisions" className="p-3">
+                <SaleRevisionsList saleId={saleId} />
+              </TabsContent>
+            </Tabs>
+          </section>
         </div>
-      </ReceiptShell>
-
-      <style>{receiptStyleCss(cfg)}</style>
-
-      <div className="mx-auto mt-4 grid max-w-md gap-4 px-2 print:hidden">
-        <section className="rounded-lg border bg-card p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SMS / ইমেইল হিস্ট্রি</div>
-          </div>
-          <SaleDeliveryHistory saleId={saleId} />
-        </section>
-        <section className="rounded-lg border bg-card p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">সম্পাদনার হিস্ট্রি</div>
-          </div>
-          <SaleRevisionsList saleId={saleId} />
-        </section>
       </div>
 
+      <InvoicePrintStyles />
+
+      {/* Share dialog (mobile-friendly big buttons) */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ইনভয়েস শেয়ার করুন</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" className="h-16 flex-col gap-1" onClick={() => { copyToClipboard(publicUrl, "লিংক কপি হয়েছে"); setShareOpen(false); }}>
+              <Link2 className="h-5 w-5" /> <span className="text-xs">লিংক কপি</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-1"
+              onClick={() => { openWhatsAppShare(publicUrl, sale.invoice_no, sale.customer?.phone); setShareOpen(false); }}>
+              <MessageCircle className="h-5 w-5" /> <span className="text-xs">WhatsApp</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-1"
+              disabled={!smsPhone.trim() || smsM.isPending}
+              onClick={() => { smsM.mutate(); setShareOpen(false); }}>
+              <MessageSquare className="h-5 w-5" /> <span className="text-xs">SMS</span>
+            </Button>
+            <Button variant="outline" className="h-16 flex-col gap-1"
+              disabled={!emailTo.trim() || emailM.isPending}
+              onClick={() => { emailM.mutate(); setShareOpen(false); }}>
+              <Mail className="h-5 w-5" /> <span className="text-xs">ইমেইল</span>
+            </Button>
+          </div>
+          {publicUrl && (
+            <div className="mt-2 rounded-md border bg-muted/40 p-2 text-xs">
+              <div className="text-muted-foreground">পাবলিক লিংক</div>
+              <div className="truncate font-mono">{publicUrl}</div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Return */}
       <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -312,6 +462,7 @@ function InvoicePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Cancel */}
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
