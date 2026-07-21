@@ -21,9 +21,11 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone, Camera, CloudOff, RefreshCcw } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 import { computeCartTotals, clampDiscount as clampD, validateSale } from "@/lib/pos-calc";
+import { BarcodeScannerDialog } from "@/components/barcode-scanner-dialog";
+import { loadDraft, saveDraft, clearDraft, readQueue, enqueueSale, removeFromQueue, isNetworkError, type SaleQueueItem } from "@/lib/pos-offline";
 
 function cryptoRandomId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
@@ -89,6 +91,9 @@ function Page() {
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => cryptoRandomId());
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editInvoiceNo, setEditInvoiceNo] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [queueCount, setQueueCount] = useState<number>(() => (typeof window === "undefined" ? 0 : readQueue().length));
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -175,6 +180,98 @@ function Page() {
       }
     } catch { /* ignore malformed */ }
   }, [prod.data]);
+
+  // Auto-persist current cart as a local draft so a reload / brief network drop won't lose it.
+  const draftHydrated = useRef(false);
+  useEffect(() => {
+    if (draftHydrated.current) return;
+    if (!prod.data) return;
+    // Skip auto-hydration if the edit-invoice flow already loaded something
+    if (restoredRef.current || lines.length > 0) { draftHydrated.current = true; return; }
+    const d = loadDraft<any>();
+    if (d?.lines?.length) {
+      const restored: Line[] = d.lines.map((it: any) => {
+        const p = prod.data?.find((x: any) => x.id === it.product_id);
+        return {
+          product_id: it.product_id,
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price ?? p?.sale_price ?? 0),
+          unit_cost: Number(it.unit_cost ?? p?.purchase_price ?? 0),
+          discount_amount: Number(it.discount_amount ?? 0),
+          stock: Number(p?.stock_quantity ?? it.stock ?? 0),
+          name: p?.name ?? it.name ?? "পণ্য",
+          unit: p?.unit?.short_name ?? it.unit,
+          image_url: p?.image_url ?? it.image_url ?? null,
+          sku: p?.sku ?? it.sku ?? null,
+        };
+      });
+      setLines(restored);
+      if (d.customer_id) setCustomerId(d.customer_id);
+      if (typeof d.discount === "number") setDiscount(d.discount);
+      if (typeof d.taxRate === "number") setTaxRate(d.taxRate);
+      if (d.note) setNote(d.note);
+      toast.info("অসম্পূর্ণ কার্ট পুনরুদ্ধার হয়েছে");
+    }
+    draftHydrated.current = true;
+  }, [prod.data]);
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    if (editSaleId) return; // don't overwrite draft with an in-flight edit
+    if (lines.length === 0 && !customerId && !discount && !taxRate && !note) {
+      clearDraft();
+      return;
+    }
+    saveDraft({
+      lines: lines.map((l) => ({
+        product_id: l.product_id, quantity: l.quantity, unit_price: l.unit_price,
+        unit_cost: l.unit_cost, discount_amount: l.discount_amount,
+        name: l.name, sku: l.sku, unit: l.unit, image_url: l.image_url, stock: l.stock,
+      })),
+      customer_id: customerId || null,
+      discount, taxRate, note,
+    });
+  }, [lines, customerId, discount, taxRate, note, editSaleId]);
+
+  // Online/offline listeners + auto-flush queued sales when back online
+  const createFnRef = useRef(createFn);
+  createFnRef.current = createFn;
+  const flushQueue = async () => {
+    const queue = readQueue();
+    if (queue.length === 0) return;
+    let flushed = 0;
+    for (const item of queue) {
+      try {
+        // Only createSale is queueable (updates are rare and safer to redo manually)
+        await createFnRef.current({ data: item.payload });
+        removeFromQueue(item.id);
+        flushed++;
+      } catch (e) {
+        if (isNetworkError(e)) break; // stop; will retry later
+        // Non-network error → drop it so it doesn't loop forever
+        removeFromQueue(item.id);
+      }
+    }
+    setQueueCount(readQueue().length);
+    if (flushed > 0) {
+      toast.success(`${flushed}টি অফলাইন বিক্রয় সিঙ্ক হয়েছে`);
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["shop-notifications"] });
+    }
+  };
+  useEffect(() => {
+    const on = () => { setIsOnline(true); flushQueue(); };
+    const off = () => setIsOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    // Attempt an initial flush in case queued items were left from an earlier session
+    if (navigator.onLine) flushQueue();
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addProduct = (pid: string) => {
     if (!pid) return;
