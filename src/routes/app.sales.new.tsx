@@ -41,6 +41,8 @@ function Page() {
   const getSaleFn = useServerFn(getSale);
   const sendSmsFn = useServerFn(sendInvoiceLinkSms);
   const cancelFn = useServerFn(cancelSale);
+  const sendEmailFn = useServerFn(sendInvoiceLinkEmail);
+  const snapshotFn = useServerFn(snapshotSale);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
