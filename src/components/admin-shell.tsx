@@ -82,17 +82,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
   };
 
   const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+    <nav className="flex-1 space-y-6 overflow-y-auto p-4">
       {navGroups.map((g) => {
         const isOpen = openGroups[g.id] ?? true;
         const hasActive = g.items.some(isItemActive);
         return (
-          <div key={g.id} className="space-y-0.5">
+          <div key={g.id} className="space-y-1">
             <button
               type="button"
               onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
-                hasActive ? "text-emerald-200" : "text-emerald-200/50 hover:text-emerald-200/80"
+              className={`flex w-full items-center justify-between rounded-md px-4 pb-2 text-[10px] font-bold uppercase tracking-widest transition ${
+                hasActive ? "text-emerald-400/80" : "text-emerald-500/50 hover:text-emerald-400/80"
               }`}
             >
               <span className="flex items-center gap-2">
@@ -102,18 +102,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
             </button>
             {isOpen && (
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {g.items.map((n) => {
                   const active = isItemActive(n);
                   return (
                     <Link key={n.to} to={n.to} onClick={onClick}
-                      className={`group relative flex min-w-0 items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
+                      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-sm transition-all ${
                         active
-                          ? "bg-emerald-600/25 text-white"
-                          : "text-emerald-50/80 hover:bg-white/5 hover:text-white"
+                          ? "bg-emerald-500/10 text-emerald-400 border-r-4 border-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]"
+                          : "text-emerald-100/70 hover:bg-white/5 hover:text-white"
                       }`}>
-                      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-emerald-300" />}
-                      <n.icon className={`h-4 w-4 shrink-0 ${active ? "text-emerald-200" : "opacity-70 group-hover:opacity-100"}`} />
+                      <n.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "" : "opacity-70 group-hover:opacity-100"}`} strokeWidth={active ? 2.5 : 2} />
                       <span className="truncate font-medium">{n.label}</span>
                     </Link>
                   );
@@ -127,17 +126,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
 
   const Brand = () => (
-    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 px-5 py-5 pr-12">
+    <div className="flex min-w-0 items-center gap-3 border-b border-emerald-900/50 bg-emerald-900/40 px-6 py-5 pr-12">
       {logoUrl ? (
-        <img src={logoUrl} alt={siteName} className="h-9 w-9 shrink-0 rounded-md object-contain bg-white p-1" />
+        <img src={logoUrl} alt={siteName} className="h-10 w-10 shrink-0 rounded-xl object-contain bg-white p-1" />
       ) : (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-500 shadow-md">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 shadow-lg shadow-emerald-500/20">
           <ShieldCheck className="h-5 w-5 text-white" />
         </div>
       )}
       <div className="min-w-0">
         <div className="truncate font-bold text-white leading-tight">{siteName}</div>
-        <div className="truncate text-[10px] font-semibold uppercase tracking-widest text-emerald-300/70 mt-0.5">সুপার এডমিন</div>
+        <div className="truncate text-xs font-medium text-emerald-400/80 mt-0.5">সুপার এডমিন প্যানেল</div>
       </div>
     </div>
   );
@@ -147,20 +146,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="hidden w-64 flex-col bg-[#0d3b2e] text-slate-100 md:flex">
+      <aside className="hidden w-64 flex-col bg-emerald-950 text-slate-100 border-r border-emerald-900/50 md:flex">
         <Brand />
         <NavList />
-        <div className="border-t border-white/10 p-3">
-          <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" /> লগআউট
-          </Button>
+        <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
+          <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
+            <LogOut className="h-4 w-4" /> লগআউট
+          </button>
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950">
         <div className="sticky top-0 z-30 hidden items-center justify-end gap-2 border-b border-slate-200 bg-white px-6 py-2 md:flex">
           <AdminNotificationsBell />
         </div>
-        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-[#0d3b2e] px-3 py-2.5 text-slate-100 md:hidden">
+        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-emerald-900/50 bg-emerald-950 px-3 py-2.5 text-slate-100 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" className="h-9 shrink-0 gap-2 px-3 text-slate-100 hover:bg-white/10 hover:text-white" aria-label="মেন্যু খুলুন">
@@ -168,15 +167,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <span className="text-sm font-medium">মেন্যু</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[min(84vw,20rem)] border-white/10 bg-[#0d3b2e] p-0 text-slate-100">
+            <SheetContent side="left" className="w-[min(84vw,20rem)] border-emerald-900/50 bg-emerald-950 p-0 text-slate-100">
               <SheetTitle className="sr-only">মেন্যু</SheetTitle>
               <div className="flex h-full flex-col">
                 <Brand />
                 <NavList onClick={() => setOpen(false)} />
-                <div className="border-t border-white/10 p-3">
-                  <Button variant="ghost" className="w-full justify-start text-emerald-50/80 hover:bg-white/5 hover:text-white" onClick={signOut}>
-                    <LogOut className="mr-2 h-4 w-4" /> লগআউট
-                  </Button>
+                <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
+                  <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
+                    <LogOut className="h-4 w-4" /> লগআউট
+                  </button>
                 </div>
               </div>
             </SheetContent>
