@@ -501,11 +501,11 @@ function Page() {
           </Button>
           <Button
             type="button"
-            disabled={lines.length === 0}
+            disabled={lines.length === 0 || m.isPending}
             onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
             className="h-11 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
           >
-            চেকআউট
+            {m.isPending ? "সেভ হচ্ছে..." : "চেকআউট"}
           </Button>
         </div>
       </div>
