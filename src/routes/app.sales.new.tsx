@@ -84,6 +84,7 @@ function Page() {
   const [quickAddress, setQuickAddress] = useState("");
   const [quickOpening, setQuickOpening] = useState(0);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => cryptoRandomId());
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -100,22 +101,12 @@ function Page() {
   };
   const qc = useQueryClient();
 
-  const subtotal = useMemo(
-    () => lines.reduce((s, l) => s + (l.quantity || 0) * (l.unit_price || 0), 0),
-    [lines],
+  const totals = useMemo(
+    () => computeCartTotals({ lines, order_discount: discount, tax_rate: taxRate, sale_type: saleType, paid }),
+    [lines, discount, taxRate, saleType, paid],
   );
-  const itemDiscountTotal = useMemo(
-    () => lines.reduce((s, l) => s + (l.discount_amount || 0), 0),
-    [lines],
-  );
-  const taxable = Math.max(0, subtotal - itemDiscountTotal - discount);
-  const taxAmount = Math.round((taxable * (taxRate || 0) / 100) * 100) / 100;
-  const total = Math.max(0, taxable + taxAmount);
-  const effectivePaid = saleType === "cash" ? total : paid;
-  const due = Math.max(0, total - effectivePaid);
-  const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
-  const discountBase = Math.max(0, subtotal - itemDiscountTotal);
-  const clampDiscount = (v: number) => Math.max(0, Math.min(discountBase, Number.isFinite(v) ? v : 0));
+  const { subtotal, itemDiscountTotal, discountBase, total, taxAmount, due, unitCount: totalUnits, paid: effectivePaid } = totals;
+  const clampDiscount = (v: number) => clampD(v, discountBase);
 
   // Auto-clamp discount if base shrinks (e.g. line removed)
   useEffect(() => {
