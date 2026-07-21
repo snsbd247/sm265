@@ -29,6 +29,7 @@ import { Route as AppProductsRouteImport } from './routes/app.products'
 import { Route as AppPayInvoiceRouteImport } from './routes/app.pay-invoice'
 import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
+import { Route as AppChangePasswordRouteImport } from './routes/app.change-password'
 import { Route as AppCategoriesRouteImport } from './routes/app.categories'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSmsLogsRouteImport } from './routes/admin.sms-logs'
@@ -157,6 +158,11 @@ const AppInstallmentsRoute = AppInstallmentsRouteImport.update({
 const AppCustomersRoute = AppCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChangePasswordRoute = AppChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCategoriesRoute = AppCategoriesRouteImport.update({
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -377,6 +384,7 @@ export interface FileRoutesByTo {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -429,6 +437,7 @@ export interface FileRoutesById {
   '/admin/sms-logs': typeof AdminSmsLogsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
+  '/app/change-password': typeof AppChangePasswordRoute
   '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
@@ -482,6 +491,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -530,6 +540,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -581,6 +592,7 @@ export interface FileRouteTypes {
     | '/admin/sms-logs'
     | '/admin/subscriptions'
     | '/app/categories'
+    | '/app/change-password'
     | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
@@ -768,6 +780,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/app/customers'
       preLoaderRoute: typeof AppCustomersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/change-password': {
+      id: '/app/change-password'
+      path: '/change-password'
+      fullPath: '/app/change-password'
+      preLoaderRoute: typeof AppChangePasswordRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/categories': {
@@ -1054,6 +1073,7 @@ const AppProductsRouteWithChildren = AppProductsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
+  AppChangePasswordRoute: typeof AppChangePasswordRoute
   AppCustomersRoute: typeof AppCustomersRouteWithChildren
   AppInstallmentsRoute: typeof AppInstallmentsRoute
   AppPayInvoiceRoute: typeof AppPayInvoiceRoute
@@ -1076,6 +1096,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppCategoriesRoute: AppCategoriesRoute,
+  AppChangePasswordRoute: AppChangePasswordRoute,
   AppCustomersRoute: AppCustomersRouteWithChildren,
   AppInstallmentsRoute: AppInstallmentsRoute,
   AppPayInvoiceRoute: AppPayInvoiceRoute,
