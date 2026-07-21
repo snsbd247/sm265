@@ -72,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: UserCog,
     items: [
       { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard },
+      { to: "/app/usage", label: "ব্যবহার রিপোর্ট", icon: PieChart },
     ],
   },
 ];
