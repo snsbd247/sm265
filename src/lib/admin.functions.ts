@@ -148,18 +148,12 @@ export const createShop = createServerFn({ method: "POST" })
     });
     if (userErr || !userData.user) throw new Error(userErr?.message ?? "User create failed");
 
-    // 2) Compute subscription end
-    const start = new Date();
-    const end = new Date(start);
-    if (data.billing_cycle === "monthly") end.setMonth(end.getMonth() + 1);
-    else end.setFullYear(end.getFullYear() + 1);
-
-    // 3) Get package price
+    // 2) Get package price
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("id", data.package_id).single();
     const amount = data.billing_cycle === "monthly" ? pkg?.price_monthly : pkg?.price_yearly;
 
-    // 4) Create shop
+    // 3) Create shop in pending_payment state (no subscription_end yet)
     const { data: shop, error: shopErr } = await supabaseAdmin
       .from("shops")
       .insert({
@@ -170,34 +164,38 @@ export const createShop = createServerFn({ method: "POST" })
         address: data.address,
         package_id: data.package_id,
         billing_cycle: data.billing_cycle,
-        status: "active",
-        subscription_start: start.toISOString(),
-        subscription_end: end.toISOString(),
+        status: "pending_payment",
         created_by: context.userId,
       })
       .select()
       .single();
     if (shopErr) throw new Error(shopErr.message);
 
-    // 5) Assign shop_owner role
+    // 4) Assign shop_owner role
     await supabaseAdmin.from("user_roles").insert({
       user_id: userData.user.id,
       role: "shop_owner",
       shop_id: shop.id,
     });
 
-    // 6) Log subscription
-    await supabaseAdmin.from("subscriptions").insert({
-      shop_id: shop.id,
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      amount: amount ?? 0,
-      status: "active",
-      starts_at: start.toISOString(),
-      ends_at: end.toISOString(),
-    });
+    // 5) Generate initial pending invoice
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const { data: invoice } = await supabaseAdmin
+      .from("subscription_payments")
+      .insert({
+        shop_id: shop.id,
+        amount: amount ?? 0,
+        payment_method: "bkash",
+        status: "pending",
+        invoice_type: "initial",
+        due_date: dueDate.toISOString().slice(0, 10),
+        raw_response: { manual: true, package_id: data.package_id, billing_cycle: data.billing_cycle },
+      })
+      .select("id, invoice_no, amount")
+      .single();
 
-    // 7) Send account created SMS (non-blocking)
+    // 6) Send account created SMS (non-blocking)
     try {
       const { sendTemplateSMS } = await import("./sms.server");
       await sendTemplateSMS("account_created", data.phone, {
@@ -206,13 +204,15 @@ export const createShop = createServerFn({ method: "POST" })
         phone: data.phone,
         password: data.password,
         package: pkg?.name ?? "",
-        end_date: end.toLocaleDateString("bn-BD"),
+        end_date: dueDate.toLocaleDateString("bn-BD"),
+        invoice_no: invoice?.invoice_no ?? "",
+        amount: String(amount ?? 0),
       }, { shopId: shop.id });
     } catch (e) {
       console.error("account_created SMS failed", e);
     }
 
-    return { shop, credentials: { email: data.email, password: data.password } };
+    return { shop, invoice, credentials: { email: data.email, password: data.password } };
   });
 
 export const updateShopStatus = createServerFn({ method: "POST" })
