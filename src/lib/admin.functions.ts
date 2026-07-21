@@ -408,7 +408,7 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     if (pay.status !== "pending") throw new Error("এই পেমেন্ট already processed");
 
     const { data: shop } = await supabaseAdmin
-      .from("shops").select("*, package:packages(*)").eq("id", pay.shop_id).single();
+      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay.shop_id).single();
     if (!shop) throw new Error("Shop not found");
 
     // Determine billing cycle from linked subscription (if any) or shop default
@@ -567,7 +567,7 @@ export const getShopDetail = createServerFn({ method: "GET" })
     const sid = data.shop_id;
 
     const { data: shop, error } = await supabaseAdmin
-      .from("shops").select("*, package:packages(*)").eq("id", sid).single();
+      .from("shops").select("*, package:packages!package_id(*)").eq("id", sid).single();
     if (error) throw new Error(error.message);
 
     const [payments, subs, roles, sales, purchases, customers, suppliers, products, custPays, supPays] = await Promise.all([
