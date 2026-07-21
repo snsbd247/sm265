@@ -188,6 +188,7 @@ function Dashboard() {
                   <c.icon className="h-4 w-4" />
                 </div>
               </div>
+              {!compact && <CardMeta source={c.source} filter={c.filter} />}
             </button>
           ))}
         </div>
