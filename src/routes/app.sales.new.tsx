@@ -972,7 +972,7 @@ function SuccessDialog({
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
           <div className="space-y-3 max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
-            <InvoicePreview sale={sale} />
+            <InvoicePreview sale={sale} tpl={tpl} publicUrl={publicUrl} />
 
             <div className="flex flex-wrap gap-2 print:hidden">
               <Button size="sm" variant="outline" onClick={printInvoice} className="flex-1 min-w-[110px]">
@@ -1033,6 +1033,49 @@ function SuccessDialog({
                 </div>
               )}
             </div>
+
+            <div className="print:hidden">
+              <Label className="text-xs">ইমেইলে পাঠান</Label>
+              <div className="mt-1 flex items-center gap-1">
+                <Input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="h-9 text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 shrink-0"
+                  disabled={emailM.isPending || !emailTo.trim()}
+                  onClick={() => emailM.mutate()}
+                >
+                  <Mail className="mr-1 h-4 w-4" />
+                  {emailM.isPending ? "পাঠাচ্ছে..." : lastEmailAt ? "আবার" : "পাঠান"}
+                </Button>
+              </div>
+              {emailM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
+                  <X className="h-3 w-3" /> {(emailM.error as any)?.message ?? "পাঠানো যায়নি"}
+                </div>
+              )}
+              {lastEmailAt && !emailM.isPending && !emailM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+                  <CheckCheck className="h-3 w-3" />
+                  পাঠানো হয়েছে {emailSentTo && `→ ${emailSentTo}`} • {lastEmailAt.toLocaleTimeString("bn-BD")}
+                </div>
+              )}
+            </div>
+
+            {saleId && (
+              <div className="print:hidden">
+                <Label className="text-xs">ডেলিভারি হিস্ট্রি</Label>
+                <div className="mt-1">
+                  <SaleDeliveryHistory saleId={saleId} />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
