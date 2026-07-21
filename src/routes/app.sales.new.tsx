@@ -345,6 +345,22 @@ function Page() {
     else toast.error(`পণ্য পাওয়া যায়নি: ${code}`);
   };
 
+  const handleScannedCode = (code: string) => {
+    const c = code.trim();
+    if (!c) return;
+    const p = (prod.data ?? []).find(
+      (x: any) =>
+        (x.barcode && x.barcode === c) ||
+        (x.sku && x.sku.toLowerCase() === c.toLowerCase()),
+    );
+    if (p) {
+      addProduct(p.id);
+      toast.success(`যোগ হয়েছে: ${p.name}`);
+    } else {
+      toast.error(`পণ্য পাওয়া যায়নি: ${c}`);
+    }
+  };
+
   const catCounts = useMemo(() => {
     const map: Record<string, number> = { all: 0, uncat: 0 };
     for (const p of prod.data ?? []) {
@@ -412,6 +428,8 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["shop-trend"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       if (editSaleId) qc.invalidateQueries({ queryKey: ["sale", editSaleId] });
+      // Successful commit → clear the offline draft
+      clearDraft();
       const id = typeof saleId === "string" ? saleId : saleId?.id;
       if (id) {
         if (editSaleId) {
@@ -430,8 +448,42 @@ function Page() {
         nav({ to: "/app/sales" });
       }
     },
-    onError: (e: any) => {
+    onError: (e: any, vars: any) => {
       const msg = e?.message ?? "";
+      // Offline / network failure → queue the sale locally and reset the cart
+      if (!editSaleId && isNetworkError(e)) {
+        try {
+          const st = vars?.saleTypeOverride ?? saleType;
+          const p = vars?.paidOverride ?? (st === "cash" ? total : paid);
+          const payload = {
+            customer_id: customerId || null,
+            invoice_no: invoiceNo || null,
+            sale_date: saleDate,
+            discount,
+            paid: p,
+            payment_method: st === "cash" ? method : st === "due" ? "due" : method,
+            sale_type: st,
+            note: note || null,
+            items: lines.map((l) => ({
+              product_id: l.product_id, quantity: l.quantity,
+              unit_price: l.unit_price, unit_cost: l.unit_cost,
+              discount_amount: l.discount_amount || 0, tax_rate: taxRate || 0,
+            })),
+            installments: st === "installment" ? installments : null,
+            installment_frequency: instFreq,
+            installment_start: instStart,
+            idempotency_key: idempotencyKey,
+          };
+          enqueueSale({ payload, is_update: false });
+          setQueueCount(readQueue().length);
+          toast.success("অফলাইন — বিক্রয় সংরক্ষিত হয়েছে, কানেকশন ফিরে এলে সিঙ্ক হবে");
+          setCheckoutOpen(false);
+          clearDraft();
+          setLines([]); setDiscount(0); setTaxRate(0); setPaid(0); setNote(""); setInvoiceNo("");
+          setIdempotencyKey(cryptoRandomId());
+          return;
+        } catch { /* fall through to error toast */ }
+      }
       if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
         setUpgradeMsg(msg);
         setUpgradeOpen(true);
