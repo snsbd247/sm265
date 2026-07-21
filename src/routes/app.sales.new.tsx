@@ -811,6 +811,45 @@ function Page() {
         </aside>
       </div>
 
+      {/* Sticky mobile bottom action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 px-3 py-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.15)] backdrop-blur md:hidden">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="relative flex h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left"
+            aria-label="কার্ট খুলুন"
+          >
+            <ShoppingCart className="h-5 w-5 text-slate-700" />
+            <div className="leading-tight">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">কার্ট</div>
+              <div className="text-sm font-black text-slate-900">৳{total.toFixed(2)}</div>
+            </div>
+            {lines.length > 0 && (
+              <Badge className="absolute -right-1.5 -top-1.5 h-5 min-w-5 rounded-full bg-orange-500 px-1 text-[10px]">
+                {lines.length}
+              </Badge>
+            )}
+          </button>
+          <Button
+            type="button"
+            className="h-12 flex-1 bg-amber-500 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={fullDueSave}
+          >
+            ফুল বাকি
+          </Button>
+          <Button
+            type="button"
+            className="h-12 flex-1 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
+          >
+            {m.isPending ? "..." : "চেকআউট"}
+          </Button>
+        </div>
+      </div>
+
       {/* Quick add customer dialog */}
       <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
         <DialogContent className="max-w-sm">
