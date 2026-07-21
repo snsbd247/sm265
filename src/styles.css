@@ -205,3 +205,29 @@
   background-image: linear-gradient(135deg, #cffafe, #ecfeff);
 }
 
+
+/* Print: isolate POS invoice preview when triggered from success modal */
+@media print {
+  body.printing-invoice > *:not(:has(#pos-invoice-preview)) {
+    display: none !important;
+  }
+  body.printing-invoice #pos-invoice-preview {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    font-size: 12pt !important;
+    z-index: 999999 !important;
+  }
+  body.printing-invoice [data-slot="dialog-overlay"],
+  body.printing-invoice [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+  @page { margin: 8mm; }
+}
