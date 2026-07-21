@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale, getSale } from "@/lib/sales.functions";
+import { listCustomers, createSale, getSale, cancelSale } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
@@ -36,6 +36,7 @@ function Page() {
   const createFn = useServerFn(createSale);
   const getSaleFn = useServerFn(getSale);
   const sendSmsFn = useServerFn(sendInvoiceLinkSms);
+  const cancelFn = useServerFn(cancelSale);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
