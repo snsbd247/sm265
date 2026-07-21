@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale } from "@/lib/sales.functions";
+import { listCustomers, createSale, getSale } from "@/lib/sales.functions";
+import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
@@ -32,6 +33,8 @@ function Page() {
   const prodFn = useServerFn(listProducts);
   const catFn = useServerFn(listCategories);
   const createFn = useServerFn(createSale);
+  const getSaleFn = useServerFn(getSale);
+  const sendSmsFn = useServerFn(sendInvoiceLinkSms);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
@@ -61,6 +64,10 @@ function Page() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+
+  // Post-sale success dialog
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [lastSaleId, setLastSaleId] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
@@ -210,8 +217,13 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["shop-trend"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       const id = typeof saleId === "string" ? saleId : saleId?.id;
-      if (printAfter && id) nav({ to: "/app/sales/$saleId", params: { saleId: id } });
-      else nav({ to: "/app/sales" });
+      if (id) {
+        setLastSaleId(id);
+        setCheckoutOpen(false);
+        setSuccessOpen(true);
+      } else {
+        nav({ to: "/app/sales" });
+      }
     },
     onError: (e: any) => toast.error(e.message),
   });
