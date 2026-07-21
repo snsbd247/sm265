@@ -195,6 +195,24 @@ export const createShop = createServerFn({ method: "POST" })
       .select("id, invoice_no, amount")
       .single();
 
+    // Audit
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: shop.id, action: "shop.created",
+        target_type: "shop", target_id: shop.id,
+        details: { name: shop.name, package_id: data.package_id, billing_cycle: data.billing_cycle, invoice_no: invoice?.invoice_no },
+      });
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: shop.id, action: "invoice.created",
+        target_type: "subscription_payment", target_id: invoice?.id,
+        details: { invoice_no: invoice?.invoice_no, amount: invoice?.amount, invoice_type: "initial" },
+      });
+    } catch {}
+
     // 6) Send account created SMS (non-blocking)
     try {
       const { sendTemplateSMS } = await import("./sms.server");
@@ -229,6 +247,15 @@ export const updateShopStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("shops").update({ status: data.status }).eq("id", data.shop_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "shop.status_changed",
+        target_type: "shop", target_id: data.shop_id, details: { status: data.status },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -250,6 +277,16 @@ export const extendShopSubscription = createServerFn({ method: "POST" })
       .update({ status: "active", subscription_end: base.toISOString() })
       .eq("id", data.shop_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "subscription.extended",
+        target_type: "shop", target_id: data.shop_id,
+        details: { months: data.months, new_end: base.toISOString() },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -407,17 +444,47 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     if (payErr || !pay) throw new Error(payErr?.message ?? "Payment not found");
     if (pay.status !== "pending") throw new Error("এই পেমেন্ট already processed");
 
+    // Delegate to shared idempotent activation so admin approve + bKash callback + webhook
+    // all go through the same path.
+    const { activatePaymentAndExtendShop } = await import("./subscription.server");
+    const { resolveActor } = await import("./audit.server");
+    const actor = await resolveActor(context.userId);
+    const r = await activatePaymentAndExtendShop(pay.id, {
+      actorUserId: context.userId,
+      actorEmail: actor.actor_email,
+      source: "admin_approval",
+    });
+
+    // Extra audit entry for the human action (activate function logs source=admin_approval already)
+    try {
+      const { logAudit } = await import("./audit.server");
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: pay.shop_id, action: "invoice.approved",
+        target_type: "subscription_payment", target_id: pay.id,
+        details: { invoice_no: (pay as any).invoice_no, amount: pay.amount, alreadyProcessed: r.alreadyProcessed ?? false },
+      });
+    } catch {}
+    return { ok: true, ...r };
+  });
+
+// Legacy inline activation kept below (unreachable) — remove once verified.
+const _unusedLegacyApprove = async ({ data, context }: any) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: pay } = await supabaseAdmin
+      .from("subscription_payments").select("*").eq("id", data.payment_id).single();
     const { data: shop } = await supabaseAdmin
-      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay.shop_id).single();
+      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay!.shop_id).single();
     if (!shop) throw new Error("Shop not found");
+    void context;
 
     // Determine billing cycle from linked subscription (if any) or shop default
     let months = 1;
     let pkgId: string | null = shop.package_id;
     let cycle: "monthly" | "yearly" = shop.billing_cycle as any;
-    if (pay.subscription_id) {
+    if (pay!.subscription_id) {
       const { data: sub } = await supabaseAdmin
-        .from("subscriptions").select("*").eq("id", pay.subscription_id).single();
+        .from("subscriptions").select("*").eq("id", pay!.subscription_id).single();
       if (sub) {
         cycle = sub.billing_cycle as any;
         pkgId = sub.package_id;
@@ -444,19 +511,19 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     await supabaseAdmin.from("subscription_payments").update({
       status: "success",
       paid_at: new Date().toISOString(),
-    }).eq("id", pay.id);
+    }).eq("id", pay!.id);
 
-    if (pay.subscription_id) {
+    if (pay!.subscription_id) {
       await supabaseAdmin.from("subscriptions").update({
         status: "active",
         ends_at: base.toISOString(),
-      }).eq("id", pay.subscription_id);
+      }).eq("id", pay!.subscription_id);
     } else {
       await supabaseAdmin.from("subscriptions").insert({
         shop_id: shop.id,
         package_id: pkgId!,
         billing_cycle: cycle,
-        amount: pay.amount,
+        amount: pay!.amount,
         status: "active",
         starts_at: start.toISOString(),
         ends_at: base.toISOString(),
@@ -473,12 +540,12 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
       if (isUpgrade) {
         await sendTemplateSMS("upgraded", shop.phone, {
           shop_name: shop.name, owner: shop.owner_name,
-          package: pkgRow?.name ?? "", end_date: endStr, amount: pay.amount,
+          package: pkgRow?.name ?? "", end_date: endStr, amount: pay!.amount,
         }, { shopId: shop.id });
       } else {
         await sendTemplateSMS("renewed", shop.phone, {
           shop_name: shop.name, owner: shop.owner_name,
-          package: pkgRow?.name ?? "", end_date: endStr, amount: pay.amount,
+          package: pkgRow?.name ?? "", end_date: endStr, amount: pay!.amount,
         }, { shopId: shop.id });
       }
     } catch (e) {
@@ -486,7 +553,7 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
-  });
+};
 
 export const rejectSubscriptionPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -497,6 +564,14 @@ export const rejectSubscriptionPayment = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("subscription_payments").update({ status: "failed" }).eq("id", data.payment_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        action: "invoice.rejected", target_type: "subscription_payment", target_id: data.payment_id,
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -642,6 +717,16 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
     // Downgrade or zero-net → apply immediately with credit
     if (change.net_amount <= 0) {
       await applyImmediateDowngrade(data.shop_id, change);
+      try {
+        const { logAudit, resolveActor } = await import("./audit.server");
+        const actor = await resolveActor(context.userId);
+        await logAudit({
+          actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+          shop_id: data.shop_id, action: "package.downgraded",
+          target_type: "shop", target_id: data.shop_id,
+          details: change as any,
+        });
+      } catch {}
       return { ok: true, kind: "immediate", change };
     }
 
@@ -668,6 +753,17 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
       pending_package_id: data.package_id,
       pending_billing_cycle: data.billing_cycle,
     }).eq("id", data.shop_id);
+
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "package.upgrade_requested",
+        target_type: "subscription_payment", target_id: invoice?.id,
+        details: { invoice_no: invoice?.invoice_no, amount: invoice?.amount, change: change as any },
+      });
+    } catch {}
 
     return { ok: true, kind: "pending", invoice, change };
   });
@@ -701,7 +797,7 @@ export const cancelPendingUpgrade = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Cancel pending upgrade invoices
     await supabaseAdmin.from("subscription_payments")
-      .update({ status: "failed" })
+      .update({ status: "cancelled" })
       .eq("shop_id", data.shop_id)
       .eq("status", "pending")
       .eq("invoice_type", "upgrade");
@@ -709,6 +805,15 @@ export const cancelPendingUpgrade = createServerFn({ method: "POST" })
       pending_package_id: null,
       pending_billing_cycle: null,
     }).eq("id", data.shop_id);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "package.upgrade_cancelled",
+        target_type: "shop", target_id: data.shop_id, details: { by: "admin" },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -773,6 +878,15 @@ export const deleteShop = createServerFn({ method: "POST" })
     for (const r of roles ?? []) {
       try { await supabaseAdmin.auth.admin.deleteUser(r.user_id); } catch {}
     }
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        action: "shop.deleted", target_type: "shop", target_id: data.shop_id,
+        details: { removed_users: (roles ?? []).length },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -799,6 +913,31 @@ export const getBranding = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin.from("app_branding").select("*").limit(1).maybeSingle();
     return data;
+  });
+
+// ---------- Audit logs ----------
+export const listAuditLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      shop_id: z.string().uuid().optional(),
+      action: z.string().optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("audit_logs")
+      .select("*, shop:shops(name)")
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 200);
+    if (data.shop_id) q = q.eq("shop_id", data.shop_id);
+    if (data.action) q = q.eq("action", data.action);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
   });
 
 export const saveBranding = createServerFn({ method: "POST" })

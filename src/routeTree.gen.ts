@@ -35,6 +35,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminImpersonationLogsRouteImport } from './routes/admin.impersonation-logs'
+import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
@@ -45,7 +46,9 @@ import { Route as AppPurchasesNewRouteImport } from './routes/app.purchases.new'
 import { Route as AppProductsProductIdRouteImport } from './routes/app.products.$productId'
 import { Route as AdminShopsShopIdRouteImport } from './routes/admin.shops.$shopId'
 import { Route as AdminReceiptsPaymentIdRouteImport } from './routes/admin.receipts.$paymentId'
+import { Route as ApiPublicCronInvoiceRemindersRouteImport } from './routes/api/public/cron/invoice-reminders'
 import { Route as ApiPublicCronExpiryCheckRouteImport } from './routes/api/public/cron/expiry-check'
+import { Route as ApiPublicBkashWebhookRouteImport } from './routes/api/public/bkash/webhook'
 import { Route as ApiPublicBkashCallbackRouteImport } from './routes/api/public/bkash/callback'
 import { Route as AdminReceiptsEnPaymentIdRouteImport } from './routes/admin.receipts.en.$paymentId'
 import { Route as AdminInvoicesEnSubscriptionIdRouteImport } from './routes/admin.invoices.en.$subscriptionId'
@@ -180,6 +183,11 @@ const AdminImpersonationLogsRoute = AdminImpersonationLogsRouteImport.update({
   path: '/impersonation-logs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAdminsRoute = AdminAdminsRouteImport.update({
   id: '/admins',
   path: '/admins',
@@ -230,12 +238,23 @@ const AdminReceiptsPaymentIdRoute = AdminReceiptsPaymentIdRouteImport.update({
   path: '/receipts/$paymentId',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiPublicCronInvoiceRemindersRoute =
+  ApiPublicCronInvoiceRemindersRouteImport.update({
+    id: '/api/public/cron/invoice-reminders',
+    path: '/api/public/cron/invoice-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronExpiryCheckRoute =
   ApiPublicCronExpiryCheckRouteImport.update({
     id: '/api/public/cron/expiry-check',
     path: '/api/public/cron/expiry-check',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBkashWebhookRoute = ApiPublicBkashWebhookRouteImport.update({
+  id: '/api/public/bkash/webhook',
+  path: '/api/public/bkash/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBkashCallbackRoute = ApiPublicBkashCallbackRouteImport.update({
   id: '/api/public/bkash/callback',
   path: '/api/public/bkash/callback',
@@ -262,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -294,7 +314,9 @@ export interface FileRoutesByFullPath {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
+  '/api/public/cron/invoice-reminders': typeof ApiPublicCronInvoiceRemindersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -302,6 +324,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -333,7 +356,9 @@ export interface FileRoutesByTo {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
+  '/api/public/cron/invoice-reminders': typeof ApiPublicCronInvoiceRemindersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -344,6 +369,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/renew': typeof RenewRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/audit-logs': typeof AdminAuditLogsRoute
   '/admin/impersonation-logs': typeof AdminImpersonationLogsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -376,7 +402,9 @@ export interface FileRoutesById {
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
   '/admin/receipts/en/$paymentId': typeof AdminReceiptsEnPaymentIdRoute
   '/api/public/bkash/callback': typeof ApiPublicBkashCallbackRoute
+  '/api/public/bkash/webhook': typeof ApiPublicBkashWebhookRoute
   '/api/public/cron/expiry-check': typeof ApiPublicCronExpiryCheckRoute
+  '/api/public/cron/invoice-reminders': typeof ApiPublicCronInvoiceRemindersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -388,6 +416,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/renew'
     | '/admin/admins'
+    | '/admin/audit-logs'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -420,7 +449,9 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
+    | '/api/public/cron/invoice-reminders'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -428,6 +459,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/renew'
     | '/admin/admins'
+    | '/admin/audit-logs'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -459,7 +491,9 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
+    | '/api/public/cron/invoice-reminders'
   id:
     | '__root__'
     | '/'
@@ -469,6 +503,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/renew'
     | '/admin/admins'
+    | '/admin/audit-logs'
     | '/admin/impersonation-logs'
     | '/admin/login'
     | '/admin/packages'
@@ -501,7 +536,9 @@ export interface FileRouteTypes {
     | '/admin/invoices/en/$subscriptionId'
     | '/admin/receipts/en/$paymentId'
     | '/api/public/bkash/callback'
+    | '/api/public/bkash/webhook'
     | '/api/public/cron/expiry-check'
+    | '/api/public/cron/invoice-reminders'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -512,7 +549,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RenewRoute: typeof RenewRoute
   ApiPublicBkashCallbackRoute: typeof ApiPublicBkashCallbackRoute
+  ApiPublicBkashWebhookRoute: typeof ApiPublicBkashWebhookRoute
   ApiPublicCronExpiryCheckRoute: typeof ApiPublicCronExpiryCheckRoute
+  ApiPublicCronInvoiceRemindersRoute: typeof ApiPublicCronInvoiceRemindersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -699,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminImpersonationLogsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/audit-logs': {
+      id: '/admin/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/admin/audit-logs'
+      preLoaderRoute: typeof AdminAuditLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/admins': {
       id: '/admin/admins'
       path: '/admins'
@@ -769,11 +815,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReceiptsPaymentIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/public/cron/invoice-reminders': {
+      id: '/api/public/cron/invoice-reminders'
+      path: '/api/public/cron/invoice-reminders'
+      fullPath: '/api/public/cron/invoice-reminders'
+      preLoaderRoute: typeof ApiPublicCronInvoiceRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/expiry-check': {
       id: '/api/public/cron/expiry-check'
       path: '/api/public/cron/expiry-check'
       fullPath: '/api/public/cron/expiry-check'
       preLoaderRoute: typeof ApiPublicCronExpiryCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bkash/webhook': {
+      id: '/api/public/bkash/webhook'
+      path: '/api/public/bkash/webhook'
+      fullPath: '/api/public/bkash/webhook'
+      preLoaderRoute: typeof ApiPublicBkashWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/bkash/callback': {
@@ -816,6 +876,7 @@ const AdminShopsRouteWithChildren = AdminShopsRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminAdminsRoute: typeof AdminAdminsRoute
+  AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminImpersonationLogsRoute: typeof AdminImpersonationLogsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
@@ -832,6 +893,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminsRoute: AdminAdminsRoute,
+  AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminImpersonationLogsRoute: AdminImpersonationLogsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminPackagesRoute: AdminPackagesRoute,
@@ -908,7 +970,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RenewRoute: RenewRoute,
   ApiPublicBkashCallbackRoute: ApiPublicBkashCallbackRoute,
+  ApiPublicBkashWebhookRoute: ApiPublicBkashWebhookRoute,
   ApiPublicCronExpiryCheckRoute: ApiPublicCronExpiryCheckRoute,
+  ApiPublicCronInvoiceRemindersRoute: ApiPublicCronInvoiceRemindersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

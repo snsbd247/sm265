@@ -85,12 +85,23 @@ export const cancelMyPendingUpgrade = createServerFn({ method: "POST" })
     const { shopId } = await getUserShopId(context);
     if (!shopId) throw new Error("দোকান পাওয়া যায়নি");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("subscription_payments")
-      .update({ status: "failed" })
+    const { data: cancelled } = await supabaseAdmin.from("subscription_payments")
+      .update({ status: "cancelled" as any })
       .eq("shop_id", shopId).eq("status", "pending").eq("invoice_type", "upgrade");
     await supabaseAdmin.from("shops").update({
       pending_package_id: null, pending_billing_cycle: null,
     }).eq("id", shopId);
+    try {
+      const { logAudit } = await import("./audit.server");
+      const { resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "shop_owner",
+        shop_id: shopId, action: "package.upgrade_cancelled",
+        target_type: "shop", target_id: shopId,
+        details: { by: "shop_owner", cancelled },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -248,10 +259,48 @@ export const submitInvoiceTrx = createServerFn({ method: "POST" })
     const { shopId } = await getUserShopId(context);
     if (!shopId) throw new Error("দোকান পাওয়া যায়নি");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("subscription_payments").update({
-      transaction_id: data.transaction_id,
-      bkash_payment_id: data.bkash_number ?? null,
-    }).eq("id", data.invoice_id).eq("shop_id", shopId).eq("status", "pending");
-    if (error) throw new Error(error.message);
+
+    // Idempotency: reject duplicate transaction_id (unique index also enforces this)
+    const trx = data.transaction_id.trim();
+    const { data: existing } = await supabaseAdmin
+      .from("subscription_payments")
+      .select("id, shop_id, status")
+      .ilike("transaction_id", trx)
+      .maybeSingle();
+    if (existing && existing.id !== data.invoice_id) {
+      throw new Error("এই ট্রানজেকশন ID আগেই ব্যবহৃত হয়েছে");
+    }
+
+    // Only update while still pending — prevents overwriting an approved/failed row
+    const { data: updated, error } = await supabaseAdmin
+      .from("subscription_payments").update({
+        transaction_id: trx,
+        bkash_payment_id: data.bkash_number ?? null,
+      })
+      .eq("id", data.invoice_id)
+      .eq("shop_id", shopId)
+      .eq("status", "pending")
+      .select("id, invoice_no")
+      .maybeSingle();
+    if (error) {
+      // Postgres unique_violation → duplicate trx
+      if ((error as any).code === "23505") {
+        throw new Error("এই ট্রানজেকশন ID আগেই ব্যবহৃত হয়েছে");
+      }
+      throw new Error(error.message);
+    }
+    if (!updated) throw new Error("ইনভয়েস পাওয়া যায়নি বা অলরেডি প্রসেসড");
+
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "shop_owner",
+        shop_id: shopId, action: "invoice.trx_submitted",
+        target_type: "subscription_payment", target_id: data.invoice_id,
+        details: { invoice_no: updated.invoice_no, transaction_id: trx },
+      });
+    } catch {}
+
     return { ok: true };
   });

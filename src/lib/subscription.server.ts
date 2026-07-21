@@ -1,7 +1,21 @@
 // Shared server-only activation logic — reused by admin approval and bKash callback
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export async function activatePaymentAndExtendShop(paymentId: string) {
+export async function activatePaymentAndExtendShop(
+  paymentId: string,
+  opts?: { actorUserId?: string | null; actorEmail?: string | null; source?: string },
+) {
+  // Atomic idempotency claim: set paid_at while status is still pending.
+  // Only the first caller wins; concurrent callers get no row back.
+  const claim = await supabaseAdmin
+    .from("subscription_payments")
+    .update({ paid_at: new Date().toISOString() })
+    .eq("id", paymentId)
+    .eq("status", "pending")
+    .is("paid_at", null)
+    .select("id")
+    .maybeSingle();
+
   const { data: pay, error: payErr } = await supabaseAdmin
     .from("subscription_payments")
     .select("*")
@@ -9,6 +23,9 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
     .single();
   if (payErr || !pay) throw new Error(payErr?.message ?? "Payment not found");
   if (pay.status === "success") return { alreadyProcessed: true };
+  if (!claim.data) {
+    return { alreadyProcessed: true, skipped: true, currentStatus: pay.status };
+  }
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
@@ -82,6 +99,30 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
       ends_at: base.toISOString(),
     });
   }
+
+  // Audit log
+  try {
+    const { logAudit } = await import("./audit.server");
+    await logAudit({
+      actor_user_id: opts?.actorUserId ?? null,
+      actor_email: opts?.actorEmail ?? null,
+      actor_role: opts?.source ?? "system",
+      shop_id: shop.id,
+      action: invoiceType === "initial" ? "invoice.paid"
+            : invoiceType === "upgrade" ? "package.changed"
+            : "invoice.paid",
+      target_type: "subscription_payment",
+      target_id: pay.id,
+      details: {
+        invoice_no: (pay as any).invoice_no,
+        invoice_type: invoiceType,
+        amount: pay.amount,
+        new_package_id: pkgId,
+        billing_cycle: cycle,
+        source: opts?.source ?? "manual",
+      },
+    });
+  } catch (e) { console.error("audit failed", e); }
 
   // SMS notification
   try {
