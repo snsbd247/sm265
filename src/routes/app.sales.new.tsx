@@ -781,14 +781,6 @@ function SuccessDialog({
   onNewSale: () => void;
   onOpenFullReceipt: (id: string) => void;
 }) {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  saleId: string | null;
-  getSaleFn: (args: { data: { id: string } }) => Promise<any>;
-  sendSmsFn: (args: { data: { sale_id: string; phone?: string | null; origin: string } }) => Promise<any>;
-  onNewSale: () => void;
-  onOpenFullReceipt: (id: string) => void;
-}) {
   const q = useQuery({
     queryKey: ["sale-share", saleId],
     queryFn: () => getSaleFn({ data: { id: saleId! } }),
