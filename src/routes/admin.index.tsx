@@ -1,14 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getAdminStats, listShops } from "@/lib/admin.functions";
+import { getAdminStats, listShops, getAdminExtras } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/admin-shell";
 import {
   Store, CheckCircle2, XCircle, Lock, Package, MessageSquare, ArrowRight,
   Wallet, Plus, RefreshCw, Settings2, Database, Server, ShieldCheck,
+  LineChart as LineIcon, Rows3, Grid3x3, CalendarClock, TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { TrendChart } from "@/components/dashboard/trend-chart";
+import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton";
 
 export const Route = createFileRoute("/admin/")({ component: Dashboard });
 
@@ -32,13 +35,21 @@ const val: Record<Tone, string> = {
 function Dashboard() {
   const statsFn = useServerFn(getAdminStats);
   const shopsFn = useServerFn(listShops);
+  const extrasFn = useServerFn(getAdminExtras);
   const { data } = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn() });
   const shopsQ = useQuery({ queryKey: ["admin-shops-recent"], queryFn: () => shopsFn() });
+
+  const [range, setRange] = useState<7 | 30 | 90>(30);
+  const [compact, setCompact] = useState(false);
+  const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }) });
 
   const [email, setEmail] = useState<string>("");
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
+
+  const isLoading = !data;
+  const ext = extrasQ.data;
 
   const monthlyRevenue = Number(data?.monthlyRevenue ?? 0);
   const stats: { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean }[] = [
@@ -91,27 +102,150 @@ function Dashboard() {
               SaaS প্ল্যাটফর্মের সার্বিক অবস্থা • {email || "Super Admin"}
             </p>
           </div>
-          <Link to="/admin/shops"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
-            <Plus className="h-4 w-4" /> নতুন দোকান
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setCompact((v) => !v)}
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              {compact ? <Grid3x3 className="h-3.5 w-3.5" /> : <Rows3 className="h-3.5 w-3.5" />}
+              {compact ? "নরমাল" : "কম্প্যাক্ট"}
+            </button>
+            <Link to="/admin/shops"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
+              <Plus className="h-4 w-4" /> নতুন দোকান
+            </Link>
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {isLoading ? (
+          <KpiSkeleton count={6} compact={compact} />
+        ) : (
+        <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6`}>
           {stats.map((c) => (
-            <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+            <div key={c.label} className={`rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${compact ? "p-3" : "p-5"}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{c.label}</p>
-                  <p className={`mt-2 truncate text-2xl font-bold leading-tight ${c.empty ? "text-slate-400" : val[c.tone]}`}>{c.value}</p>
-                  <p className={`mt-1 truncate text-xs ${c.empty ? "italic text-slate-400" : "text-slate-500"}`}>{c.sub}</p>
+                  <p className={`mt-2 truncate font-bold leading-tight ${compact ? "text-lg" : "text-2xl"} ${c.empty ? "text-slate-400" : val[c.tone]}`}>{c.value}</p>
+                  {!compact && <p className={`mt-1 truncate text-xs ${c.empty ? "italic text-slate-400" : "text-slate-500"}`}>{c.sub}</p>}
                 </div>
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${chip[c.tone]} ${c.empty ? "opacity-70" : ""}`}>
+                <div className={`flex shrink-0 items-center justify-center rounded-lg border ${chip[c.tone]} ${c.empty ? "opacity-70" : ""} ${compact ? "h-7 w-7" : "h-9 w-9"}`}>
                   <c.icon className="h-4 w-4" />
                 </div>
               </div>
             </div>
           ))}
+        </div>
+        )}
+
+        {/* Trend chart */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight text-slate-700">
+                <LineIcon className="h-4 w-4 text-emerald-600" /> নতুন শপ + রেভিনিউ ট্রেন্ড
+              </h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                শেষ {range} দিনে {ext?.newShopsPeriod ?? 0} টা নতুন শপ • ৳{(ext?.revenuePeriod ?? 0).toLocaleString("bn-BD")}
+              </p>
+            </div>
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-semibold">
+              {([7, 30, 90] as const).map((d) => (
+                <button key={d} onClick={() => setRange(d)}
+                  className={`rounded px-2 py-0.5 transition ${range === d ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                  {d}দিন
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-4">
+            {extrasQ.isLoading ? (
+              <div className="h-[260px] w-full animate-pulse rounded-lg bg-slate-100" />
+            ) : (
+              <TrendChart
+                data={ext?.trend ?? []}
+                compact={compact}
+                series={[
+                  { key: "revenue", label: "রেভিনিউ (৳)", color: "#10b981" },
+                  { key: "shops", label: "নতুন শপ", color: "#3b82f6" },
+                ]}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Status + Top packages + Expiring */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-sm font-bold uppercase tracking-tight text-slate-700">শপ স্ট্যাটাস</h2>
+            </div>
+            <div className="space-y-2 p-4">
+              {(ext?.statusBreakdown ?? []).map((s) => {
+                const total = (ext?.statusBreakdown ?? []).reduce((a, b) => a + b.count, 0) || 1;
+                const pct = Math.round((s.count / total) * 100);
+                const color: Record<string, string> = { active: "bg-emerald-500", expired: "bg-amber-500", locked: "bg-rose-500", suspended: "bg-slate-500", pending: "bg-sky-400" };
+                const label: Record<string, string> = { active: "সক্রিয়", expired: "মেয়াদ শেষ", locked: "লকড", suspended: "স্থগিত", pending: "অপেক্ষমাণ" };
+                return (
+                  <div key={s.status}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{label[s.status]}</span>
+                      <span className="font-bold text-slate-800">{s.count} <span className="text-slate-400 font-normal">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className={`h-full ${color[s.status] ?? "bg-slate-400"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {extrasQ.isLoading && Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-6 animate-pulse rounded bg-slate-100" />)}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight text-slate-700">
+                <Package className="h-4 w-4 text-violet-600" /> টপ প্যাকেজ
+              </h2>
+              <Link to="/admin/packages" className="text-[11px] font-semibold text-emerald-600 hover:underline">সব</Link>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(ext?.topPackages ?? []).map((p, i) => (
+                <div key={p.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-violet-50 text-[11px] font-bold text-violet-700">{i + 1}</span>
+                  <span className="truncate font-medium text-slate-800">{p.name}</span>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700">{p.count} শপ</span>
+                </div>
+              ))}
+              {(ext?.topPackages ?? []).length === 0 && !extrasQ.isLoading && <p className="py-8 text-center text-sm text-slate-400">ডেটা নেই</p>}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight text-slate-700">
+                <CalendarClock className="h-4 w-4 text-amber-600" /> মেয়াদ শেষের কাছাকাছি
+              </h2>
+              <Link to="/admin/shops" className="text-[11px] font-semibold text-emerald-600 hover:underline">সব</Link>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {(ext?.upcomingExpirations ?? []).slice(0, 6).map((s: any) => {
+                const daysLeft = s.subscription_end ? Math.ceil((new Date(s.subscription_end).getTime() - Date.now()) / 86400000) : null;
+                return (
+                  <Link key={s.id} to="/admin/shops/$shopId" params={{ shopId: s.id }} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50/60">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-slate-800">{s.name}</div>
+                      <div className="truncate text-[11px] text-slate-500">{s.owner_name}</div>
+                    </div>
+                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${daysLeft != null && daysLeft < 0 ? "bg-rose-50 text-rose-700" : daysLeft != null && daysLeft <= 7 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                      {daysLeft == null ? "-" : daysLeft < 0 ? `${Math.abs(daysLeft)}দিন পার` : `${daysLeft}দিন`}
+                    </span>
+                  </Link>
+                );
+              })}
+              {(ext?.upcomingExpirations ?? []).length === 0 && !extrasQ.isLoading && <p className="py-8 text-center text-sm text-slate-400">কিছু নেই</p>}
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -133,7 +267,11 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {recent.length === 0 ? (
+                  {shopsQ.isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}><td colSpan={4} className="px-5 py-3"><div className="h-8 animate-pulse rounded bg-slate-100" /></td></tr>
+                    ))
+                  ) : recent.length === 0 ? (
                     <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-slate-400">এখনও কোনো দোকান নেই</td></tr>
                   ) : recent.map((s: any) => (
                     <tr key={s.id} className="hover:bg-slate-50/60">
@@ -182,7 +320,7 @@ function Dashboard() {
               <div className="space-y-2 p-4">
                 <StatusRow icon={Database} label="Database" ok={true} note="সংযুক্ত" />
                 <StatusRow icon={Server} label="Scheduler / Cron" ok={true} note="সক্রিয়" />
-                <StatusRow icon={MessageSquare} label="SMS Gateway" ok={(data?.smsSent ?? 0) >= 0} note="কনফিগার করা" />
+                <StatusRow icon={MessageSquare} label={`SMS (${range}দিন)`} ok={(ext?.smsStats.failed ?? 0) === 0} note={`${ext?.smsStats.sent ?? 0} সফল / ${ext?.smsStats.failed ?? 0} ব্যর্থ`} />
               </div>
             </div>
           </div>
