@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function KpiSkeleton({ count = 6, compact = false }: { count?: number; compact?: boolean }) {
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-${Math.min(count, 6)}`}>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className={`rounded-xl border border-slate-200 bg-white shadow-sm ${compact ? "p-3" : "p-5"}`}>
           <div className="flex items-start justify-between gap-3">
