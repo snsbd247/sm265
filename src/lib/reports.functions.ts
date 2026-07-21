@@ -233,7 +233,7 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
 
     const [products, supplierDue, custIn, supOut, salesTrend, topItems, recentPurchases, monthProfit, monthPurchases, customersAll, suppliersAll] = await Promise.all([
       context.supabase.from("products")
-        .select("id, name, stock_quantity, low_stock_alert, sale_price, unit:units(short_name)")
+        .select("id, name, stock_quantity, low_stock_alert, sale_price, purchase_price, unit:units(short_name)")
         .eq("shop_id", shopId).eq("is_active", true),
       context.supabase.from("suppliers").select("current_balance").eq("shop_id", shopId),
       context.supabase.from("customer_payments").select("amount, payment_method, payment_date").eq("shop_id", shopId).gte("payment_date", from).lte("payment_date", today),
