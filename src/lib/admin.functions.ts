@@ -1167,13 +1167,21 @@ export const getAdminExtras = createServerFn({ method: "GET" })
     const from = days[0];
     const fromIso = new Date(from + "T00:00:00").toISOString();
 
-    const [shops, payments, packages, expiring, smsRows] = await Promise.all([
+    const [shops, payments, packages, expiring, smsRows, recentPayments, recentSms] = await Promise.all([
       supabaseAdmin.from("shops").select("id, status, package_id, created_at, subscription_end, name, owner_name"),
       supabaseAdmin.from("subscription_payments").select("amount, created_at, status").eq("status", "success").gte("created_at", fromIso),
       supabaseAdmin.from("packages").select("id, name"),
       supabaseAdmin.from("shops").select("id, name, owner_name, subscription_end, status")
         .in("status", ["active", "expired"]).order("subscription_end", { ascending: true }).limit(10),
       supabaseAdmin.from("sms_logs").select("status, created_at").gte("created_at", fromIso),
+      supabaseAdmin.from("subscription_payments")
+        .select("id, amount, status, method, created_at, shop:shops(name, owner_name)")
+        .eq("status", "success").gte("created_at", fromIso)
+        .order("created_at", { ascending: false }).limit(200),
+      supabaseAdmin.from("sms_logs")
+        .select("id, phone, message, status, created_at, error_message")
+        .gte("created_at", fromIso)
+        .order("created_at", { ascending: false }).limit(200),
     ]);
 
     const shopRows = (shops.data ?? []) as any[];
@@ -1234,6 +1242,8 @@ export const getAdminExtras = createServerFn({ method: "GET" })
       smsStats,
       revenuePeriod,
       newShopsPeriod: trend.reduce((s, t) => s + t.shops, 0),
+      recentPayments: recentPayments.data ?? [],
+      recentSms: recentSms.data ?? [],
     };
   });
 
