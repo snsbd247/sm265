@@ -46,6 +46,8 @@ export const saveCustomer = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
     } else {
+      const { enforceLimit } = await import("./limits.server");
+      await enforceLimit(context.supabase, shopId, "customers", 1);
       const { data: created, error } = await context.supabase.from("customers").insert({
         shop_id: shopId, name: data.name, phone: data.phone || null, address: data.address || null,
         opening_balance: data.opening_balance, current_balance: data.opening_balance,
@@ -144,6 +146,18 @@ export const createSale = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => saleSchema.parse(d))
   .handler(async ({ data, context }) => {
     const shopId = await getShopId(context);
+    // Enforce monthly invoice count + amount limits before creating the sale
+    const saleTotal = data.items.reduce((s, it) => {
+      const line = it.quantity * it.unit_price - (it.discount_amount ?? 0);
+      const tax = line * ((it.tax_rate ?? 0) / 100);
+      return s + line + tax;
+    }, 0) - (data.discount ?? 0);
+    const { enforceLimit, getUsage, LimitExceededError } = await import("./limits.server");
+    await enforceLimit(context.supabase, shopId, "invoices", 1);
+    const totInfo = await getUsage(context.supabase, shopId, "invoice_total");
+    if (totInfo.limit != null && totInfo.used + saleTotal > totInfo.limit) {
+      throw new LimitExceededError("invoice_total", Math.round(totInfo.used), totInfo.limit, totInfo.packageName);
+    }
     const { data: sid, error } = await context.supabase.rpc("create_sale", {
       _shop_id: shopId,
       _customer_id: data.customer_id ?? null,

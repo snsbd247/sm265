@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { Plus, Pencil, Trash2, BookOpen, HandCoins, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/customers")({ component: Page });
 
@@ -27,11 +28,22 @@ function Page() {
   const [editing, setEditing] = useState<any>(null);
   const [ledgerId, setLedgerId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState("");
 
   const save = useMutation({
     mutationFn: (d: any) => saveFn({ data: d }),
     onSuccess: () => { toast.success("সংরক্ষিত"); qc.invalidateQueries({ queryKey: ["customers"] }); setOpen(false); setEditing(null); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      const msg = e?.message ?? "";
+      if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
+        setUpgradeMsg(msg || "কাস্টমারের সর্বোচ্চ সীমা শেষ। প্যাকেজ আপগ্রেড করুন।");
+        setUpgradeOpen(true);
+        setOpen(false);
+      } else {
+        toast.error(msg);
+      }
+    },
   });
   const del = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
@@ -114,6 +126,7 @@ function Page() {
 
       <LedgerDialog customerId={ledgerId} onClose={() => setLedgerId(null)} />
       <PayDialog customerId={payingId} onClose={() => { setPayingId(null); qc.invalidateQueries({ queryKey: ["customers"] }); }} />
+      <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
     </div>
   );
 }

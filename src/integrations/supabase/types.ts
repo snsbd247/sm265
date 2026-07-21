@@ -447,6 +447,9 @@ export type Database = {
           features: Json
           id: string
           is_active: boolean
+          max_customers: number
+          max_invoice_total_per_month: number
+          max_invoices_per_month: number
           max_products: number
           max_sms_per_month: number
           max_users: number
@@ -462,6 +465,9 @@ export type Database = {
           features?: Json
           id?: string
           is_active?: boolean
+          max_customers?: number
+          max_invoice_total_per_month?: number
+          max_invoices_per_month?: number
           max_products?: number
           max_sms_per_month?: number
           max_users?: number
@@ -477,6 +483,9 @@ export type Database = {
           features?: Json
           id?: string
           is_active?: boolean
+          max_customers?: number
+          max_invoice_total_per_month?: number
+          max_invoices_per_month?: number
           max_products?: number
           max_sms_per_month?: number
           max_users?: number
@@ -1349,6 +1358,57 @@ export type Database = {
           },
         ]
       }
+      subscription_payment_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          payment_id: string
+          received_by: string | null
+          reference: string | null
+          shop_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          method?: string
+          note?: string | null
+          payment_id: string
+          received_by?: string | null
+          reference?: string | null
+          shop_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          note?: string | null
+          payment_id?: string
+          received_by?: string | null
+          reference?: string | null
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payment_ledger_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_payment_ledger_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_payments: {
         Row: {
           amount: number
@@ -1360,7 +1420,9 @@ export type Database = {
           invoice_type: string
           last_reminder_at: string | null
           paid_at: string | null
+          paid_via: string | null
           payment_method: string
+          payment_note: string | null
           proration_details: Json | null
           raw_response: Json | null
           reminder_count: number
@@ -1380,7 +1442,9 @@ export type Database = {
           invoice_type?: string
           last_reminder_at?: string | null
           paid_at?: string | null
+          paid_via?: string | null
           payment_method?: string
+          payment_note?: string | null
           proration_details?: Json | null
           raw_response?: Json | null
           reminder_count?: number
@@ -1400,7 +1464,9 @@ export type Database = {
           invoice_type?: string
           last_reminder_at?: string | null
           paid_at?: string | null
+          paid_via?: string | null
           payment_method?: string
+          payment_note?: string | null
           proration_details?: Json | null
           raw_response?: Json | null
           reminder_count?: number
@@ -1770,6 +1836,16 @@ export type Database = {
           _shop_id: string
         }
         Returns: string
+      }
+      receive_subscription_payment: {
+        Args: {
+          _amount: number
+          _method: string
+          _note: string
+          _payment_id: string
+          _reference: string
+        }
+        Returns: Json
       }
       user_shop_ids: { Args: { _user_id: string }; Returns: string[] }
     }

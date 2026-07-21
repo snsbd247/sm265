@@ -1,7 +1,13 @@
 // Server-only helpers for package usage limits.
 // -1 or null on a limit means unlimited.
 
-export type LimitKind = "products" | "users" | "sms";
+export type LimitKind =
+  | "products"
+  | "users"
+  | "sms"
+  | "customers"
+  | "invoices"
+  | "invoice_total";
 
 export interface UsageInfo {
   kind: LimitKind;
@@ -23,6 +29,9 @@ export class LimitExceededError extends Error {
       products: "পণ্যের",
       users: "ইউজারের",
       sms: "SMS-এর",
+      customers: "কাস্টমারের",
+      invoices: "মাসিক ইনভয়েসের",
+      invoice_total: "মাসিক ইনভয়েস মূল্যের",
     };
     super(`আপনার প্যাকেজে ${labels[kind]} সর্বোচ্চ সীমা (${limit}) শেষ হয়েছে। প্যাকেজ আপগ্রেড করুন।`);
     this.kind = kind;
@@ -41,7 +50,7 @@ function normalize(n: number | null | undefined): number | null {
 export async function loadShopPackageLimits(supabase: any, shopId: string) {
   const { data: shop } = await supabase
     .from("shops")
-    .select("package_id, package:packages(name, max_products, max_users, max_sms_per_month)")
+    .select("package_id, package:packages(name, max_products, max_users, max_sms_per_month, max_customers, max_invoices_per_month, max_invoice_total_per_month)")
     .eq("id", shopId)
     .maybeSingle();
   const pkg = shop?.package as any;
@@ -50,6 +59,9 @@ export async function loadShopPackageLimits(supabase: any, shopId: string) {
     products: normalize(pkg?.max_products),
     users: normalize(pkg?.max_users),
     sms: normalize(pkg?.max_sms_per_month),
+    customers: normalize(pkg?.max_customers),
+    invoices: normalize(pkg?.max_invoices_per_month),
+    invoice_total: normalize(pkg?.max_invoice_total_per_month),
   };
 }
 
@@ -68,6 +80,34 @@ export async function countUsage(supabase: any, shopId: string, kind: LimitKind)
       .eq("shop_id", shopId);
     const uniq = new Set((data ?? []).map((r: any) => r.user_id));
     return uniq.size;
+  }
+  if (kind === "customers") {
+    const { count } = await supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", shopId);
+    return count ?? 0;
+  }
+  if (kind === "invoices" || kind === "invoice_total") {
+    const start = new Date();
+    start.setUTCDate(1);
+    start.setUTCHours(0, 0, 0, 0);
+    if (kind === "invoices") {
+      const { count } = await supabase
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", shopId)
+        .neq("status", "cancelled")
+        .gte("sale_date", start.toISOString().slice(0, 10));
+      return count ?? 0;
+    }
+    const { data } = await supabase
+      .from("sales")
+      .select("total")
+      .eq("shop_id", shopId)
+      .neq("status", "cancelled")
+      .gte("sale_date", start.toISOString().slice(0, 10));
+    return (data ?? []).reduce((s: number, r: any) => s + Number(r.total || 0), 0);
   }
   // sms — current calendar month
   const start = new Date();
@@ -108,4 +148,11 @@ export async function enforceLimit(
   if (info.used + delta > info.limit) {
     throw new LimitExceededError(kind, info.used, info.limit, info.packageName);
   }
+}
+
+/** Return all usage metrics in one call — used by the usage report UI. */
+export async function getAllUsage(supabase: any, shopId: string) {
+  const kinds: LimitKind[] = ["products", "users", "sms", "customers", "invoices", "invoice_total"];
+  const results = await Promise.all(kinds.map((k) => getUsage(supabase, shopId, k)));
+  return Object.fromEntries(kinds.map((k, i) => [k, results[i]])) as Record<LimitKind, UsageInfo>;
 }

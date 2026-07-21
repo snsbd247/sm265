@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2 } from "lucide-react";
+import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
@@ -68,6 +69,8 @@ function Page() {
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState("");
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
@@ -225,7 +228,16 @@ function Page() {
         nav({ to: "/app/sales" });
       }
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      const msg = e?.message ?? "";
+      if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
+        setUpgradeMsg(msg);
+        setUpgradeOpen(true);
+        setCheckoutOpen(false);
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const submit = () => {
@@ -766,6 +778,7 @@ function Page() {
         onNewSale={() => { setSuccessOpen(false); clearCart(); barcodeRef.current?.focus(); }}
         onOpenFullReceipt={(id) => nav({ to: "/app/sales/$saleId", params: { saleId: id } })}
       />
+      <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
     </div>
   );
 }
