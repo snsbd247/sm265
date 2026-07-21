@@ -632,29 +632,83 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const months = data.months ?? (data.billing_cycle === "yearly" ? 12 : 1);
-    const { data: pkg } = await supabaseAdmin.from("packages").select("*").eq("id", data.package_id).single();
-    const amount = data.billing_cycle === "monthly" ? pkg?.price_monthly : pkg?.price_yearly;
-    const start = new Date();
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + months);
-    const { error } = await supabaseAdmin.from("shops").update({
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      status: "active",
-      subscription_start: start.toISOString(),
-      subscription_end: end.toISOString(),
-    }).eq("id", data.shop_id);
-    if (error) throw new Error(error.message);
-    await supabaseAdmin.from("subscriptions").insert({
+    const { computePackageChange, applyImmediateDowngrade } = await import("./proration.server");
+    const change = await computePackageChange({
       shop_id: data.shop_id,
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      amount: amount ?? 0,
-      status: "active",
-      starts_at: start.toISOString(),
-      ends_at: end.toISOString(),
+      new_package_id: data.package_id,
+      new_billing_cycle: data.billing_cycle,
     });
+
+    // Downgrade or zero-net → apply immediately with credit
+    if (change.net_amount <= 0) {
+      await applyImmediateDowngrade(data.shop_id, change);
+      return { ok: true, kind: "immediate", change };
+    }
+
+    // Upgrade → create pending invoice, keep current package active
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const { data: invoice, error: invErr } = await supabaseAdmin
+      .from("subscription_payments")
+      .insert({
+        shop_id: data.shop_id,
+        amount: change.net_amount,
+        payment_method: "bkash",
+        status: "pending",
+        invoice_type: "upgrade",
+        due_date: dueDate.toISOString().slice(0, 10),
+        proration_details: change as any,
+        raw_response: { manual: true, package_id: data.package_id, billing_cycle: data.billing_cycle },
+      })
+      .select("id, invoice_no, amount")
+      .single();
+    if (invErr) throw new Error(invErr.message);
+
+    await supabaseAdmin.from("shops").update({
+      pending_package_id: data.package_id,
+      pending_billing_cycle: data.billing_cycle,
+    }).eq("id", data.shop_id);
+
+    return { ok: true, kind: "pending", invoice, change };
+  });
+
+// Preview a package change without creating anything
+export const previewPackageChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      shop_id: z.string().uuid(),
+      package_id: z.string().uuid(),
+      billing_cycle: z.enum(["monthly", "yearly"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { computePackageChange } = await import("./proration.server");
+    return await computePackageChange({
+      shop_id: data.shop_id,
+      new_package_id: data.package_id,
+      new_billing_cycle: data.billing_cycle,
+    });
+  });
+
+// Cancel a pending upgrade (admin)
+export const cancelPendingUpgrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ shop_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Cancel pending upgrade invoices
+    await supabaseAdmin.from("subscription_payments")
+      .update({ status: "failed" })
+      .eq("shop_id", data.shop_id)
+      .eq("status", "pending")
+      .eq("invoice_type", "upgrade");
+    await supabaseAdmin.from("shops").update({
+      pending_package_id: null,
+      pending_billing_cycle: null,
+    }).eq("id", data.shop_id);
     return { ok: true };
   });
 
