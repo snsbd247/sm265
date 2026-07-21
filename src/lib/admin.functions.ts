@@ -567,7 +567,7 @@ export const getShopDetail = createServerFn({ method: "GET" })
     const sid = data.shop_id;
 
     const { data: shop, error } = await supabaseAdmin
-      .from("shops").select("*, package:packages!package_id(*)").eq("id", sid).single();
+      .from("shops").select("*, package:packages!package_id(*), pending_package:packages!pending_package_id(*)").eq("id", sid).single();
     if (error) throw new Error(error.message);
 
     const [payments, subs, roles, sales, purchases, customers, suppliers, products, custPays, supPays] = await Promise.all([
