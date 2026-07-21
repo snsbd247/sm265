@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   getShopDetail, updateShop, deleteShop, listPackages, updateShopStatus,
-  extendShopSubscription, upgradeShopPackage, resetShopUserPassword, removeShopUser,
+  extendShopSubscription, upgradeShopPackage, previewPackageChange, cancelPendingUpgrade,
+  resetShopUserPassword, removeShopUser,
 } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,8 @@ function ShopDetail() {
   const statusFn = useServerFn(updateShopStatus);
   const extendFn = useServerFn(extendShopSubscription);
   const upgradeFn = useServerFn(upgradeShopPackage);
+  const previewFn = useServerFn(previewPackageChange);
+  const cancelUpgFn = useServerFn(cancelPendingUpgrade);
   const resetPwFn = useServerFn(resetShopUserPassword);
   const removeUserFn = useServerFn(removeShopUser);
 
@@ -125,8 +128,22 @@ function ShopDetail() {
     onSuccess: () => { toast.success("আপডেট হয়েছে"); invalidate(); setEditOpen(false); },
     onError: (e: any) => toast.error(e.message) });
 
-  const upgradeMut = useMutation({ mutationFn: () => upgradeFn({ data: { shop_id: shopId, ...upgradeForm } }),
-    onSuccess: () => { toast.success("প্যাকেজ আপডেট হয়েছে"); invalidate(); setUpgradeOpen(false); },
+  const upgradeMut = useMutation({ mutationFn: () => upgradeFn({ data: { shop_id: shopId, package_id: upgradeForm.package_id, billing_cycle: upgradeForm.billing_cycle } }),
+    onSuccess: (res: any) => {
+      if (res?.kind === "pending") toast.success(`ইনভয়েস তৈরি হয়েছে (${res.invoice?.invoice_no}) — শপ পেমেন্ট করলে এক্টিভ হবে`);
+      else toast.success("প্যাকেজ পরিবর্তন হয়েছে");
+      invalidate(); setUpgradeOpen(false);
+    },
+    onError: (e: any) => toast.error(e.message) });
+
+  const previewQ = useQuery({
+    queryKey: ["proration", shopId, upgradeForm.package_id, upgradeForm.billing_cycle],
+    queryFn: () => previewFn({ data: { shop_id: shopId, package_id: upgradeForm.package_id, billing_cycle: upgradeForm.billing_cycle } }),
+    enabled: upgradeOpen && !!upgradeForm.package_id,
+  });
+
+  const cancelUpgMut = useMutation({ mutationFn: () => cancelUpgFn({ data: { shop_id: shopId } }),
+    onSuccess: () => { toast.success("পেন্ডিং আপগ্রেড বাতিল"); invalidate(); },
     onError: (e: any) => toast.error(e.message) });
 
   const delMut = useMutation({ mutationFn: () => deleteFn({ data: { shop_id: shopId } }),
