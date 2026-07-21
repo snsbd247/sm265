@@ -43,7 +43,9 @@ function ItemRow({
     <Link
       to={item.to}
       onClick={onClick}
-      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+      aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-950 ${
         active
           ? "bg-emerald-500/10 text-emerald-300 backdrop-blur-md border-r-4 border-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.06)]"
           : "text-emerald-100/70 hover:bg-white/5 hover:text-white"
