@@ -24,7 +24,6 @@ import { Route as AppSuppliersRouteImport } from './routes/app.suppliers'
 import { Route as AppSubscriptionRouteImport } from './routes/app.subscription'
 import { Route as AppStockRouteImport } from './routes/app.stock'
 import { Route as AppShiftsRouteImport } from './routes/app.shifts'
-import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppProductsRouteImport } from './routes/app.products'
 import { Route as AppPayInvoiceRouteImport } from './routes/app.pay-invoice'
 import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
@@ -134,11 +133,6 @@ const AppStockRoute = AppStockRouteImport.update({
 const AppShiftsRoute = AppShiftsRouteImport.update({
   id: '/shifts',
   path: '/shifts',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReportsRoute = AppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProductsRoute = AppProductsRouteImport.update({
@@ -346,7 +340,6 @@ export interface FileRoutesByFullPath {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -395,7 +388,6 @@ export interface FileRoutesByTo {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -449,7 +441,6 @@ export interface FileRoutesById {
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
-  '/app/reports': typeof AppReportsRoute
   '/app/shifts': typeof AppShiftsRoute
   '/app/stock': typeof AppStockRoute
   '/app/subscription': typeof AppSubscriptionRoute
@@ -504,7 +495,6 @@ export interface FileRouteTypes {
     | '/app/installments'
     | '/app/pay-invoice'
     | '/app/products'
-    | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
     | '/app/subscription'
@@ -553,7 +543,6 @@ export interface FileRouteTypes {
     | '/app/installments'
     | '/app/pay-invoice'
     | '/app/products'
-    | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
     | '/app/subscription'
@@ -606,7 +595,6 @@ export interface FileRouteTypes {
     | '/app/installments'
     | '/app/pay-invoice'
     | '/app/products'
-    | '/app/reports'
     | '/app/shifts'
     | '/app/stock'
     | '/app/subscription'
@@ -755,13 +743,6 @@ declare module '@tanstack/react-router' {
       path: '/shifts'
       fullPath: '/app/shifts'
       preLoaderRoute: typeof AppShiftsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/reports': {
-      id: '/app/reports'
-      path: '/reports'
-      fullPath: '/app/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/products': {
@@ -1097,7 +1078,6 @@ interface AppRouteChildren {
   AppInstallmentsRoute: typeof AppInstallmentsRoute
   AppPayInvoiceRoute: typeof AppPayInvoiceRoute
   AppProductsRoute: typeof AppProductsRouteWithChildren
-  AppReportsRoute: typeof AppReportsRoute
   AppShiftsRoute: typeof AppShiftsRoute
   AppStockRoute: typeof AppStockRoute
   AppSubscriptionRoute: typeof AppSubscriptionRoute
@@ -1120,7 +1100,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppInstallmentsRoute: AppInstallmentsRoute,
   AppPayInvoiceRoute: AppPayInvoiceRoute,
   AppProductsRoute: AppProductsRouteWithChildren,
-  AppReportsRoute: AppReportsRoute,
   AppShiftsRoute: AppShiftsRoute,
   AppStockRoute: AppStockRoute,
   AppSubscriptionRoute: AppSubscriptionRoute,
