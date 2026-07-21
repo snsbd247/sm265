@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
-import { Plus, Pencil, Trash2, Search, MoreVertical, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, MoreVertical, Eye, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { downloadCSV } from "@/lib/export-utils";
 
 export const Route = createFileRoute("/app/products")({ component: Page });
 
@@ -74,7 +75,26 @@ function Page() {
           <p className="text-sm text-muted-foreground">মোট {prodQ.data?.length ?? 0} টি পণ্য</p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-          <DialogTrigger asChild><Button className="shrink-0"><Plus className="mr-2 h-4 w-4" /> নতুন পণ্য</Button></DialogTrigger>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => downloadCSV(
+                `products-${new Date().toISOString().slice(0, 10)}`,
+                ["নাম", "SKU", "বারকোড", "ক্যাটাগরি", "একক", "ক্রয় মূল্য", "বিক্রয় মূল্য", "স্টক", "Low Alert", "তৈরি"],
+                filtered.map((p: any) => [
+                  p.name, p.sku ?? "", p.barcode ?? "", p.category?.name ?? "", p.unit?.short_name ?? "",
+                  Number(p.purchase_price ?? 0), Number(p.sale_price ?? 0),
+                  Number(p.stock_quantity ?? 0), Number(p.low_stock_alert ?? 0),
+                  (p.created_at ?? "").slice(0, 10),
+                ]),
+              )}
+              disabled={filtered.length === 0}
+            >
+              <Download className="mr-2 h-4 w-4" /> CSV
+            </Button>
+            <DialogTrigger asChild><Button className="shrink-0"><Plus className="mr-2 h-4 w-4" /> নতুন পণ্য</Button></DialogTrigger>
+          </div>
           <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
             <DialogHeader><DialogTitle>{editing ? "এডিট" : "নতুন"} পণ্য</DialogTitle></DialogHeader>
             <ProductForm

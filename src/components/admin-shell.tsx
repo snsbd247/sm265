@@ -1,11 +1,16 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText } from "lucide-react";
+import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranding } from "@/hooks/use-branding";
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getAdminNotifications } from "@/lib/admin.functions";
 
 
 type NavItem = { to: string; label: string; icon: any; exact?: boolean };
@@ -150,7 +155,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950">
-        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-b border-white/10 bg-[#0d3b2e] px-3 py-2.5 text-slate-100 md:hidden">
+        <div className="sticky top-0 z-30 hidden items-center justify-end gap-2 border-b border-slate-200 bg-white px-6 py-2 md:flex">
+          <AdminNotificationsBell />
+        </div>
+        <div className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-[#0d3b2e] px-3 py-2.5 text-slate-100 md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" className="h-9 shrink-0 gap-2 px-3 text-slate-100 hover:bg-white/10 hover:text-white" aria-label="মেন্যু খুলুন">
@@ -184,10 +192,54 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <div className="truncate text-xs text-emerald-200/80">{current?.label ?? "এডমিন প্যানেল"}</div>
             </div>
           </div>
-
+          <AdminNotificationsBell dark />
         </div>
         <div className="min-w-0 flex-1 overflow-x-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">{children}</div>
       </main>
     </div>
+  );
+}
+
+function AdminNotificationsBell({ dark = false }: { dark?: boolean }) {
+  const fn = useServerFn(getAdminNotifications);
+  const { data } = useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: () => fn(),
+    refetchInterval: 60_000,
+  });
+  const items = data?.items ?? [];
+  const count = data?.count ?? 0;
+  const sev = (s: string) => s === "danger" ? "text-rose-600" : s === "warn" ? "text-amber-600" : "text-slate-600";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`relative ${dark ? "text-emerald-50 hover:bg-white/10 hover:text-white" : ""}`}
+          aria-label="নোটিফিকেশন"
+        >
+          <Bell className="h-5 w-5" />
+          {count > 0 && (
+            <Badge className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full px-1 text-[10px]" variant="destructive">{count}</Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[calc(100vw-1.5rem)] max-w-sm p-0 sm:w-80">
+        <div className="border-b px-4 py-2 text-sm font-semibold">এডমিন নোটিফিকেশন</div>
+        {items.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">সব ক্লিয়ার ✓</div>
+        ) : (
+          <div className="max-h-80 divide-y overflow-y-auto">
+            {items.map((n: any, i: number) => (
+              <Link key={i} to={n.href ?? "/admin"} className="block px-4 py-3 hover:bg-muted/50">
+                <div className={`text-sm font-medium ${sev(n.severity)}`}>{n.title}</div>
+                <div className="text-xs text-muted-foreground">{n.body}</div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -65,6 +65,62 @@ export const listShops = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// ---------- Admin notifications (bell) ----------
+export const getAdminNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date();
+    const in7 = new Date(now.getTime() + 7 * 86400_000).toISOString();
+    const nowIso = now.toISOString();
+
+    const [expiringRes, expiredRes, lockedRes, pendingPayRes] = await Promise.all([
+      supabaseAdmin.from("shops").select("id, name, owner_name, subscription_end", { count: "exact" })
+        .eq("status", "active").gte("subscription_end", nowIso).lte("subscription_end", in7).limit(20),
+      supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("status", "expired"),
+      supabaseAdmin.from("shops").select("id", { count: "exact", head: true }).eq("status", "locked"),
+      supabaseAdmin.from("subscription_payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+
+    const expiringSoon = (expiringRes.data ?? []) as any[];
+    const items: { type: string; title: string; body: string; severity: "info" | "warn" | "danger"; href?: string }[] = [];
+
+    if (expiringSoon.length > 0) items.push({
+      type: "expiring", severity: "warn",
+      title: `${expiringSoon.length} টি শপ ৭ দিনে মেয়াদ শেষ`,
+      body: expiringSoon.slice(0, 3).map((s) => s.name).join(", ") + (expiringSoon.length > 3 ? "..." : ""),
+      href: "/admin/shops",
+    });
+    if ((expiredRes.count ?? 0) > 0) items.push({
+      type: "expired", severity: "danger",
+      title: `${expiredRes.count} টি শপের মেয়াদ শেষ`,
+      body: "রিনিউয়াল প্রয়োজন",
+      href: "/admin/shops",
+    });
+    if ((lockedRes.count ?? 0) > 0) items.push({
+      type: "locked", severity: "danger",
+      title: `${lockedRes.count} টি লকড অ্যাকাউন্ট`,
+      body: "পর্যালোচনা প্রয়োজন",
+      href: "/admin/shops",
+    });
+    if ((pendingPayRes.count ?? 0) > 0) items.push({
+      type: "pending-pay", severity: "warn",
+      title: `${pendingPayRes.count} টি পেমেন্ট অপেক্ষমাণ`,
+      body: "অনুমোদন প্রয়োজন",
+      href: "/admin/subscriptions",
+    });
+
+    return {
+      items,
+      count: items.length,
+      expiringSoon: expiringSoon.length,
+      expired: expiredRes.count ?? 0,
+      locked: lockedRes.count ?? 0,
+      pendingPay: pendingPayRes.count ?? 0,
+    };
+  });
+
 const createShopSchema = z.object({
   name: z.string().min(1),
   owner_name: z.string().min(1),

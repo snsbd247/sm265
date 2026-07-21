@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton";
+import { KpiDialog, type DrillColumn } from "@/components/dashboard/kpi-dialog";
 
 export const Route = createFileRoute("/admin/")({ component: Dashboard });
 
@@ -36,12 +37,13 @@ function Dashboard() {
   const statsFn = useServerFn(getAdminStats);
   const shopsFn = useServerFn(listShops);
   const extrasFn = useServerFn(getAdminExtras);
-  const { data } = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn() });
-  const shopsQ = useQuery({ queryKey: ["admin-shops-recent"], queryFn: () => shopsFn() });
+  const { data } = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn(), refetchInterval: 60_000 });
+  const shopsQ = useQuery({ queryKey: ["admin-shops-recent"], queryFn: () => shopsFn(), refetchInterval: 60_000 });
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
-  const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }) });
+  const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }), refetchInterval: 120_000 });
+  const [drill, setDrill] = useState<null | "all" | "active" | "expired" | "locked" | "expiring">(null);
 
   const [email, setEmail] = useState<string>("");
   useEffect(() => {
@@ -52,15 +54,34 @@ function Dashboard() {
   const ext = extrasQ.data;
 
   const monthlyRevenue = Number(data?.monthlyRevenue ?? 0);
-  const stats: { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean }[] = [
-    { label: "মোট দোকান",           value: data?.totalShops ?? 0,     sub: "সব রেজিস্টার্ড",       icon: Store,        tone: "blue" },
-    { label: "সক্রিয় সাবস্ক্রিপশন",   value: data?.activeShops ?? 0,    sub: "চলমান",                icon: CheckCircle2, tone: "emerald" },
+  type Drill = null | "all" | "active" | "expired" | "locked" | "expiring";
+  const stats: { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean; drill?: Drill }[] = [
+    { label: "মোট দোকান",           value: data?.totalShops ?? 0,     sub: "সব রেজিস্টার্ড",       icon: Store,        tone: "blue", drill: "all" },
+    { label: "সক্রিয় সাবস্ক্রিপশন",   value: data?.activeShops ?? 0,    sub: "চলমান",                icon: CheckCircle2, tone: "emerald", drill: "active" },
     { label: "এ মাসের আয়",           value: monthlyRevenue > 0 ? fmt(monthlyRevenue) : "—",
       sub: monthlyRevenue > 0 ? `মোট ৳${monthlyRevenue.toLocaleString("bn-BD")}` : "এখনো কোনো পেমেন্ট নেই",
       icon: Wallet, tone: "violet", empty: monthlyRevenue <= 0 },
-    { label: "লকড অ্যাকাউন্ট",        value: data?.lockedShops ?? 0,    sub: "পর্যালোচনা প্রয়োজন",   icon: Lock,         tone: "rose" },
-    { label: "মেয়াদ শেষ",             value: data?.expiredShops ?? 0,   sub: "রিনিউ প্রয়োজন",         icon: XCircle,      tone: "amber" },
+    { label: "লকড অ্যাকাউন্ট",        value: data?.lockedShops ?? 0,    sub: "পর্যালোচনা প্রয়োজন",   icon: Lock,         tone: "rose", drill: "locked" },
+    { label: "মেয়াদ শেষ",             value: data?.expiredShops ?? 0,   sub: "রিনিউ প্রয়োজন",         icon: XCircle,      tone: "amber", drill: "expired" },
     { label: "SMS পাঠানো",           value: data?.smsSent ?? 0,        sub: "মোট ডেলিভারি",         icon: MessageSquare, tone: "sky" },
+  ];
+
+  const allShops = (shopsQ.data ?? []) as any[];
+  const shopsBy = (k: Drill): any[] => {
+    if (k === "all") return allShops;
+    if (k === "active") return allShops.filter((s) => s.status === "active");
+    if (k === "expired") return allShops.filter((s) => s.status === "expired");
+    if (k === "locked") return allShops.filter((s) => s.status === "locked");
+    if (k === "expiring") return (ext?.upcomingExpirations ?? []) as any[];
+    return [];
+  };
+  const shopCols: DrillColumn[] = [
+    { key: "name", label: "দোকান", render: (r: any) => (
+      <div><div className="font-semibold">{r.name}</div><div className="text-[11px] text-slate-500">{r.owner_name}</div></div>
+    ) },
+    { key: "package", label: "প্যাকেজ", render: (r: any) => r.package?.name ?? "-" },
+    { key: "subscription_end", label: "মেয়াদ", render: (r: any) => r.subscription_end ? new Date(r.subscription_end).toLocaleDateString("bn-BD") : "-" },
+    { key: "status", label: "স্ট্যাটাস", align: "right", render: (r: any) => badge(r.status) },
   ];
 
   const actions: { label: string; icon: any; to: string; tone: Tone }[] = [
@@ -122,7 +143,15 @@ function Dashboard() {
         ) : (
         <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6`}>
           {stats.map((c) => (
-            <div key={c.label} className={`rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${compact ? "p-3" : "p-5"}`}>
+            <button
+              key={c.label}
+              type="button"
+              onClick={() => c.drill && setDrill(c.drill)}
+              disabled={!c.drill}
+              className={`rounded-xl border border-slate-200 bg-white text-left shadow-sm transition ${
+                c.drill ? "cursor-pointer hover:border-emerald-200 hover:shadow-md" : "cursor-default"
+              } ${compact ? "p-3" : "p-5"}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{c.label}</p>
@@ -133,10 +162,23 @@ function Dashboard() {
                   <c.icon className="h-4 w-4" />
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
         )}
+
+        <KpiDialog
+          open={drill !== null && drill !== "expiring"} onOpenChange={(v) => !v && setDrill(null)}
+          title={
+            drill === "all" ? "সব দোকান" :
+            drill === "active" ? "সক্রিয় দোকান" :
+            drill === "expired" ? "মেয়াদ শেষ দোকান" :
+            drill === "locked" ? "লকড দোকান" : "দোকান"
+          }
+          subtitle={drill ? `${shopsBy(drill).length} টি` : ""}
+          columns={shopCols}
+          rows={drill && drill !== "expiring" ? shopsBy(drill).slice(0, 100) : []}
+        />
 
         {/* Trend chart */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">

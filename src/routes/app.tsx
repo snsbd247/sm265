@@ -80,6 +80,13 @@ function AppLayout() {
   const navigate = useNavigate();
   const fn = useServerFn(getMyShop);
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => fn(), enabled: !!session });
+  const notifFn = useServerFn(getShopNotifications);
+  const notifQ = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => notifFn(),
+    enabled: !!session,
+    refetchInterval: 60_000,
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const loc = useLocation();
 
@@ -112,6 +119,16 @@ function AppLayout() {
 
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/login" }); };
 
+  const overdueCount = (notifQ.data as any)?.overdue_count ?? 0;
+  const lowStockCount = (notifQ.data as any)?.low_stock_count ?? 0;
+  const subExpiringSoon = (notifQ.data?.items ?? []).some((n: any) => n.type === "sub-expiring");
+  const itemBadge = (to: string): { text: string; tone: "danger" | "warn" } | null => {
+    if (to === "/app/installments" && overdueCount > 0) return { text: String(overdueCount), tone: "danger" };
+    if (to === "/app/products" && lowStockCount > 0) return { text: String(lowStockCount), tone: "warn" };
+    if (to === "/app/subscription" && subExpiringSoon) return { text: "!", tone: "warn" };
+    return null;
+  };
+
   const NavList = ({ onClick }: { onClick?: () => void }) => (
     <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
       {NAV_GROUPS.map((g) => {
@@ -136,6 +153,7 @@ function AppLayout() {
               <div className="space-y-0.5">
                 {g.items.map((n) => {
                   const active = isItemActive(n);
+                  const b = itemBadge(n.to);
                   return (
                     <Link key={n.to} to={n.to} onClick={onClick}
                       className={`group relative flex min-w-0 items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
@@ -146,6 +164,13 @@ function AppLayout() {
                       {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-emerald-300" />}
                       <n.icon className={`h-4 w-4 shrink-0 ${active ? "text-emerald-200" : "opacity-70 group-hover:opacity-100"}`} />
                       <span className="truncate font-medium">{n.label}</span>
+                      {b && (
+                        <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                          b.tone === "danger" ? "bg-rose-500 text-white" : "bg-amber-400 text-slate-900"
+                        }`}>
+                          {b.text}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

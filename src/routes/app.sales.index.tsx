@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, X, Download } from "lucide-react";
 import { useMemo, useState } from "react";
+import { downloadCSV } from "@/lib/export-utils";
 
 export const Route = createFileRoute("/app/sales/")({ component: Page });
 
@@ -57,7 +58,30 @@ function Page() {
           <h1 className="truncate text-xl font-bold sm:text-2xl">বিক্রয়</h1>
           <p className="text-sm text-muted-foreground">মোট {filtered.length} টি ইনভয়েস</p>
         </div>
-        <Button className="shrink-0" onClick={() => nav({ to: "/app/sales/new" })}><Plus className="mr-2 h-4 w-4" /> নতুন বিক্রয়</Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={filtered.length === 0}
+            onClick={() => downloadCSV(
+              `sales-${new Date().toISOString().slice(0, 10)}`,
+              ["তারিখ", "ইনভয়েস", "কাস্টমার", "ফোন", "ধরন", "মোট", "পরিশোধ", "বাকি"],
+              filtered.map((s: any) => [
+                (s.sale_date ?? "").slice(0, 10),
+                s.invoice_no ?? s.id.slice(0, 8),
+                s.customer?.name ?? "Walk-in",
+                s.customer?.phone ?? "",
+                typeLabel[s.sale_type] ?? s.sale_type,
+                Number(s.total ?? 0),
+                Number(s.paid ?? 0),
+                Number(s.due ?? 0),
+              ]),
+            )}
+          >
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </Button>
+          <Button onClick={() => nav({ to: "/app/sales/new" })}><Plus className="mr-2 h-4 w-4" /> নতুন বিক্রয়</Button>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto]">
