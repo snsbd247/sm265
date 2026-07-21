@@ -62,6 +62,38 @@ export const listMySubscriptions = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const getMyPendingInvoice = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { shopId } = await getUserShopId(context);
+    if (!shopId) return null;
+    const { data } = await context.supabase
+      .from("subscription_payments")
+      .select("*")
+      .eq("shop_id", shopId)
+      .eq("status", "pending")
+      .in("invoice_type", ["initial", "upgrade"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data;
+  });
+
+export const cancelMyPendingUpgrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { shopId } = await getUserShopId(context);
+    if (!shopId) throw new Error("দোকান পাওয়া যায়নি");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("subscription_payments")
+      .update({ status: "failed" })
+      .eq("shop_id", shopId).eq("status", "pending").eq("invoice_type", "upgrade");
+    await supabaseAdmin.from("shops").update({
+      pending_package_id: null, pending_billing_cycle: null,
+    }).eq("id", shopId);
+    return { ok: true };
+  });
+
 const renewalSchema = z.object({
   package_id: z.string().uuid(),
   billing_cycle: z.enum(["monthly", "yearly"]),
