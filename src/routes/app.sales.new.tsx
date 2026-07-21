@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listCustomers, createSale } from "@/lib/sales.functions";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
+import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
 type Line = {
   product_id: string; quantity: number; unit_price: number; unit_cost: number;
+  discount_amount: number;
   stock: number; name: string; unit?: string; image_url?: string | null; sku?: string | null;
 };
 type SaleType = "cash" | "due" | "installment";
@@ -34,11 +36,14 @@ function Page() {
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
   const cats = useQuery({ queryKey: ["categories"], queryFn: () => catFn() });
+  const shiftFn = useServerFn(getCurrentShift);
+  const shiftQ = useQuery({ queryKey: ["shift-current"], queryFn: () => shiftFn() });
 
   const [customerId, setCustomerId] = useState<string>("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [discount, setDiscount] = useState(0);
+  const [taxRate, setTaxRate] = useState(0);
   const [paid, setPaid] = useState(0);
   const [method, setMethod] = useState<"cash" | "card" | "bkash" | "bank" | "due">("cash");
   const [saleType, setSaleType] = useState<SaleType>("cash");
@@ -65,7 +70,13 @@ function Page() {
     () => lines.reduce((s, l) => s + (l.quantity || 0) * (l.unit_price || 0), 0),
     [lines],
   );
-  const total = Math.max(0, subtotal - discount);
+  const itemDiscountTotal = useMemo(
+    () => lines.reduce((s, l) => s + (l.discount_amount || 0), 0),
+    [lines],
+  );
+  const taxable = Math.max(0, subtotal - itemDiscountTotal - discount);
+  const taxAmount = Math.round((taxable * (taxRate || 0) / 100) * 100) / 100;
+  const total = Math.max(0, taxable + taxAmount);
   const effectivePaid = saleType === "cash" ? total : paid;
   const due = Math.max(0, total - effectivePaid);
   const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
@@ -87,6 +98,7 @@ function Page() {
           quantity: 1,
           unit_price: Number(p.sale_price ?? 0),
           unit_cost: Number(p.purchase_price ?? 0),
+          discount_amount: 0,
           stock: Number(p.stock_quantity ?? 0),
           name: p.name,
           unit: p.unit?.short_name,
@@ -104,7 +116,7 @@ function Page() {
   };
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i));
   const clearCart = () => {
-    setLines([]); setDiscount(0); setPaid(0); setNote(""); setCustomerId("");
+    setLines([]); setDiscount(0); setTaxRate(0); setPaid(0); setNote(""); setCustomerId("");
   };
 
   useEffect(() => {
@@ -182,6 +194,8 @@ function Page() {
             quantity: l.quantity,
             unit_price: l.unit_price,
             unit_cost: l.unit_cost,
+            discount_amount: l.discount_amount || 0,
+            tax_rate: taxRate || 0,
           })),
           installments: saleType === "installment" ? installments : null,
           installment_frequency: instFreq,
@@ -204,6 +218,7 @@ function Page() {
 
   const submit = () => {
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
+    if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
     if (saleType !== "cash" && !customerId)
       return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
     for (const l of lines) {
@@ -332,6 +347,16 @@ function Page() {
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">ছাড়</span>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={l.discount_amount || 0}
+                      onChange={(e) => updateLine(i, { discount_amount: Math.max(0, Number(e.target.value) || 0) })}
+                      className="h-6 w-20 rounded border bg-white px-1.5 text-right text-xs outline-none"
+                    />
+                    <span className="text-[10px] text-muted-foreground">৳ / লাইন</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -391,6 +416,14 @@ function Page() {
 
   return (
     <div className="flex h-[calc(100dvh-3rem)] min-w-0 flex-col bg-slate-50 md:h-[calc(100dvh-3.25rem)]">
+      {!shiftQ.isLoading && !shiftQ.data?.shift && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span>⚠️ POS শিফট বন্ধ। বিক্রয় করার আগে শিফট শুরু করুন।</span>
+          <Button asChild size="sm" className="bg-amber-500 hover:bg-amber-600">
+            <Link to="/app/shifts">শিফট শুরু করুন</Link>
+          </Button>
+        </div>
+      )}
       {/* Top bar */}
       <div className="flex items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
         <div className="relative flex-1">
@@ -435,6 +468,9 @@ function Page() {
 
       {/* Category tabs */}
       <div className="flex items-center gap-2 overflow-x-auto border-b bg-white px-3 py-2 md:px-4">
+        {!shiftQ.isLoading && !shiftQ.data?.shift && (
+          <div className="hidden" />
+        )}
         {catList.map((c) => {
           const count = catCounts[c.id] ?? 0;
           if (c.id === "uncat" && count === 0) return null;
@@ -646,6 +682,16 @@ function Page() {
                 placeholder="স্বয়ংক্রিয় হলে ফাঁকা রাখুন"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>অর্ডার ছাড় (৳)</Label>
+                <Input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))} />
+              </div>
+              <div>
+                <Label>VAT / ট্যাক্স (%)</Label>
+                <Input type="number" min="0" step="0.01" value={taxRate} onChange={(e) => setTaxRate(Math.max(0, Number(e.target.value) || 0))} />
+              </div>
+            </div>
 
             <label className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2 text-sm">
               <input
@@ -660,8 +706,20 @@ function Page() {
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
               <div className="text-muted-foreground">সাবটোটাল</div>
               <div className="text-right">৳{subtotal.toFixed(2)}</div>
+              {itemDiscountTotal > 0 && (
+                <>
+                  <div className="text-muted-foreground">আইটেম ছাড়</div>
+                  <div className="text-right">-৳{itemDiscountTotal.toFixed(2)}</div>
+                </>
+              )}
               <div className="text-muted-foreground">ছাড়</div>
               <div className="text-right">৳{discount.toFixed(2)}</div>
+              {taxAmount > 0 && (
+                <>
+                  <div className="text-muted-foreground">VAT ({taxRate}%)</div>
+                  <div className="text-right">+৳{taxAmount.toFixed(2)}</div>
+                </>
+              )}
               <div className="text-muted-foreground">পরিশোধিত</div>
               <div className="text-right text-emerald-600">৳{effectivePaid.toFixed(2)}</div>
               <div className="text-muted-foreground">বাকি</div>

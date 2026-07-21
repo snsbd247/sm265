@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Plus, Pencil, Trash2, BookOpen, HandCoins } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, HandCoins, ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/customers")({ component: Page });
 
@@ -73,6 +74,9 @@ function Page() {
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setPayingId(c.id)}><HandCoins className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setLedgerId(c.id)}><BookOpen className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to="/app/customers/$customerId" params={{ customerId: c.id }}><ExternalLink className="h-4 w-4" /></Link>
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => confirm("মুছবেন?") && del.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
