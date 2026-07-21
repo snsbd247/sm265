@@ -388,8 +388,8 @@ function Dashboard() {
                 <h2 className="text-sm font-bold uppercase tracking-tight text-slate-700">সিস্টেম অবস্থা</h2>
               </div>
               <div className="space-y-2 p-4">
-                <StatusRow icon={Database} label="Database" ok={true} note="সংযুক্ত" />
-                <StatusRow icon={Server} label="Scheduler / Cron" ok={true} note="সক্রিয়" />
+                <StatusRow icon={Database} label="Database" ok={!!data} note={data ? "সংযুক্ত" : "সংযোগ নেই"} />
+                <StatusRow icon={Server} label="ট্রেন্ড ডেটা" ok={!extrasQ.isError} note={extrasQ.isError ? "ত্রুটি" : `${ext?.newShopsPeriod ?? 0} নতুন শপ`} />
                 <StatusRow icon={MessageSquare} label={`SMS (${range}দিন)`} ok={(ext?.smsStats.failed ?? 0) === 0} note={`${ext?.smsStats.sent ?? 0} সফল / ${ext?.smsStats.failed ?? 0} ব্যর্থ`} />
               </div>
             </div>
