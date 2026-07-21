@@ -927,7 +927,7 @@ function Page() {
 
       {/* Checkout dialog */}
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>চেকআউট — ৳{total.toFixed(2)}</DialogTitle>
           </DialogHeader>
