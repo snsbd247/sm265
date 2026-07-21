@@ -75,6 +75,9 @@ function Page() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
+  const [quickAddress, setQuickAddress] = useState("");
+  const [quickOpening, setQuickOpening] = useState(0);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -106,6 +109,16 @@ function Page() {
   const due = Math.max(0, total - effectivePaid);
   const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
   const discountBase = Math.max(0, subtotal - itemDiscountTotal);
+  const clampDiscount = (v: number) => Math.max(0, Math.min(discountBase, Number.isFinite(v) ? v : 0));
+
+  // Auto-clamp discount if base shrinks (e.g. line removed)
+  useEffect(() => {
+    if (discount > discountBase) setDiscount(discountBase);
+  }, [discountBase]);
+  // Keep paid within [0, total] when total changes
+  useEffect(() => {
+    if (paid > total) setPaid(total);
+  }, [total]);
 
   const addProduct = (pid: string) => {
     if (!pid) return;
@@ -263,14 +276,27 @@ function Page() {
 
   const submit = (overrides: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
     const st = overrides.saleTypeOverride ?? saleType;
+    const paidNow = overrides.paidOverride ?? (st === "cash" ? total : paid);
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
+    if (total <= 0) return toast.error("মোট প্রদেয় ০ বা ঋণাত্মক — ছাড় ঠিক করুন");
     if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
     if (st !== "cash" && !customerId)
       return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
+    if (st !== "cash") {
+      if (paidNow < 0) return toast.error("পরিশোধ ঋণাত্মক হতে পারবে না");
+      if (paidNow > total) return toast.error(`পরিশোধ মোটের চেয়ে বেশি (৳${total.toFixed(2)})`);
+      if (st === "due" && paidNow >= total)
+        return toast.error("সম্পূর্ণ পরিশোধ হলে 'নগদ বিক্রি' বাছাই করুন");
+      if (st === "installment") {
+        if (paidNow >= total) return toast.error("কিস্তি বিক্রয়ে বাকি টাকা লাগবে");
+        if (!installments || installments < 1) return toast.error("কিস্তির সংখ্যা কমপক্ষে ১ দিন");
+      }
+    }
     for (const l of lines) {
       if (l.quantity > l.stock)
         return toast.error(`"${l.name}" এর স্টক অপর্যাপ্ত (${l.stock})`);
     }
+    setCheckoutError(null);
     m.mutate(overrides);
   };
 
@@ -287,17 +313,27 @@ function Page() {
   };
 
   const quickAddM = useMutation({
-    mutationFn: () => saveCustomerFn({ data: {
-      name: quickName.trim(), phone: quickPhone.trim() || null,
-      opening_balance: 0, is_active: true,
-    } as any }),
+    mutationFn: () => {
+      const phone = quickPhone.trim();
+      if (phone) {
+        const dup = (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === phone);
+        if (dup) throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${dup.name}`);
+      }
+      return saveCustomerFn({ data: {
+        name: quickName.trim(),
+        phone: phone || null,
+        address: quickAddress.trim() || null,
+        opening_balance: Number(quickOpening) || 0,
+        is_active: true,
+      } as any });
+    },
     onSuccess: async (res: any) => {
       toast.success("কাস্টমার যোগ হয়েছে");
       await qc.invalidateQueries({ queryKey: ["customers"] });
       const newId = res?.id;
       if (newId) setCustomerId(newId);
       setQuickAddOpen(false);
-      setQuickName(""); setQuickPhone("");
+      setQuickName(""); setQuickPhone(""); setQuickAddress(""); setQuickOpening(0);
     },
     onError: (e: any) => toast.error(e?.message ?? "যোগ করা যায়নি"),
   });
@@ -429,7 +465,7 @@ function Page() {
             value={discountBase > 0 ? Number(((discount / discountBase) * 100).toFixed(2)) : 0}
             onChange={(e) => {
               const pct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-              setDiscount(Math.max(0, +(discountBase * pct / 100).toFixed(2)));
+              setDiscount(clampDiscount(+(discountBase * pct / 100).toFixed(2)));
             }}
             className="ml-auto h-8 w-16 text-right"
             placeholder="%"
@@ -437,7 +473,7 @@ function Page() {
           <span className="text-xs text-muted-foreground">%</span>
           <Input
             type="number" step="0.01" min="0" value={discount}
-            onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+            onChange={(e) => setDiscount(clampDiscount(Number(e.target.value) || 0))}
             className="h-8 w-20 text-right"
             placeholder="৳"
           />
@@ -693,11 +729,30 @@ function Page() {
               />
             </div>
             <div>
-              <Label>ফোন</Label>
+              <Label>ফোন (ডুপ্লিকেট চেক করা হবে)</Label>
               <Input
                 value={quickPhone}
                 onChange={(e) => setQuickPhone(e.target.value)}
                 placeholder="01XXXXXXXXX"
+              />
+              {quickPhone.trim() && (cust.data ?? []).some((c: any) => (c.phone ?? "").trim() === quickPhone.trim()) && (
+                <div className="mt-1 text-xs text-rose-600">এই ফোন নাম্বার ইতিমধ্যে ব্যবহৃত</div>
+              )}
+            </div>
+            <div>
+              <Label>ঠিকানা (ঐচ্ছিক)</Label>
+              <Input
+                value={quickAddress}
+                onChange={(e) => setQuickAddress(e.target.value)}
+                placeholder="গ্রাম / থানা / জেলা"
+              />
+            </div>
+            <div>
+              <Label>প্রারম্ভিক বকেয়া (৳)</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={quickOpening}
+                onChange={(e) => setQuickOpening(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
           </div>
@@ -759,8 +814,20 @@ function Page() {
                 <Label>এখন পরিশোধ</Label>
                 <Input
                   type="number" step="0.01" min="0" max={total} value={paid}
-                  onChange={(e) => setPaid(Number(e.target.value))}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(total, Number(e.target.value) || 0));
+                    setPaid(v);
+                  }}
                 />
+                {paid > total && (
+                  <div className="mt-1 text-xs text-rose-600">পরিশোধ মোটের চেয়ে বেশি হতে পারবে না</div>
+                )}
+                {saleType === "due" && paid >= total && total > 0 && (
+                  <div className="mt-1 text-xs text-amber-600">সম্পূর্ণ পরিশোধ — 'নগদ বিক্রি' বাছাই করুন</div>
+                )}
+                {saleType === "installment" && paid >= total && total > 0 && (
+                  <div className="mt-1 text-xs text-rose-600">কিস্তির জন্য কিছু বাকি থাকতে হবে</div>
+                )}
               </div>
             )}
             {saleType === "installment" && (
@@ -803,7 +870,7 @@ function Page() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>অর্ডার ছাড় (৳)</Label>
-                <Input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))} />
+                <Input type="number" min="0" max={discountBase} step="0.01" value={discount} onChange={(e) => setDiscount(clampDiscount(Number(e.target.value) || 0))} />
               </div>
               <div>
                 <Label>VAT / ট্যাক্স (%)</Label>
