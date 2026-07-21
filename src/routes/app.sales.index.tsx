@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, ChevronLeft, ChevronRight, X, Download } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, X, Download, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { downloadCSV } from "@/lib/export-utils";
 
@@ -42,7 +42,8 @@ function Page() {
     return list.filter((r: any) =>
       (r.invoice_no ?? "").toLowerCase().includes(s) ||
       (r.customer?.name ?? "").toLowerCase().includes(s) ||
-      (r.customer?.phone ?? "").toLowerCase().includes(s),
+      (r.customer?.phone ?? "").toLowerCase().includes(s) ||
+      (r.id ?? "").toLowerCase().includes(s),
     );
   }, [q.data, search]);
 
@@ -87,7 +88,7 @@ function Page() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto_auto]">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="ইনভয়েস / কাস্টমার / ফোন..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+          <Input placeholder="ইনভয়েস / ট্রানজেকশন আইডি / কাস্টমার / ফোন..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <Input type="date" className="sm:w-40" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} title="From" />
         <Input type="date" className="sm:w-40" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} title="To" />
@@ -118,11 +119,12 @@ function Page() {
               <th className="px-4 py-3 text-right">মোট</th>
               <th className="px-4 py-3 text-right">পরিশোধ</th>
               <th className="px-4 py-3 text-right">বাকি</th>
+              <th className="px-4 py-3 text-right">অ্যাকশন</th>
             </tr>
           </thead>
           <tbody>
             {q.isLoading && Array.from({ length: 6 }).map((_, i) => (
-              <tr key={i} className="border-t"><td colSpan={7} className="p-3"><Skeleton className="h-6 w-full" /></td></tr>
+              <tr key={i} className="border-t"><td colSpan={8} className="p-3"><Skeleton className="h-6 w-full" /></td></tr>
             ))}
             {!q.isLoading && paged.map((s: any) => (
               <tr key={s.id} className="border-t hover:bg-muted/40 cursor-pointer" onClick={() => nav({ to: "/app/sales/$saleId", params: { saleId: s.id } })}>
@@ -133,10 +135,19 @@ function Page() {
                 <td className="px-4 py-3 text-right">৳{Number(s.total).toFixed(2)}</td>
                 <td className="px-4 py-3 text-right text-green-600">৳{Number(s.paid).toFixed(2)}</td>
                 <td className={`px-4 py-3 text-right ${Number(s.due) > 0 ? "text-orange-600 font-semibold" : ""}`}>৳{Number(s.due).toFixed(2)}</td>
+                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => nav({ to: "/app/sales/$saleId", params: { saleId: s.id } })}
+                  >
+                    <Printer className="mr-1 h-3.5 w-3.5" /> রিসিট
+                  </Button>
+                </td>
               </tr>
             ))}
             {!q.isLoading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">এখনো কোনো বিক্রয় নেই। <Link to="/app/sales/new" className="text-primary underline">নতুন বিক্রয় শুরু করুন</Link></td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">এখনো কোনো বিক্রয় নেই। <Link to="/app/sales/new" className="text-primary underline">নতুন বিক্রয় শুরু করুন</Link></td></tr>
             )}
           </tbody>
         </table>

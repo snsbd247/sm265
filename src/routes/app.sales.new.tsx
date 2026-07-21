@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listCustomers, createSale } from "@/lib/sales.functions";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
@@ -40,10 +40,11 @@ function Page() {
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [discount, setDiscount] = useState(0);
   const [paid, setPaid] = useState(0);
-  const [method, setMethod] = useState<"cash" | "bkash" | "bank" | "due">("cash");
+  const [method, setMethod] = useState<"cash" | "card" | "bkash" | "bank" | "due">("cash");
   const [saleType, setSaleType] = useState<SaleType>("cash");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
+  const [printAfter, setPrintAfter] = useState(true);
 
   const [installments, setInstallments] = useState(3);
   const [instFreq, setInstFreq] = useState<"weekly" | "monthly">("monthly");
@@ -58,6 +59,7 @@ function Page() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
 
   const subtotal = useMemo(
     () => lines.reduce((s, l) => s + (l.quantity || 0) * (l.unit_price || 0), 0),
@@ -121,6 +123,9 @@ function Page() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lines.length]);
 
+  // Auto-focus barcode on mount so a USB/Bluetooth scanner works instantly
+  useEffect(() => { barcodeRef.current?.focus(); }, []);
+
   const onBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const code = barcode.trim();
@@ -183,7 +188,17 @@ function Page() {
           installment_start: instStart,
         },
       }),
-    onSuccess: () => { toast.success("বিক্রয় সংরক্ষিত"); nav({ to: "/app/sales" }); },
+    onSuccess: (saleId: any) => {
+      toast.success("বিক্রয় সংরক্ষিত");
+      // Refresh inventory + low-stock badge in real time
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["shop-notifications"] });
+      qc.invalidateQueries({ queryKey: ["shop-trend"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      const id = typeof saleId === "string" ? saleId : saleId?.id;
+      if (printAfter && id) nav({ to: "/app/sales/$saleId", params: { saleId: id } });
+      else nav({ to: "/app/sales" });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -573,6 +588,7 @@ function Page() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">নগদ</SelectItem>
+                    <SelectItem value="card">কার্ড</SelectItem>
                     <SelectItem value="bkash">বিকাশ</SelectItem>
                     <SelectItem value="bank">ব্যাংক</SelectItem>
                     {saleType !== "cash" && <SelectItem value="due">বাকি</SelectItem>}
@@ -630,6 +646,16 @@ function Page() {
                 placeholder="স্বয়ংক্রিয় হলে ফাঁকা রাখুন"
               />
             </div>
+
+            <label className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={printAfter}
+                onChange={(e) => setPrintAfter(e.target.checked)}
+                className="h-4 w-4 accent-orange-500"
+              />
+              <span>বিক্রয়ের পর রিসিট প্রিন্ট/দেখাও</span>
+            </label>
 
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
               <div className="text-muted-foreground">সাবটোটাল</div>
