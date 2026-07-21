@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ITokenRouteImport } from './routes/i.$token'
+import { Route as AppUsageRouteImport } from './routes/app.usage'
 import { Route as AppUnitsRouteImport } from './routes/app.units'
 import { Route as AppSuppliersRouteImport } from './routes/app.suppliers'
 import { Route as AppSubscriptionRouteImport } from './routes/app.subscription'
@@ -100,6 +101,11 @@ const ITokenRoute = ITokenRouteImport.update({
   id: '/i/$token',
   path: '/i/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppUsageRoute = AppUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppUnitsRoute = AppUnitsRouteImport.update({
   id: '/units',
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app/units': typeof AppUnitsRoute
+  '/app/usage': typeof AppUsageRoute
   '/i/$token': typeof ITokenRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
@@ -364,6 +371,7 @@ export interface FileRoutesByTo {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app/units': typeof AppUnitsRoute
+  '/app/usage': typeof AppUsageRoute
   '/i/$token': typeof ITokenRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
@@ -413,6 +421,7 @@ export interface FileRoutesById {
   '/app/subscription': typeof AppSubscriptionRoute
   '/app/suppliers': typeof AppSuppliersRoute
   '/app/units': typeof AppUnitsRoute
+  '/app/usage': typeof AppUsageRoute
   '/i/$token': typeof ITokenRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/suppliers'
     | '/app/units'
+    | '/app/usage'
     | '/i/$token'
     | '/admin/'
     | '/app/'
@@ -508,6 +518,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/suppliers'
     | '/app/units'
+    | '/app/usage'
     | '/i/$token'
     | '/admin'
     | '/app'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/app/subscription'
     | '/app/suppliers'
     | '/app/units'
+    | '/app/usage'
     | '/i/$token'
     | '/admin/'
     | '/app/'
@@ -655,6 +667,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/i/$token'
       preLoaderRoute: typeof ITokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/usage': {
+      id: '/app/usage'
+      path: '/usage'
+      fullPath: '/app/usage'
+      preLoaderRoute: typeof AppUsageRouteImport
+      parentRoute: typeof AppRoute
     }
     '/app/units': {
       id: '/app/units'
@@ -1004,6 +1023,7 @@ interface AppRouteChildren {
   AppSubscriptionRoute: typeof AppSubscriptionRoute
   AppSuppliersRoute: typeof AppSuppliersRoute
   AppUnitsRoute: typeof AppUnitsRoute
+  AppUsageRoute: typeof AppUsageRoute
   AppIndexRoute: typeof AppIndexRoute
   AppPurchasesNewRoute: typeof AppPurchasesNewRoute
   AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
@@ -1024,6 +1044,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSubscriptionRoute: AppSubscriptionRoute,
   AppSuppliersRoute: AppSuppliersRoute,
   AppUnitsRoute: AppUnitsRoute,
+  AppUsageRoute: AppUsageRoute,
   AppIndexRoute: AppIndexRoute,
   AppPurchasesNewRoute: AppPurchasesNewRoute,
   AppSalesSaleIdRoute: AppSalesSaleIdRoute,
