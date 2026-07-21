@@ -195,6 +195,24 @@ export const createShop = createServerFn({ method: "POST" })
       .select("id, invoice_no, amount")
       .single();
 
+    // Audit
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: shop.id, action: "shop.created",
+        target_type: "shop", target_id: shop.id,
+        details: { name: shop.name, package_id: data.package_id, billing_cycle: data.billing_cycle, invoice_no: invoice?.invoice_no },
+      });
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: shop.id, action: "invoice.created",
+        target_type: "subscription_payment", target_id: invoice?.id,
+        details: { invoice_no: invoice?.invoice_no, amount: invoice?.amount, invoice_type: "initial" },
+      });
+    } catch {}
+
     // 6) Send account created SMS (non-blocking)
     try {
       const { sendTemplateSMS } = await import("./sms.server");
@@ -229,6 +247,15 @@ export const updateShopStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("shops").update({ status: data.status }).eq("id", data.shop_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "shop.status_changed",
+        target_type: "shop", target_id: data.shop_id, details: { status: data.status },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -250,6 +277,16 @@ export const extendShopSubscription = createServerFn({ method: "POST" })
       .update({ status: "active", subscription_end: base.toISOString() })
       .eq("id", data.shop_id);
     if (error) throw new Error(error.message);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "subscription.extended",
+        target_type: "shop", target_id: data.shop_id,
+        details: { months: data.months, new_end: base.toISOString() },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -680,6 +717,16 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
     // Downgrade or zero-net → apply immediately with credit
     if (change.net_amount <= 0) {
       await applyImmediateDowngrade(data.shop_id, change);
+      try {
+        const { logAudit, resolveActor } = await import("./audit.server");
+        const actor = await resolveActor(context.userId);
+        await logAudit({
+          actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+          shop_id: data.shop_id, action: "package.downgraded",
+          target_type: "shop", target_id: data.shop_id,
+          details: change as any,
+        });
+      } catch {}
       return { ok: true, kind: "immediate", change };
     }
 
@@ -706,6 +753,17 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
       pending_package_id: data.package_id,
       pending_billing_cycle: data.billing_cycle,
     }).eq("id", data.shop_id);
+
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "package.upgrade_requested",
+        target_type: "subscription_payment", target_id: invoice?.id,
+        details: { invoice_no: invoice?.invoice_no, amount: invoice?.amount, change: change as any },
+      });
+    } catch {}
 
     return { ok: true, kind: "pending", invoice, change };
   });
@@ -739,7 +797,7 @@ export const cancelPendingUpgrade = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // Cancel pending upgrade invoices
     await supabaseAdmin.from("subscription_payments")
-      .update({ status: "failed" })
+      .update({ status: "cancelled" })
       .eq("shop_id", data.shop_id)
       .eq("status", "pending")
       .eq("invoice_type", "upgrade");
@@ -747,6 +805,15 @@ export const cancelPendingUpgrade = createServerFn({ method: "POST" })
       pending_package_id: null,
       pending_billing_cycle: null,
     }).eq("id", data.shop_id);
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: data.shop_id, action: "package.upgrade_cancelled",
+        target_type: "shop", target_id: data.shop_id, details: { by: "admin" },
+      });
+    } catch {}
     return { ok: true };
   });
 
@@ -811,6 +878,15 @@ export const deleteShop = createServerFn({ method: "POST" })
     for (const r of roles ?? []) {
       try { await supabaseAdmin.auth.admin.deleteUser(r.user_id); } catch {}
     }
+    try {
+      const { logAudit, resolveActor } = await import("./audit.server");
+      const actor = await resolveActor(context.userId);
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        action: "shop.deleted", target_type: "shop", target_id: data.shop_id,
+        details: { removed_users: (roles ?? []).length },
+      });
+    } catch {}
     return { ok: true };
   });
 
