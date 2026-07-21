@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale } from "@/lib/sales.functions";
+import { listCustomers, createSale, getSale } from "@/lib/sales.functions";
+import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2 } from "lucide-react";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
@@ -32,6 +33,8 @@ function Page() {
   const prodFn = useServerFn(listProducts);
   const catFn = useServerFn(listCategories);
   const createFn = useServerFn(createSale);
+  const getSaleFn = useServerFn(getSale);
+  const sendSmsFn = useServerFn(sendInvoiceLinkSms);
 
   const cust = useQuery({ queryKey: ["customers"], queryFn: () => custFn() });
   const prod = useQuery({ queryKey: ["products"], queryFn: () => prodFn() });
@@ -61,6 +64,10 @@ function Page() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+
+  // Post-sale success dialog
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [lastSaleId, setLastSaleId] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
@@ -210,8 +217,13 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["shop-trend"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       const id = typeof saleId === "string" ? saleId : saleId?.id;
-      if (printAfter && id) nav({ to: "/app/sales/$saleId", params: { saleId: id } });
-      else nav({ to: "/app/sales" });
+      if (id) {
+        setLastSaleId(id);
+        setCheckoutOpen(false);
+        setSuccessOpen(true);
+      } else {
+        nav({ to: "/app/sales" });
+      }
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -744,6 +756,159 @@ function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SuccessDialog
+        open={successOpen}
+        onOpenChange={setSuccessOpen}
+        saleId={lastSaleId}
+        getSaleFn={getSaleFn}
+        sendSmsFn={sendSmsFn}
+        onNewSale={() => { setSuccessOpen(false); clearCart(); barcodeRef.current?.focus(); }}
+        onOpenFullReceipt={(id) => nav({ to: "/app/sales/$saleId", params: { saleId: id } })}
+      />
     </div>
+  );
+}
+
+function SuccessDialog({
+  open, onOpenChange, saleId, getSaleFn, sendSmsFn, onNewSale, onOpenFullReceipt,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  saleId: string | null;
+  getSaleFn: (args: { data: { id: string } }) => Promise<any>;
+  sendSmsFn: (args: { data: { sale_id: string; phone?: string | null; origin: string } }) => Promise<any>;
+  onNewSale: () => void;
+  onOpenFullReceipt: (id: string) => void;
+}) {
+  const q = useQuery({
+    queryKey: ["sale-share", saleId],
+    queryFn: () => getSaleFn({ data: { id: saleId! } }),
+    enabled: !!saleId && open,
+  });
+  const sale: any = q.data?.sale;
+  const customer = sale?.customer;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const publicUrl = sale?.share_token ? `${origin}/i/${sale.share_token}` : "";
+
+  const [smsPhone, setSmsPhone] = useState("");
+  useEffect(() => {
+    if (customer?.phone) setSmsPhone(customer.phone);
+  }, [customer?.phone]);
+
+  const smsM = useMutation({
+    mutationFn: () => sendSmsFn({ data: { sale_id: saleId!, phone: smsPhone || null, origin } }),
+    onSuccess: () => toast.success("SMS পাঠানো হয়েছে"),
+    onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
+  });
+
+  const copyLink = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast.success("লিংক কপি হয়েছে");
+    } catch {
+      toast.error("কপি করা যায়নি");
+    }
+  };
+
+  const nativeShare = async () => {
+    if (!publicUrl) return;
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) {
+        await (navigator as any).share({
+          title: `ইনভয়েস #${sale?.invoice_no ?? ""}`,
+          text: `৳${Number(sale?.total || 0).toFixed(2)} — ইনভয়েস দেখুন`,
+          url: publicUrl,
+        });
+      } else {
+        await copyLink();
+      }
+    } catch { /* cancelled */ }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            বিক্রয় সম্পন্ন
+          </DialogTitle>
+        </DialogHeader>
+
+        {!sale ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <div className="flex items-baseline justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ইনভয়েস</div>
+                <div className="text-sm font-bold">{sale.invoice_no ?? String(sale.id).slice(0, 8)}</div>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between">
+                <div className="text-xs text-muted-foreground">{customer?.name ?? "Walk-in"}</div>
+                <div className="text-xl font-black text-slate-900">৳{Number(sale.total || 0).toFixed(2)}</div>
+              </div>
+              {Number(sale.due || 0) > 0 && (
+                <div className="mt-1 text-right text-xs font-semibold text-orange-600">
+                  বাকি: ৳{Number(sale.due).toFixed(2)}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs">পাবলিক শেয়ারযোগ্য লিংক</Label>
+              <div className="mt-1 flex items-center gap-1">
+                <Input readOnly value={publicUrl} className="h-9 text-xs" onFocus={(e) => e.currentTarget.select()} />
+                <Button size="icon" variant="outline" onClick={copyLink} title="কপি" className="h-9 w-9 shrink-0">
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="outline" onClick={nativeShare} title="শেয়ার" className="h-9 w-9 shrink-0">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                লিংকে ক্লিক করলে কাস্টমার লগিন ছাড়াই ইনভয়েস দেখতে পাবে।
+              </p>
+            </div>
+
+            <div>
+              <Label className="text-xs">SMS পাঠান (কাস্টমারের মোবাইলে লিংক যাবে)</Label>
+              <div className="mt-1 flex items-center gap-1">
+                <Input
+                  value={smsPhone}
+                  onChange={(e) => setSmsPhone(e.target.value)}
+                  placeholder="01XXXXXXXXX"
+                  className="h-9 text-sm"
+                />
+                <Button
+                  size="sm"
+                  className="h-9 shrink-0"
+                  disabled={smsM.isPending || !smsPhone.trim()}
+                  onClick={() => smsM.mutate()}
+                >
+                  <MessageSquare className="mr-1 h-4 w-4" />
+                  {smsM.isPending ? "..." : "পাঠান"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          <Button variant="outline" onClick={onNewSale}>
+            <Plus className="mr-1 h-4 w-4" /> নতুন বিক্রয়
+          </Button>
+          <Button
+            disabled={!saleId}
+            onClick={() => saleId && onOpenFullReceipt(saleId)}
+            className="bg-orange-500 hover:bg-orange-600"
+          >
+            <Printer className="mr-1 h-4 w-4" /> প্রিন্ট রিসিট
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
