@@ -47,6 +47,25 @@ interface SendOpts {
 }
 
 export async function sendRawSMS(phone: string, message: string, opts: SendOpts = {}) {
+  if (opts.shopId) {
+    try {
+      const { getUsage } = await import("./limits.server");
+      const info = await getUsage(supabaseAdmin, opts.shopId, "sms");
+      if (info.limit != null && info.used >= info.limit) {
+        await supabaseAdmin.from("sms_logs").insert({
+          shop_id: opts.shopId,
+          template_code: opts.templateCode ?? null,
+          recipient: normalizeBdPhone(phone),
+          message,
+          status: "failed",
+          response: `SMS limit reached (${info.used}/${info.limit})`,
+        });
+        return { ok: false, response: "sms limit reached" };
+      }
+    } catch (e) {
+      console.error("sms limit check failed", e);
+    }
+  }
   const { data: gw } = await supabaseAdmin
     .from("sms_gateway_settings")
     .select("*")
