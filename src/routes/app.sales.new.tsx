@@ -488,6 +488,49 @@ function Page() {
         </div>
       )}
       {/* Top bar */}
+      {/* Customer bar */}
+      <div ref={customerBoxRef} className="flex flex-wrap items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <User className="h-4 w-4" /> কাস্টমার
+        </div>
+        <div className="min-w-0 flex-1">
+          <SearchableSelect
+            value={customerId}
+            onChange={(v) => setCustomerId(v)}
+            placeholder="Walk-in Customer (ডিফল্ট)"
+            searchPlaceholder="আইডি / ফোন / নাম দিয়ে সার্চ..."
+            options={(cust.data ?? []).map((c: any) => ({
+              value: c.id,
+              label: c.name,
+              hint: [c.phone, Number(c.current_balance) > 0 ? `বকেয়া ৳${Number(c.current_balance).toFixed(0)}` : null]
+                .filter(Boolean).join(" · "),
+              keywords: `${c.name} ${c.phone ?? ""} ${String(c.id).slice(0, 8)}`,
+            }))}
+          />
+        </div>
+        {selectedCustomer && (
+          <div className="hidden items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-800 sm:inline-flex">
+            <Phone className="h-3 w-3" />
+            <span>{selectedCustomer.phone ?? "—"}</span>
+            {Number(selectedCustomer.current_balance) > 0 && (
+              <span className="ml-1 rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-700">
+                বকেয়া ৳{Number(selectedCustomer.current_balance).toFixed(0)}
+              </span>
+            )}
+          </div>
+        )}
+        {customerId && (
+          <Button size="sm" variant="ghost" className="h-8 text-rose-600" onClick={() => setCustomerId("")}>
+            <X className="mr-1 h-3.5 w-3.5" /> Walk-in
+          </Button>
+        )}
+        <Button size="sm" variant="outline" className="h-8" onClick={() => setQuickAddOpen(true)}>
+          <UserPlus className="mr-1 h-3.5 w-3.5" /> নতুন
+        </Button>
+        <kbd className="hidden rounded border bg-slate-50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline-block">Ctrl+K</kbd>
+      </div>
+
+      {/* Search bar */}
       <div className="flex items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
