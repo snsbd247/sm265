@@ -12,7 +12,7 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("*, package:packages(*)")
+    .select("*, package:packages!package_id(*)")
     .eq("id", pay.shop_id)
     .single();
   if (!shop) throw new Error("Shop not found");
