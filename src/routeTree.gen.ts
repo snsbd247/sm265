@@ -23,6 +23,7 @@ import { Route as AppSubscriptionRouteImport } from './routes/app.subscription'
 import { Route as AppStockRouteImport } from './routes/app.stock'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppProductsRouteImport } from './routes/app.products'
+import { Route as AppPayInvoiceRouteImport } from './routes/app.pay-invoice'
 import { Route as AppInstallmentsRouteImport } from './routes/app.installments'
 import { Route as AppCustomersRouteImport } from './routes/app.customers'
 import { Route as AppCategoriesRouteImport } from './routes/app.categories'
@@ -117,6 +118,11 @@ const AppReportsRoute = AppReportsRouteImport.update({
 const AppProductsRoute = AppProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayInvoiceRoute = AppPayInvoiceRouteImport.update({
+  id: '/pay-invoice',
+  path: '/pay-invoice',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInstallmentsRoute = AppInstallmentsRouteImport.update({
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/app/categories': typeof AppCategoriesRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/installments': typeof AppInstallmentsRoute
+  '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
   '/app/reports': typeof AppReportsRoute
   '/app/stock': typeof AppStockRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/app/categories': typeof AppCategoriesRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/installments': typeof AppInstallmentsRoute
+  '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
   '/app/reports': typeof AppReportsRoute
   '/app/stock': typeof AppStockRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/app/categories': typeof AppCategoriesRoute
   '/app/customers': typeof AppCustomersRoute
   '/app/installments': typeof AppInstallmentsRoute
+  '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
   '/app/reports': typeof AppReportsRoute
   '/app/stock': typeof AppStockRoute
@@ -390,6 +399,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/customers'
     | '/app/installments'
+    | '/app/pay-invoice'
     | '/app/products'
     | '/app/reports'
     | '/app/stock'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/customers'
     | '/app/installments'
+    | '/app/pay-invoice'
     | '/app/products'
     | '/app/reports'
     | '/app/stock'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/app/categories'
     | '/app/customers'
     | '/app/installments'
+    | '/app/pay-invoice'
     | '/app/products'
     | '/app/reports'
     | '/app/stock'
@@ -601,6 +613,13 @@ declare module '@tanstack/react-router' {
       path: '/products'
       fullPath: '/app/products'
       preLoaderRoute: typeof AppProductsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pay-invoice': {
+      id: '/app/pay-invoice'
+      path: '/pay-invoice'
+      fullPath: '/app/pay-invoice'
+      preLoaderRoute: typeof AppPayInvoiceRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/installments': {
@@ -845,6 +864,7 @@ interface AppRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppInstallmentsRoute: typeof AppInstallmentsRoute
+  AppPayInvoiceRoute: typeof AppPayInvoiceRoute
   AppProductsRoute: typeof AppProductsRouteWithChildren
   AppReportsRoute: typeof AppReportsRoute
   AppStockRoute: typeof AppStockRoute
@@ -863,6 +883,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCategoriesRoute: AppCategoriesRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppInstallmentsRoute: AppInstallmentsRoute,
+  AppPayInvoiceRoute: AppPayInvoiceRoute,
   AppProductsRoute: AppProductsRouteWithChildren,
   AppReportsRoute: AppReportsRoute,
   AppStockRoute: AppStockRoute,
