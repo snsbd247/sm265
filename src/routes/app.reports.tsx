@@ -2,6 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSalesReport, getPurchaseReport, getCashBook, getProfitReport, getReportSnapshot } from "@/lib/reports.functions";
+import {
+  getStockReport, getStockMovementReport, getProductSalesReport, getCategorySalesReport,
+  getCustomerSalesReport, getSupplierPurchaseReport, getReceivableAging, getPayableReport,
+  getInstallmentReport, getSalesReturnReport, getTaxReport, getPaymentMethodReport,
+  getShiftReport, getDiscountReport, getLowStockReport,
+} from "@/lib/mis-reports.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +52,7 @@ function Page() {
     <div className="space-y-5 p-4 sm:p-6">
       <div className="min-w-0">
         <h1 className="truncate text-xl font-bold sm:text-2xl">রিপোর্ট</h1>
-        <p className="text-sm text-muted-foreground">বিক্রয়, ক্রয়, ক্যাশ বই, লাভ</p>
+        <p className="text-sm text-muted-foreground">বিক্রয়, ক্রয়, স্টক, লাভ, বাকি, ট্যাক্স ও MIS</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -57,10 +63,25 @@ function Page() {
       </div>
 
       <Tabs defaultValue="sales">
-        <TabsList className="h-auto max-w-full justify-start overflow-x-auto p-1">
+        <TabsList className="h-auto max-w-full justify-start overflow-x-auto p-1 flex-wrap">
           <TabsTrigger value="sales">বিক্রয়</TabsTrigger>
           <TabsTrigger value="purchase">ক্রয়</TabsTrigger>
           <TabsTrigger value="profit">লাভ</TabsTrigger>
+          <TabsTrigger value="product-sales">প্রোডাক্ট বিক্রয়</TabsTrigger>
+          <TabsTrigger value="category-sales">ক্যাটাগরি বিক্রয়</TabsTrigger>
+          <TabsTrigger value="customer-sales">কাস্টমার বিক্রয়</TabsTrigger>
+          <TabsTrigger value="supplier-purchase">সাপ্লায়ার ক্রয়</TabsTrigger>
+          <TabsTrigger value="stock">স্টক</TabsTrigger>
+          <TabsTrigger value="stock-move">স্টক মুভমেন্ট</TabsTrigger>
+          <TabsTrigger value="low-stock">লো/আউট স্টক</TabsTrigger>
+          <TabsTrigger value="receivable">কাস্টমার বাকি (Aging)</TabsTrigger>
+          <TabsTrigger value="payable">সাপ্লায়ার বাকি</TabsTrigger>
+          <TabsTrigger value="installment">কিস্তি বকেয়া</TabsTrigger>
+          <TabsTrigger value="return">সেল রিটার্ন</TabsTrigger>
+          <TabsTrigger value="tax">ভ্যাট/ট্যাক্স</TabsTrigger>
+          <TabsTrigger value="discount">ডিসকাউন্ট</TabsTrigger>
+          <TabsTrigger value="payment">পেমেন্ট মেথড</TabsTrigger>
+          <TabsTrigger value="shift">শিফট</TabsTrigger>
           <TabsTrigger value="cash">ক্যাশ বই</TabsTrigger>
           <TabsTrigger value="bkash">bKash বই</TabsTrigger>
         </TabsList>
@@ -68,9 +89,354 @@ function Page() {
         <TabsContent value="sales"><SalesReport /></TabsContent>
         <TabsContent value="purchase"><PurchaseReport /></TabsContent>
         <TabsContent value="profit"><ProfitReport /></TabsContent>
+        <TabsContent value="product-sales"><ProductSalesReport /></TabsContent>
+        <TabsContent value="category-sales"><CategorySalesReport /></TabsContent>
+        <TabsContent value="customer-sales"><CustomerSalesReport /></TabsContent>
+        <TabsContent value="supplier-purchase"><SupplierPurchaseReport /></TabsContent>
+        <TabsContent value="stock"><StockReport /></TabsContent>
+        <TabsContent value="stock-move"><StockMovementReport /></TabsContent>
+        <TabsContent value="low-stock"><LowStockReport /></TabsContent>
+        <TabsContent value="receivable"><ReceivableReport /></TabsContent>
+        <TabsContent value="payable"><PayableReport /></TabsContent>
+        <TabsContent value="installment"><InstallmentReport /></TabsContent>
+        <TabsContent value="return"><SalesReturnReport /></TabsContent>
+        <TabsContent value="tax"><TaxReport /></TabsContent>
+        <TabsContent value="discount"><DiscountReport /></TabsContent>
+        <TabsContent value="payment"><PaymentMethodReport /></TabsContent>
+        <TabsContent value="shift"><ShiftReport /></TabsContent>
         <TabsContent value="cash"><CashBook method="cash" title="ক্যাশ বই (নগদ)" /></TabsContent>
         <TabsContent value="bkash"><CashBook method="bkash" title="bKash বই" /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function DateOnly({ from, to, onChange }: { from: string; to: string; onChange: (v: { from: string; to: string }) => void }) {
+  return (
+    <div className="grid gap-3 sm:flex sm:items-end">
+      <div><Label>শুরুর তারিখ</Label><Input type="date" value={from} onChange={e => onChange({ from: e.target.value, to })} /></div>
+      <div><Label>শেষ তারিখ</Label><Input type="date" value={to} onChange={e => onChange({ from, to: e.target.value })} /></div>
+    </div>
+  );
+}
+
+/* ========= New MIS report sub-components ========= */
+
+function ProductSalesReport() {
+  const fn = useServerFn(getProductSalesReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-prod-sales", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["পণ্য", "SKU", "ক্যাটাগরি", "পরিমাণ", "বিক্রয়", "খরচ", "ডিসকাউন্ট", "ট্যাক্স", "লাভ"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`product_sales_${f.from}_${f.to}`} title="প্রোডাক্ট বিক্রয় রিপোর্ট" headers={headers}
+          rows={rows.map(r => [r.product, r.sku, r.category, r.qty, r.revenue, r.cost, r.discount, r.tax, r.profit])}
+          totals={t ? ["মোট", "", "", t.qty, t.revenue, t.cost, t.discount, t.tax, t.profit] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.product, r.sku, r.category, r.qty, fmt(r.revenue), fmt(r.cost), fmt(r.discount), fmt(r.tax), fmt(r.profit)])}
+        totals={t && ["মোট", "", "", t.qty, fmt(t.revenue), fmt(t.cost), fmt(t.discount), fmt(t.tax), fmt(t.profit)]} />
+    </div>
+  );
+}
+
+function CategorySalesReport() {
+  const fn = useServerFn(getCategorySalesReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-cat-sales", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["ক্যাটাগরি", "পরিমাণ", "বিক্রয়", "খরচ", "লাভ"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`category_sales_${f.from}_${f.to}`} title="ক্যাটাগরি বিক্রয়" headers={headers}
+          rows={rows.map(r => [r.category, r.qty, r.revenue, r.cost, r.profit])}
+          totals={t ? ["মোট", t.qty, t.revenue, t.cost, t.profit] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.category, r.qty, fmt(r.revenue), fmt(r.cost), fmt(r.profit)])}
+        totals={t && ["মোট", t.qty, fmt(t.revenue), fmt(t.cost), fmt(t.profit)]} />
+    </div>
+  );
+}
+
+function CustomerSalesReport() {
+  const fn = useServerFn(getCustomerSalesReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-cust-sales", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["কাস্টমার", "ফোন", "ইনভয়েস", "মোট", "পরিশোধ", "বাকি"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`customer_sales_${f.from}_${f.to}`} title="কাস্টমার বিক্রয়" headers={headers}
+          rows={rows.map(r => [r.name, r.phone, r.invoices, r.total, r.paid, r.due])}
+          totals={t ? ["মোট", "", t.invoices, t.total, t.paid, t.due] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.name, r.phone, r.invoices, fmt(r.total), fmt(r.paid), fmt(r.due)])}
+        totals={t && ["মোট", "", t.invoices, fmt(t.total), fmt(t.paid), fmt(t.due)]} />
+    </div>
+  );
+}
+
+function SupplierPurchaseReport() {
+  const fn = useServerFn(getSupplierPurchaseReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-supp-buy", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["সাপ্লায়ার", "ফোন", "ইনভয়েস", "মোট", "পরিশোধ", "বাকি"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`supplier_purchase_${f.from}_${f.to}`} title="সাপ্লায়ার ক্রয়" headers={headers}
+          rows={rows.map(r => [r.name, r.phone, r.invoices, r.total, r.paid, r.due])}
+          totals={t ? ["মোট", "", t.invoices, t.total, t.paid, t.due] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.name, r.phone, r.invoices, fmt(r.total), fmt(r.paid), fmt(r.due)])}
+        totals={t && ["মোট", "", t.invoices, fmt(t.total), fmt(t.paid), fmt(t.due)]} />
+    </div>
+  );
+}
+
+function StockReport() {
+  const fn = useServerFn(getStockReport);
+  const { data, isLoading } = useQuery({ queryKey: ["rep-stock"], queryFn: () => fn() });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["পণ্য", "SKU", "ক্যাটাগরি", "একক", "স্টক", "ক্রয় মূল্য", "বিক্রয় মূল্য", "সম্ভাব্য লাভ", "স্ট্যাটাস"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="grid gap-3 sm:grid-cols-3 flex-1">
+          <Snap icon={<Wallet className="h-5 w-5" />} label="মোট ক্রয় মূল্য" value={fmt(t?.cost_value ?? 0)} />
+          <Snap icon={<Wallet className="h-5 w-5 text-emerald-600" />} label="মোট বিক্রয় মূল্য" value={fmt(t?.retail_value ?? 0)} />
+          <Snap icon={<TrendingUp className="h-5 w-5 text-emerald-600" />} label="সম্ভাব্য লাভ" value={fmt(t?.potential_profit ?? 0)} />
+        </div>
+        <ExportButtons name="stock_report" title="স্টক রিপোর্ট" headers={headers}
+          rows={rows.map(r => [r.name, r.sku, r.category, r.unit, r.qty, r.cost_value, r.retail_value, r.potential_profit, r.dead ? "আউট" : r.low ? "লো" : "ঠিক"])}
+          totals={t ? ["মোট", "", "", "", t.qty, t.cost_value, t.retail_value, t.potential_profit, ""] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.name, r.sku, r.category, r.unit, r.qty, fmt(r.cost_value), fmt(r.retail_value), fmt(r.potential_profit),
+          r.dead ? <Badge variant="destructive">আউট</Badge> : r.low ? <Badge className="bg-amber-500">লো</Badge> : <Badge variant="secondary">ঠিক</Badge>])}
+        totals={t && ["মোট", "", "", "", t.qty, fmt(t.cost_value), fmt(t.retail_value), fmt(t.potential_profit), ""]} />
+    </div>
+  );
+}
+
+function StockMovementReport() {
+  const fn = useServerFn(getStockMovementReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-stock-move", f], queryFn: () => fn({ data: f }) });
+  const rows = data ?? [];
+  const headers = ["তারিখ", "পণ্য", "একক", "টাইপ", "পরিমাণ", "ক্রয় মূল্য", "ভ্যালু", "রেফ", "নোট"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`stock_movement_${f.from}_${f.to}`} title="স্টক মুভমেন্ট" headers={headers}
+          rows={rows.map(r => [r.date, r.product, r.unit, r.type, r.qty, r.cost, r.value, r.ref, r.note])} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.date, r.product, r.unit, <Badge variant="outline">{r.type}</Badge>, r.qty, fmt(r.cost), fmt(r.value), r.ref, r.note])} />
+    </div>
+  );
+}
+
+function LowStockReport() {
+  const fn = useServerFn(getLowStockReport);
+  const { data, isLoading } = useQuery({ queryKey: ["rep-low-stock"], queryFn: () => fn() });
+  const low = data?.low ?? []; const out = data?.out ?? [];
+  const headers = ["পণ্য", "SKU", "ক্যাটাগরি", "স্টক", "অ্যালার্ট", "একক", "ক্রয় মূল্য", "ভ্যালু"];
+  const mkRows = (arr: any[]) => arr.map(r => [r.name, r.sku, r.category, r.qty, r.alert, r.unit, r.cost, r.value]);
+  return (
+    <div className="space-y-6 pt-4">
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="text-lg font-semibold">আউট অফ স্টক <Badge variant="destructive" className="ml-2">{out.length}</Badge></h3>
+          <ExportButtons name="out_of_stock" title="আউট অফ স্টক" headers={headers} rows={mkRows(out)} />
+        </div>
+        <ReportTable loading={isLoading} headers={headers}
+          rows={out.map(r => [r.name, r.sku, r.category, r.qty, r.alert, r.unit, fmt(r.cost), fmt(r.value)])} />
+      </section>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="text-lg font-semibold">লো স্টক <Badge className="ml-2 bg-amber-500">{low.length}</Badge></h3>
+          <ExportButtons name="low_stock" title="লো স্টক" headers={headers} rows={mkRows(low)} />
+        </div>
+        <ReportTable loading={isLoading} headers={headers}
+          rows={low.map(r => [r.name, r.sku, r.category, r.qty, r.alert, r.unit, fmt(r.cost), fmt(r.value)])} />
+      </section>
+    </div>
+  );
+}
+
+function ReceivableReport() {
+  const fn = useServerFn(getReceivableAging);
+  const { data, isLoading } = useQuery({ queryKey: ["rep-ar"], queryFn: () => fn() });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["কাস্টমার", "ফোন", "মোট বাকি", "০-৩০ দিন", "৩১-৬০", "৬১-৯০", "৯১-১৮০", "১৮০+"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-end gap-3 flex-wrap">
+        <ExportButtons name="receivable_aging" title="কাস্টমার বাকি — Aging" headers={headers}
+          rows={rows.map(r => [r.name, r.phone, r.balance, r.current, r.d30, r.d60, r.d90, r.over])}
+          totals={t ? ["মোট", "", t.balance, t.current, t.d30, t.d60, t.d90, t.over] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.name, r.phone, fmt(r.balance), fmt(r.current), fmt(r.d30), fmt(r.d60), fmt(r.d90), fmt(r.over)])}
+        totals={t && ["মোট", "", fmt(t.balance), fmt(t.current), fmt(t.d30), fmt(t.d60), fmt(t.d90), fmt(t.over)]} />
+    </div>
+  );
+}
+
+function PayableReport() {
+  const fn = useServerFn(getPayableReport);
+  const { data, isLoading } = useQuery({ queryKey: ["rep-ap"], queryFn: () => fn() });
+  const rows = data?.rows ?? [];
+  const headers = ["সাপ্লায়ার", "ফোন", "বাকি"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-end gap-3 flex-wrap">
+        <ExportButtons name="payable" title="সাপ্লায়ার বাকি" headers={headers}
+          rows={rows.map(r => [r.name, r.phone, r.balance])}
+          totals={["মোট", "", data?.total ?? 0]} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.name, r.phone, fmt(r.balance)])}
+        totals={["মোট", "", fmt(data?.total ?? 0)]} />
+    </div>
+  );
+}
+
+function InstallmentReport() {
+  const fn = useServerFn(getInstallmentReport);
+  const { data, isLoading } = useQuery({ queryKey: ["rep-inst"], queryFn: () => fn() });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["ইনভয়েস", "কাস্টমার", "ফোন", "কিস্তি #", "শেষ তারিখ", "পরিমাণ", "পরিশোধ", "বাকি", "স্ট্যাটাস"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-end gap-3 flex-wrap">
+        <ExportButtons name="installments_due" title="কিস্তি বকেয়া" headers={headers}
+          rows={rows.map(r => [r.invoice, r.customer, r.phone, r.no, r.due_date, r.amount, r.paid, r.remaining, r.overdue ? "ওভারডিউ" : r.status])}
+          totals={t ? ["মোট", "", "", "", "", t.amount, t.paid, t.remaining, `ওভারডিউ ${fmt(t.overdue)}`] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.invoice, r.customer, r.phone, r.no, r.due_date, fmt(r.amount), fmt(r.paid), fmt(r.remaining),
+          r.overdue ? <Badge variant="destructive">ওভারডিউ</Badge> : <Badge variant="secondary">{r.status}</Badge>])}
+        totals={t && ["মোট", "", "", "", "", fmt(t.amount), fmt(t.paid), fmt(t.remaining), `ওভারডিউ ${fmt(t.overdue)}`]} />
+    </div>
+  );
+}
+
+function SalesReturnReport() {
+  const fn = useServerFn(getSalesReturnReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-return", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["তারিখ", "ইনভয়েস", "কাস্টমার", "আইটেম", "আইটেম ভ্যালু", "রিফান্ড", "মেথড", "কারণ"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`sales_return_${f.from}_${f.to}`} title="সেল রিটার্ন" headers={headers}
+          rows={rows.map(r => [r.date, r.invoice, r.customer, r.items, r.item_value, r.refund, r.method, r.reason])}
+          totals={t ? ["মোট", `${t.count} টি`, "", "", t.item_value, t.refund, "", ""] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.date, r.invoice, r.customer, r.items, fmt(r.item_value), fmt(r.refund), r.method, r.reason])}
+        totals={t && ["মোট", `${t.count} টি`, "", "", fmt(t.item_value), fmt(t.refund), "", ""]} />
+    </div>
+  );
+}
+
+function TaxReport() {
+  const fn = useServerFn(getTaxReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-tax", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["তারিখ", "ইনভয়েস", "কাস্টমার", "সাব-টোটাল", "ডিসকাউন্ট", "ট্যাক্স", "মোট"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`tax_${f.from}_${f.to}`} title="ভ্যাট/ট্যাক্স রিপোর্ট" headers={headers}
+          rows={rows.map(r => [r.date, r.invoice, r.customer, r.subtotal, r.discount, r.tax, r.total])}
+          totals={t ? ["মোট", `${t.count} টি`, "", t.subtotal, t.discount, t.tax, t.total] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.date, r.invoice, r.customer, fmt(r.subtotal), fmt(r.discount), fmt(r.tax), fmt(r.total)])}
+        totals={t && ["মোট", `${t.count} টি`, "", fmt(t.subtotal), fmt(t.discount), fmt(t.tax), fmt(t.total)]} />
+    </div>
+  );
+}
+
+function DiscountReport() {
+  const fn = useServerFn(getDiscountReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-disc", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["তারিখ", "ইনভয়েস", "কাস্টমার", "সাব-টোটাল", "ডিসকাউন্ট", "%", "মোট"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`discount_${f.from}_${f.to}`} title="ডিসকাউন্ট রিপোর্ট" headers={headers}
+          rows={rows.map(r => [r.date, r.invoice, r.customer, r.subtotal, r.discount, r.pct.toFixed(1), r.total])}
+          totals={t ? ["মোট", `${t.count} টি`, "", t.subtotal, t.discount, "", t.total] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.date, r.invoice, r.customer, fmt(r.subtotal), fmt(r.discount), `${r.pct.toFixed(1)}%`, fmt(r.total)])}
+        totals={t && ["মোট", `${t.count} টি`, "", fmt(t.subtotal), fmt(t.discount), "", fmt(t.total)]} />
+    </div>
+  );
+}
+
+function PaymentMethodReport() {
+  const fn = useServerFn(getPaymentMethodReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-pm", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["মেথড", "আসা", "যাওয়া", "নেট"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`payment_methods_${f.from}_${f.to}`} title="পেমেন্ট মেথড" headers={headers}
+          rows={rows.map(r => [r.method, r.inflow, r.outflow, r.net])}
+          totals={t ? ["মোট", t.inflow, t.outflow, t.net] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.method, fmt(r.inflow), fmt(r.outflow), fmt(r.net)])}
+        totals={t && ["মোট", fmt(t.inflow), fmt(t.outflow), fmt(t.net)]} />
+    </div>
+  );
+}
+
+function ShiftReport() {
+  const fn = useServerFn(getShiftReport);
+  const [f, setF] = useState({ from: monthStart(), to: today() });
+  const { data, isLoading } = useQuery({ queryKey: ["rep-shift", f], queryFn: () => fn({ data: f }) });
+  const rows = data?.rows ?? []; const t = data?.totals;
+  const headers = ["ওপেন", "ক্লোজ", "স্ট্যাটাস", "ওপেনিং", "নগদ", "কার্ড", "bKash", "ব্যাংক", "অন্য", "মোট", "সংখ্যা", "এক্সপেক্টেড", "একচুয়াল", "ভ্যারিয়েন্স"];
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <DateOnly from={f.from} to={f.to} onChange={setF} />
+        <ExportButtons name={`shifts_${f.from}_${f.to}`} title="শিফট রিপোর্ট" headers={headers}
+          rows={rows.map(r => [r.opened, r.closed, r.status, r.opening, r.cash, r.card, r.bkash, r.bank, r.other, r.total, r.count, r.expected, r.actual, r.variance])}
+          totals={t ? ["মোট", "", "", t.opening, t.cash, t.card, t.bkash, t.bank, t.other, t.total, t.count, "", "", t.variance] : undefined} />
+      </div>
+      <ReportTable loading={isLoading} headers={headers}
+        rows={rows.map(r => [r.opened, r.closed, <Badge variant={r.status === "open" ? "default" : "secondary"}>{r.status}</Badge>, fmt(r.opening), fmt(r.cash), fmt(r.card), fmt(r.bkash), fmt(r.bank), fmt(r.other), fmt(r.total), r.count, fmt(r.expected), fmt(r.actual), fmt(r.variance)])}
+        totals={t && ["মোট", "", "", fmt(t.opening), fmt(t.cash), fmt(t.card), fmt(t.bkash), fmt(t.bank), fmt(t.other), fmt(t.total), t.count, "", "", fmt(t.variance)]} />
     </div>
   );
 }
