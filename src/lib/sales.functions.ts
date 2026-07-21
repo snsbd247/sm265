@@ -106,15 +106,21 @@ export const getCustomerLedger = createServerFn({ method: "GET" })
     for (const s of salesRes.data ?? []) {
       entries.push({ date: s.sale_date, type: "sale",
         description: `বিক্রয় ${s.invoice_no ?? ""} (${s.sale_type})`.trim(),
-        debit: Number(s.total), credit: 0, ref_id: s.id });
+        debit: Number(s.total), credit: 0, ref_id: s.id,
+        invoice_no: s.invoice_no, sale_type: s.sale_type, status: s.status });
       if (Number(s.paid) > 0) {
         // sale-time payment already recorded as customer_payment row
       }
     }
     for (const p of paymentsRes.data ?? []) {
+      const linkedSale = (salesRes.data ?? []).find((x: any) => x.id === p.sale_id);
       entries.push({ date: p.payment_date, type: "payment",
         description: `পেমেন্ট (${p.payment_method})${p.reference ? " • " + p.reference : ""}`,
-        debit: 0, credit: Number(p.amount), ref_id: p.id });
+        debit: 0, credit: Number(p.amount), ref_id: p.id,
+        invoice_no: linkedSale?.invoice_no ?? null,
+        sale_type: linkedSale?.sale_type ?? null,
+        status: "paid",
+        payment_method: p.payment_method });
     }
     entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     let bal = 0;
