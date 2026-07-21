@@ -22,7 +22,7 @@ export const getMyShop = createServerFn({ method: "GET" })
 
     const { data: shop } = await context.supabase
       .from("shops")
-      .select("*, package:packages(*)")
+      .select("*, package:packages!package_id(*), pending_package:packages!pending_package_id(*)")
       .eq("id", shopId)
       .single();
 
