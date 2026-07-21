@@ -468,6 +468,69 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     return { ok: true, ...r };
   });
 
+// Admin manually records a payment against a pending subscription invoice
+// (cash / bank / bkash-manual etc.). Delegates activation to the shared
+// helper so audit + SMS + supersede logic stays consistent.
+export const recordManualSubscriptionPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      payment_id: z.string().uuid(),
+      method: z.enum(["cash", "bank", "bkash", "card", "other"]),
+      reference_no: z.string().trim().max(80).optional(),
+      note: z.string().trim().max(500).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: pay, error: payErr } = await supabaseAdmin
+      .from("subscription_payments").select("*").eq("id", data.payment_id).single();
+    if (payErr || !pay) throw new Error(payErr?.message ?? "Payment not found");
+    if (pay.status !== "pending") throw new Error("এই ইনভয়েস আগেই প্রসেস হয়েছে");
+
+    const { resolveActor } = await import("./audit.server");
+    const actor = await resolveActor(context.userId);
+
+    // Stamp the payment with manual receipt metadata BEFORE activation so
+    // the audit trail + receipt reflect it.
+    const raw: any = (pay as any).raw_response ?? {};
+    await supabaseAdmin.from("subscription_payments").update({
+      payment_method: data.method,
+      transaction_id: data.reference_no ?? (pay as any).transaction_id ?? null,
+      raw_response: {
+        ...raw,
+        manual: true,
+        received_by: actor.actor_email,
+        received_at: new Date().toISOString(),
+        note: data.note ?? null,
+      },
+    }).eq("id", pay.id);
+
+    const { activatePaymentAndExtendShop } = await import("./subscription.server");
+    const r = await activatePaymentAndExtendShop(pay.id, {
+      actorUserId: context.userId,
+      actorEmail: actor.actor_email,
+      source: "admin_manual",
+    });
+
+    try {
+      const { logAudit } = await import("./audit.server");
+      await logAudit({
+        actor_user_id: context.userId, actor_email: actor.actor_email, actor_role: "super_admin",
+        shop_id: pay.shop_id, action: "invoice.paid",
+        target_type: "subscription_payment", target_id: pay.id,
+        details: {
+          invoice_no: (pay as any).invoice_no, amount: pay.amount,
+          method: data.method, reference_no: data.reference_no ?? null,
+          manual: true, note: data.note ?? null,
+        },
+      });
+    } catch {}
+    return { ok: true, ...r };
+  });
+
 // Legacy inline activation kept below (unreachable) — remove once verified.
 const _unusedLegacyApprove = async ({ data, context }: any) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
