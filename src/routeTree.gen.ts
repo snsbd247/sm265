@@ -40,6 +40,7 @@ import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
 import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
+import { Route as AppSalesNewRouteImport } from './routes/app.sales.new'
 import { Route as AppSalesSaleIdRouteImport } from './routes/app.sales.$saleId'
 import { Route as AppPurchasesNewRouteImport } from './routes/app.purchases.new'
 import { Route as AppProductsProductIdRouteImport } from './routes/app.products.$productId'
@@ -207,6 +208,11 @@ const AdminShopsIndexRoute = AdminShopsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminShopsRoute,
 } as any)
+const AppSalesNewRoute = AppSalesNewRouteImport.update({
+  id: '/sales/new',
+  path: '/sales/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSalesSaleIdRoute = AppSalesSaleIdRouteImport.update({
   id: '/sales/$saleId',
   path: '/sales/$saleId',
@@ -301,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -342,6 +349,7 @@ export interface FileRoutesByTo {
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
   '/admin/shops': typeof AdminShopsIndexRoute
   '/app/purchases': typeof AppPurchasesIndexRoute
   '/app/sales': typeof AppSalesIndexRoute
@@ -387,6 +395,7 @@ export interface FileRoutesById {
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/purchases/new': typeof AppPurchasesNewRoute
   '/app/sales/$saleId': typeof AppSalesSaleIdRoute
+  '/app/sales/new': typeof AppSalesNewRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
@@ -433,6 +442,7 @@ export interface FileRouteTypes {
     | '/app/products/$productId'
     | '/app/purchases/new'
     | '/app/sales/$saleId'
+    | '/app/sales/new'
     | '/admin/shops/'
     | '/app/purchases/'
     | '/app/sales/'
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/app/products/$productId'
     | '/app/purchases/new'
     | '/app/sales/$saleId'
+    | '/app/sales/new'
     | '/admin/shops'
     | '/app/purchases'
     | '/app/sales'
@@ -518,6 +529,7 @@ export interface FileRouteTypes {
     | '/app/products/$productId'
     | '/app/purchases/new'
     | '/app/sales/$saleId'
+    | '/app/sales/new'
     | '/admin/shops/'
     | '/app/purchases/'
     | '/app/sales/'
@@ -761,6 +773,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShopsIndexRouteImport
       parentRoute: typeof AdminShopsRoute
     }
+    '/app/sales/new': {
+      id: '/app/sales/new'
+      path: '/sales/new'
+      fullPath: '/app/sales/new'
+      preLoaderRoute: typeof AppSalesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/sales/$saleId': {
       id: '/app/sales/$saleId'
       path: '/sales/$saleId'
@@ -917,6 +936,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppPurchasesNewRoute: typeof AppPurchasesNewRoute
   AppSalesSaleIdRoute: typeof AppSalesSaleIdRoute
+  AppSalesNewRoute: typeof AppSalesNewRoute
   AppPurchasesIndexRoute: typeof AppPurchasesIndexRoute
   AppSalesIndexRoute: typeof AppSalesIndexRoute
 }
@@ -935,6 +955,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppPurchasesNewRoute: AppPurchasesNewRoute,
   AppSalesSaleIdRoute: AppSalesSaleIdRoute,
+  AppSalesNewRoute: AppSalesNewRoute,
   AppPurchasesIndexRoute: AppPurchasesIndexRoute,
   AppSalesIndexRoute: AppSalesIndexRoute,
 }
