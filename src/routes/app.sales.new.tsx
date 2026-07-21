@@ -854,7 +854,31 @@ function Page() {
             <OrderPanel />
           </SheetContent>
         </Sheet>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setScanOpen(true)}
+          className="h-11 w-11 shrink-0"
+          aria-label="ক্যামেরা স্ক্যান"
+        >
+          <Camera className="h-5 w-5" />
+        </Button>
       </div>
+
+      {(!isOnline || queueCount > 0) && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 md:px-4">
+          <div className="flex items-center gap-1.5">
+            <CloudOff className="h-3.5 w-3.5" />
+            {!isOnline ? "অফলাইন — বিক্রয় লোকালি সেভ হবে" : `অনলাইন — ${queueCount}টি বিক্রয় সিঙ্ক অপেক্ষমাণ`}
+          </div>
+          {queueCount > 0 && isOnline && (
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-amber-900" onClick={() => { flushQueue(); }}>
+              <RefreshCcw className="mr-1 h-3 w-3" /> এখনই সিঙ্ক
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Category tabs */}
       <div className="flex items-center gap-2 overflow-x-auto border-b bg-white px-3 py-2 md:px-4">
