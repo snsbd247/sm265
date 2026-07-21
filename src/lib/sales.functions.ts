@@ -86,7 +86,7 @@ export const getCustomerLedger = createServerFn({ method: "GET" })
 
     const [salesRes, paymentsRes, instRes] = await Promise.all([
       context.supabase.from("sales")
-        .select("id, invoice_no, sale_date, total, paid, due, sale_type, created_at")
+        .select("id, invoice_no, sale_date, total, paid, due, sale_type, status, note, created_at, items:sale_items(id, quantity, unit_price, line_total, product:products(name, unit:units(short_name)))")
         .eq("shop_id", shopId).eq("customer_id", data.customer_id)
         .order("sale_date", { ascending: true }),
       context.supabase.from("customer_payments")
@@ -120,7 +120,40 @@ export const getCustomerLedger = createServerFn({ method: "GET" })
     let bal = 0;
     for (const e of entries) { bal += e.debit - e.credit; e.balance = bal; }
 
-    return { customer, entries, installments: instRes.data ?? [] };
+    const sales = (salesRes.data ?? []) as any[];
+    const activeSales = sales.filter((s) => s.status !== "cancelled");
+    const summary = {
+      cash: { count: 0, total: 0 },
+      due: { count: 0, total: 0, outstanding: 0 },
+      installment: { count: 0, total: 0, outstanding: 0 },
+      cancelled: { count: sales.length - activeSales.length, total: 0 },
+      total_purchased: 0,
+      total_paid: 0,
+      total_outstanding: 0,
+    };
+    for (const s of activeSales) {
+      const t = Number(s.total) || 0;
+      const d = Number(s.due) || 0;
+      const p = Number(s.paid) || 0;
+      summary.total_purchased += t;
+      summary.total_paid += p;
+      summary.total_outstanding += d;
+      const bucket = (summary as any)[s.sale_type];
+      if (bucket) {
+        bucket.count += 1;
+        bucket.total += t;
+        if ("outstanding" in bucket) bucket.outstanding += d;
+      }
+    }
+
+    return {
+      customer,
+      entries,
+      installments: instRes.data ?? [],
+      sales,
+      payments: paymentsRes.data ?? [],
+      summary,
+    };
   });
 
 /* -------- Sales -------- */
