@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, ChevronLeft, ChevronRight, X, Download, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { downloadCSV } from "@/lib/export-utils";
@@ -18,25 +19,38 @@ function Page() {
   const fn = useServerFn(listSales);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [tab, setTab] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
   const q = useQuery({
-    queryKey: ["sales", dateFrom, dateTo, typeFilter],
+    queryKey: ["sales", dateFrom, dateTo],
     queryFn: () => fn({ data: {
       from: dateFrom || undefined,
       to: dateTo || undefined,
-      sale_type: typeFilter !== "all" ? (typeFilter as any) : undefined,
     } }),
   });
 
   const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
   const typeVariant: Record<string, any> = { cash: "default", due: "secondary", installment: "outline" };
 
+  const all = (q.data ?? []) as any[];
+  const counts = useMemo(() => ({
+    all: all.filter((r) => r.status !== "cancelled").length,
+    cash: all.filter((r) => r.status !== "cancelled" && r.sale_type === "cash").length,
+    due: all.filter((r) => r.status !== "cancelled" && r.sale_type === "due").length,
+    installment: all.filter((r) => r.status !== "cancelled" && r.sale_type === "installment").length,
+    cancelled: all.filter((r) => r.status === "cancelled").length,
+  }), [all]);
+
   const filtered = useMemo(() => {
-    const list = q.data ?? [];
+    let list = all;
+    if (tab === "cancelled") list = list.filter((r) => r.status === "cancelled");
+    else {
+      list = list.filter((r) => r.status !== "cancelled");
+      if (tab !== "all") list = list.filter((r) => r.sale_type === tab);
+    }
     if (!search) return list;
     const s = search.toLowerCase();
     return list.filter((r: any) =>
@@ -45,12 +59,12 @@ function Page() {
       (r.customer?.phone ?? "").toLowerCase().includes(s) ||
       (r.id ?? "").toLowerCase().includes(s),
     );
-  }, [q.data, search]);
+  }, [all, search, tab]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
   const paged = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
-  const anyFilter = dateFrom || dateTo || typeFilter !== "all" || search;
+  const anyFilter = dateFrom || dateTo || tab !== "all" || search;
 
   return (
     <div className="p-4 sm:p-6">
@@ -92,21 +106,22 @@ function Page() {
         </div>
         <Input type="date" className="sm:w-40" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} title="From" />
         <Input type="date" className="sm:w-40" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} title="To" />
-        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-          <SelectTrigger className="sm:w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">সব ধরন</SelectItem>
-            <SelectItem value="cash">নগদ</SelectItem>
-            <SelectItem value="due">বাকি</SelectItem>
-            <SelectItem value="installment">কিস্তি</SelectItem>
-          </SelectContent>
-        </Select>
         {anyFilter && (
-          <Button variant="outline" size="sm" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setTypeFilter("all"); setPage(1); }}>
+          <Button variant="outline" size="sm" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setTab("all"); setPage(1); }}>
             <X className="mr-1 h-3.5 w-3.5" /> ক্লিয়ার
           </Button>
         )}
       </div>
+
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(1); }} className="mt-4">
+        <TabsList className="flex flex-wrap h-auto">
+          <TabsTrigger value="all">সব ({counts.all})</TabsTrigger>
+          <TabsTrigger value="cash">নগদ ({counts.cash})</TabsTrigger>
+          <TabsTrigger value="due">বাকি ({counts.due})</TabsTrigger>
+          <TabsTrigger value="installment">কিস্তি ({counts.installment})</TabsTrigger>
+          <TabsTrigger value="cancelled">ক্যান্সেল ({counts.cancelled})</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="mt-5 overflow-x-auto rounded-xl border bg-card">
         <table className="w-full min-w-[760px] text-sm">
