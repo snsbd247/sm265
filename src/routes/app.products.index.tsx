@@ -16,7 +16,7 @@ import { useState, useMemo } from "react";
 import { Plus, Pencil, Trash2, Search, MoreVertical, Eye, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { downloadCSV } from "@/lib/export-utils";
 
-export const Route = createFileRoute("/app/products")({ component: Page });
+export const Route = createFileRoute("/app/products/")({ component: Page });
 
 function Page() {
   const navigate = useNavigate();
