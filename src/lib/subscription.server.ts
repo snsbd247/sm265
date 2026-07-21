@@ -5,13 +5,14 @@ export async function activatePaymentAndExtendShop(
   paymentId: string,
   opts?: { actorUserId?: string | null; actorEmail?: string | null; source?: string },
 ) {
-  // Atomic guard: only proceed if we can flip pending → processing.
-  // If another concurrent call already claimed it, we no-op.
+  // Atomic idempotency claim: set paid_at while status is still pending.
+  // Only the first caller wins; concurrent callers get no row back.
   const claim = await supabaseAdmin
     .from("subscription_payments")
-    .update({ status: "processing" })
+    .update({ paid_at: new Date().toISOString() })
     .eq("id", paymentId)
     .eq("status", "pending")
+    .is("paid_at", null)
     .select("id")
     .maybeSingle();
 
@@ -22,8 +23,7 @@ export async function activatePaymentAndExtendShop(
     .single();
   if (payErr || !pay) throw new Error(payErr?.message ?? "Payment not found");
   if (pay.status === "success") return { alreadyProcessed: true };
-  // If we didn't win the claim and it's not in processing state either → already handled elsewhere
-  if (!claim.data && pay.status !== "processing") {
+  if (!claim.data) {
     return { alreadyProcessed: true, skipped: true, currentStatus: pay.status };
   }
 
