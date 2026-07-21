@@ -1,4 +1,6 @@
 import type React from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
@@ -11,6 +13,9 @@ export type InvoicePreviewProps = {
   installments?: any[];
   domId?: string;
   className?: string;
+  /** Called when the user taps "Regenerate link" in the QR fallback. */
+  onRegenerateLink?: () => void;
+  regenerating?: boolean;
 };
 
 /**
@@ -27,6 +32,8 @@ export function InvoicePreview({
   installments,
   domId = "pos-invoice-preview",
   className,
+  onRegenerateLink,
+  regenerating = false,
 }: InvoicePreviewProps) {
   const items = sale?.items ?? [];
   const primary = tpl?.primary_color ?? "#0f766e";
@@ -35,6 +42,24 @@ export function InvoicePreview({
   const logoSrc = (tpl?.show_logo !== false) ? (tpl?.logo_url || shop?.logo_url) : null;
   const cancelled = sale?.status === "cancelled";
   const returned = sale?.status === "returned" || sale?.status === "partial_return";
+  const showQr = tpl?.show_qr !== false;
+  const isValidHttpUrl = !!publicUrl && /^https?:\/\/\S+\/i\/[0-9a-f-]{8,}/i.test(publicUrl);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelledFlag = false;
+    if (!showQr || !isValidHttpUrl || !publicUrl) { setQrDataUrl(null); setQrError(null); return; }
+    // High error-correction + 512px raster => crisp on screen, print, PDF.
+    QRCode.toDataURL(publicUrl, {
+      errorCorrectionLevel: "H",
+      margin: 1,
+      width: 512,
+      color: { dark: "#0f172a", light: "#ffffff" },
+    })
+      .then((url) => { if (!cancelledFlag) { setQrDataUrl(url); setQrError(null); } })
+      .catch((e) => { if (!cancelledFlag) { setQrError(String(e?.message ?? e)); setQrDataUrl(null); } });
+    return () => { cancelledFlag = true; };
+  }, [publicUrl, showQr, isValidHttpUrl]);
 
   return (
     <div
@@ -190,15 +215,45 @@ export function InvoicePreview({
           </div>
         )}
         <div className="mt-2 text-center text-xs">{tpl?.footer_note || "ধন্যবাদ, আবার আসবেন।"}</div>
-        {publicUrl && (
-          <div className="mt-3 flex flex-col items-center gap-1 border-t pt-3">
-            <img
-              alt="qr"
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(publicUrl)}`}
-              className="h-24 w-24"
-              crossOrigin="anonymous"
-            />
-            <div className="text-[10px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
+        {showQr && (
+          <div className="invoice-qr-block mt-4 flex flex-col items-center gap-1 border-t pt-3 pb-2">
+            {qrDataUrl && isValidHttpUrl ? (
+              <>
+                <img
+                  alt={`QR: ${publicUrl}`}
+                  src={qrDataUrl}
+                  /* ~28mm on A4/A5, still ≥120px on mobile, high enough
+                     density for camera scan from 15-30cm away */
+                  className="h-28 w-28 sm:h-32 sm:w-32 print:h-28 print:w-28"
+                  style={{ imageRendering: "pixelated" }}
+                />
+                <div className="text-[10px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
+                <div className="max-w-[220px] break-all text-center text-[9px] font-mono opacity-60 print:opacity-70">
+                  {publicUrl}
+                </div>
+              </>
+            ) : (
+              <div className="w-full max-w-xs rounded-md border border-dashed border-amber-400 bg-amber-50/60 p-2 text-center text-[11px] text-amber-900 invoice-hide-on-print">
+                <div className="font-semibold">QR লিংক তৈরি করা যায়নি</div>
+                <div className="mt-0.5 opacity-80">
+                  {qrError
+                    ? "QR কোড রেন্ডার ব্যর্থ — আবার চেষ্টা করুন।"
+                    : !publicUrl
+                    ? "পাবলিক লিংক নেই — নিচের বাটনে ক্লিক করে নতুন লিংক তৈরি করুন।"
+                    : "লিংকটি অকার্যকর বা মেয়াদোত্তীর্ণ — পুনরায় তৈরি করুন।"}
+                </div>
+                {onRegenerateLink && (
+                  <button
+                    type="button"
+                    disabled={regenerating}
+                    onClick={onRegenerateLink}
+                    className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-500 bg-white px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    {regenerating ? "তৈরি হচ্ছে..." : "লিংক / QR পুনরায় তৈরি করুন"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -217,6 +272,8 @@ export function InvoicePrintStyles() {
         body { background: white !important; }
         .invoice-hide-on-print { display: none !important; }
         #pos-invoice-preview { box-shadow: none !important; border: 0 !important; max-width: 100% !important; }
+        .invoice-qr-block { break-inside: avoid; page-break-inside: avoid; margin-top: 12mm !important; }
+        .invoice-qr-block img { image-rendering: pixelated !important; width: 28mm !important; height: 28mm !important; }
       }
       body.printing-invoice > *:not(.invoice-print-root) { display: none !important; }
       body.printing-invoice .invoice-print-root { display: block !important; }

@@ -6,7 +6,7 @@ import { getSale, cancelSale, createSaleReturn } from "@/lib/sales.functions";
 import { getMyShop } from "@/lib/shop.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { getInvoiceTemplate, DEFAULT_TEMPLATE } from "@/lib/invoice-template.functions";
-import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
+import { sendInvoiceLinkSms, regenerateShareToken } from "@/lib/public-invoice.functions";
 import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
 import { snapshotSale } from "@/lib/sale-revisions.functions";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ function InvoicePage() {
   const smsFn = useServerFn(sendInvoiceLinkSms);
   const emailFn = useServerFn(sendInvoiceLinkEmail);
   const snapshotFn = useServerFn(snapshotSale);
+  const regenFn = useServerFn(regenerateShareToken);
 
   const q = useQuery({ queryKey: ["sale", saleId], queryFn: () => saleFn({ data: { id: saleId } }) });
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
@@ -117,6 +118,14 @@ function InvoicePage() {
       qc.invalidateQueries({ queryKey: ["sale-deliveries", saleId] });
     },
     onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
+  });
+  const regenM = useMutation({
+    mutationFn: () => regenFn({ data: { sale_id: saleId } }),
+    onSuccess: () => {
+      toast.success("নতুন শেয়ার লিংক তৈরি হয়েছে");
+      qc.invalidateQueries({ queryKey: ["sale", saleId] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "লিংক তৈরি করা যায়নি"),
   });
   const emailM = useMutation({
     mutationFn: () => emailFn({ data: { sale_id: saleId, email: emailTo || null, origin } }),
@@ -272,6 +281,8 @@ function InvoicePage() {
             tpl={tpl}
             publicUrl={publicUrl}
             installments={installments}
+            onRegenerateLink={() => regenM.mutate()}
+            regenerating={regenM.isPending}
           />
         </div>
 
