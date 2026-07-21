@@ -46,6 +46,8 @@ export const saveCustomer = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
     } else {
+      const { enforceLimit } = await import("./limits.server");
+      await enforceLimit(context.supabase, shopId, "customers", 1);
       const { data: created, error } = await context.supabase.from("customers").insert({
         shop_id: shopId, name: data.name, phone: data.phone || null, address: data.address || null,
         opening_balance: data.opening_balance, current_balance: data.opening_balance,
