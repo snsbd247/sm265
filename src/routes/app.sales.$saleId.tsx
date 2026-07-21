@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { getSale, cancelSale, createSaleReturn } from "@/lib/sales.functions";
 import { getMyShop } from "@/lib/shop.functions";
+import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,9 +34,11 @@ function InvoicePage() {
   const shopFn = useServerFn(getMyShop);
   const cancelFn = useServerFn(cancelSale);
   const returnFn = useServerFn(createSaleReturn);
+  const shiftFn = useServerFn(getCurrentShift);
 
   const q = useQuery({ queryKey: ["sale", saleId], queryFn: () => saleFn({ data: { id: saleId } }) });
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
+  const shiftQ = useQuery({ queryKey: ["shift-current"], queryFn: () => shiftFn() });
   const { cfg, ready } = useReceiptConfig();
 
   const sale: any = q.data?.sale;
@@ -44,6 +47,8 @@ function InvoicePage() {
   const shop: any = shopQ.data?.shop;
 
   const [returnOpen, setReturnOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [returnQty, setReturnQty] = useState<Record<string, number>>({});
   const [refundAmount, setRefundAmount] = useState(0);
   const [refundMethod, setRefundMethod] = useState<"cash" | "card" | "bkash" | "bank">("cash");
@@ -57,6 +62,7 @@ function InvoicePage() {
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["shop-notifications"] });
+      setCancelOpen(false); setCancelReason("");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -92,6 +98,7 @@ function InvoicePage() {
   const line = separatorChar(cfg.separator);
   const isCancelled = sale.status === "cancelled";
   const isReturned = sale.status === "returned";
+  const shiftOpen = !!shiftQ.data?.shift;
 
   const estimatedRefund = Object.entries(returnQty).reduce((s, [id, q]) => {
     const it = items.find((x) => x.id === id);
@@ -114,7 +121,13 @@ function InvoicePage() {
             <Printer className="mr-1 h-3.5 w-3.5" /> প্রিন্ট
           </Button>
           {!isCancelled && (
-            <Button size="sm" variant="outline" onClick={() => setReturnOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!shiftOpen}
+              title={!shiftOpen ? "রিটার্নের জন্য POS শিফট খুলুন" : undefined}
+              onClick={() => setReturnOpen(true)}
+            >
               <RotateCcw className="mr-1 h-3.5 w-3.5" /> রিটার্ন
             </Button>
           )}
@@ -122,16 +135,21 @@ function InvoicePage() {
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => {
-                const r = prompt("ক্যান্সেলের কারণ?");
-                if (r != null) cancelM.mutate(r);
-              }}
+              disabled={!shiftOpen}
+              title={!shiftOpen ? "ক্যান্সেলের জন্য POS শিফট খুলুন" : undefined}
+              onClick={() => setCancelOpen(true)}
             >
               <XCircle className="mr-1 h-3.5 w-3.5" /> ক্যান্সেল
             </Button>
           )}
         </div>
       </div>
+
+      {!shiftOpen && !isCancelled && (
+        <div className="mx-auto mb-2 max-w-md rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 print:hidden">
+          ⚠️ POS শিফট বন্ধ। রিটার্ন / ক্যান্সেল করতে হলে আগে শিফট শুরু করুন।
+        </div>
+      )}
 
       <ReceiptShell autoOpen={!cfg.autoPrint}>
         <div
@@ -167,7 +185,8 @@ function InvoicePage() {
               <div className="text-right">{fmt(it.line_total)}</div>
               <div className="r-wrap col-span-2 text-[11px] text-neutral-700">
                 {it.quantity} {it.product?.unit?.short_name ?? ""} × {fmt(it.unit_price)}
-                {Number(it.discount || 0) > 0 && ` − ${fmt(it.discount)}`}
+                {Number(it.discount_amount || 0) > 0 && ` − ছাড় ${fmt(it.discount_amount)}`}
+                {Number(it.tax_rate || 0) > 0 && ` + VAT ${it.tax_rate}%`}
               </div>
             </div>
           ))}
@@ -177,6 +196,9 @@ function InvoicePage() {
           <div className="flex justify-between"><span>Subtotal</span><span>{fmt(sale.subtotal)}</span></div>
           {Number(sale.discount || 0) > 0 && (
             <div className="flex justify-between"><span>Discount</span><span>-{fmt(sale.discount)}</span></div>
+          )}
+          {Number(sale.tax_amount || 0) > 0 && (
+            <div className="flex justify-between"><span>VAT / ট্যাক্স</span><span>+{fmt(sale.tax_amount)}</span></div>
           )}
           <div className="r-total flex justify-between font-bold">
             <span>TOTAL</span><span>BDT {fmt(sale.total)}</span>
@@ -210,8 +232,14 @@ function InvoicePage() {
 
       <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>রিটার্ন — {sale.invoice_no ?? sale.id.slice(0, 8)}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>রিটার্ন — {sale.invoice_no ?? sale.id.slice(0, 8)}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-3">
+            <div className="rounded-md border bg-slate-50 p-2 text-xs text-slate-700">
+              মূল ইনভয়েস: <b>{sale.invoice_no ?? sale.id.slice(0, 8)}</b> · তারিখ: {new Date(sale.sale_date).toLocaleDateString("bn-BD")} · মোট: <b>৳{fmt(sale.total)}</b>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">রিটার্ন নিশ্চিত করলে পরিমাণ অনুযায়ী স্টক স্বয়ংক্রিয়ভাবে ফেরত যোগ হবে।</div>
+            </div>
             <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-2">
               {items.map((it: any) => (
                 <div key={it.id} className="flex items-center gap-2 rounded-md border p-2">
@@ -247,8 +275,9 @@ function InvoicePage() {
               </div>
             </div>
             <div>
-              <Label>কারণ</Label>
+              <Label>কারণ <span className="text-rose-600">*</span></Label>
               <Textarea rows={2} value={returnReason} onChange={(e) => setReturnReason(e.target.value)} />
+              <div className="mt-1 text-[11px] text-muted-foreground">কারণ বাধ্যতামূলক (কমপক্ষে ৩ অক্ষর)।</div>
             </div>
             <div className="rounded-lg bg-slate-50 p-2 text-sm">
               আনুমানিক আইটেম মূল্য: <b>৳{estimatedRefund.toFixed(2)}</b>
@@ -258,9 +287,40 @@ function InvoicePage() {
             <Button variant="outline" onClick={() => setReturnOpen(false)}>বাতিল</Button>
             <Button
               onClick={() => returnM.mutate()}
-              disabled={returnM.isPending || Object.values(returnQty).every((v) => (v || 0) <= 0)}
+              disabled={returnM.isPending || returnReason.trim().length < 3 || Object.values(returnQty).every((v) => (v || 0) <= 0)}
             >
               রিটার্ন নিশ্চিত করুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>বিক্রয় ক্যান্সেল — {sale.invoice_no ?? sale.id.slice(0, 8)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
+              সতর্কতা: এই বিক্রয়ের সব আইটেম স্টকে ফেরত যোগ হবে এবং কাস্টমার ব্যালেন্স রোলব্যাক হবে। এটি ফেরানো যায় না।
+            </div>
+            <div className="rounded-md border bg-slate-50 p-2 text-xs">
+              মূল রেফারেন্স: <b>{sale.invoice_no ?? sale.id.slice(0, 8)}</b> · মোট: <b>৳{fmt(sale.total)}</b> · পরিশোধিত: <b>৳{fmt(sale.paid)}</b>
+            </div>
+            <div>
+              <Label>ক্যান্সেলের কারণ <span className="text-rose-600">*</span></Label>
+              <Textarea rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="যেমন: ভুল আইটেম, কাস্টমার ফিরিয়ে দিয়েছে..." />
+              <div className="mt-1 text-[11px] text-muted-foreground">বাধ্যতামূলক (কমপক্ষে ৩ অক্ষর)।</div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>ফিরুন</Button>
+            <Button
+              variant="destructive"
+              disabled={cancelM.isPending || cancelReason.trim().length < 3}
+              onClick={() => cancelM.mutate(cancelReason.trim())}
+            >
+              ক্যান্সেল নিশ্চিত করুন
             </Button>
           </DialogFooter>
         </DialogContent>
