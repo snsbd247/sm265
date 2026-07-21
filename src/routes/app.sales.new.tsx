@@ -661,7 +661,19 @@ function Page() {
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="পণ্য সার্চ (নাম / SKU)..."
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const code = search.trim();
+              if (!code) return;
+              const p = (prod.data ?? []).find(
+                (x: any) =>
+                  (x.barcode && x.barcode === code) ||
+                  (x.sku && x.sku.toLowerCase() === code.toLowerCase()),
+              );
+              if (p) { addProduct(p.id); setSearch(""); }
+              else if (visibleProducts.length === 1) { addProduct((visibleProducts[0] as any).id); setSearch(""); }
+            }}
+            placeholder="পণ্য / বারকোড সার্চ..."
             className="h-11 rounded-full border-slate-200 bg-slate-50 pl-9 pr-12"
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-white px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline-block">/</kbd>
@@ -688,7 +700,7 @@ function Page() {
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[min(92vw,22rem)] p-0">
+          <SheetContent side="right" className="w-[min(96vw,24rem)] p-0">
             <SheetTitle className="sr-only">অর্ডার</SheetTitle>
             <OrderPanel />
           </SheetContent>
