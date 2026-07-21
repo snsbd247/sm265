@@ -23,9 +23,14 @@ export const getPublicInvoice = createServerFn({ method: "GET" })
       .select("name, address, phone, email, logo_url")
       .eq("id", sale.shop_id)
       .maybeSingle();
+    const { data: template } = await supabaseAdmin
+      .from("invoice_templates")
+      .select("logo_url, primary_color, accent_color, text_color, address_line, contact_line, footer_note, terms_note, show_logo, show_qr, show_signature, signature_label")
+      .eq("shop_id", sale.shop_id)
+      .maybeSingle();
     // Never leak shop_id / share_token onwards
     const { shop_id: _s, ...rest } = sale as any;
-    return { sale: rest, shop: shop ?? null };
+    return { sale: rest, shop: shop ?? null, template: template ?? null };
   });
 
 export const sendInvoiceLinkSms = createServerFn({ method: "POST" })
@@ -65,6 +70,17 @@ export const sendInvoiceLinkSms = createServerFn({ method: "POST" })
     const res = await sendRawSMS(phone, message, {
       shopId: sale.shop_id,
       templateCode: "invoice_share",
+    });
+    await context.supabase.from("invoice_deliveries").insert({
+      shop_id: sale.shop_id,
+      sale_id: sale.id,
+      customer_id: (sale.customer as any)?.id ?? null,
+      channel: "sms",
+      recipient: phone,
+      status: res.ok ? "sent" : "failed",
+      response: res.response,
+      provider: "greenweb",
+      created_by: context.userId,
     });
     if (!res.ok) throw new Error(`SMS পাঠানো যায়নি: ${res.response}`);
     return { ok: true, phone, url };
