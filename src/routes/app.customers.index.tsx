@@ -15,7 +15,7 @@ import { Plus, Pencil, Trash2, BookOpen, HandCoins, ExternalLink } from "lucide-
 import { Link } from "@tanstack/react-router";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
-export const Route = createFileRoute("/app/customers")({ component: Page });
+export const Route = createFileRoute("/app/customers/")({ component: Page });
 
 function Page() {
   const qc = useQueryClient();
