@@ -811,7 +811,7 @@ function Page() {
             </Button>
             <Button
               disabled={m.isPending}
-              onClick={submit}
+              onClick={() => submit()}
               className="bg-orange-500 hover:bg-orange-600"
             >
               <Plus className="mr-1 h-4 w-4" /> বিক্রয় নিশ্চিত করুন
