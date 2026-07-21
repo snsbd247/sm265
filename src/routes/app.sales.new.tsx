@@ -465,7 +465,7 @@ function Page() {
             value={discountBase > 0 ? Number(((discount / discountBase) * 100).toFixed(2)) : 0}
             onChange={(e) => {
               const pct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
-              setDiscount(Math.max(0, +(discountBase * pct / 100).toFixed(2)));
+              setDiscount(clampDiscount(+(discountBase * pct / 100).toFixed(2)));
             }}
             className="ml-auto h-8 w-16 text-right"
             placeholder="%"
@@ -473,7 +473,7 @@ function Page() {
           <span className="text-xs text-muted-foreground">%</span>
           <Input
             type="number" step="0.01" min="0" value={discount}
-            onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+            onChange={(e) => setDiscount(clampDiscount(Number(e.target.value) || 0))}
             className="h-8 w-20 text-right"
             placeholder="৳"
           />
@@ -839,7 +839,7 @@ function Page() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>অর্ডার ছাড় (৳)</Label>
-                <Input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))} />
+                <Input type="number" min="0" max={discountBase} step="0.01" value={discount} onChange={(e) => setDiscount(clampDiscount(Number(e.target.value) || 0))} />
               </div>
               <div>
                 <Label>VAT / ট্যাক্স (%)</Label>
