@@ -492,14 +492,14 @@ function Page() {
                       </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">{l.unit ?? ""}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeLine(i)}
-                      className="ml-auto text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-rose-600"
-                      aria-label="মুছুন"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                     <button
+                       type="button"
+                       onClick={() => removeLine(i)}
+                       className="ml-auto text-slate-400 transition hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
+                       aria-label="মুছুন"
+                     >
+                       <Trash2 className="h-4 w-4" />
+                     </button>
                   </div>
                   <div className="mt-1 flex items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground">ছাড়</span>
@@ -661,7 +661,19 @@ function Page() {
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="পণ্য সার্চ (নাম / SKU)..."
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              const code = search.trim();
+              if (!code) return;
+              const p = (prod.data ?? []).find(
+                (x: any) =>
+                  (x.barcode && x.barcode === code) ||
+                  (x.sku && x.sku.toLowerCase() === code.toLowerCase()),
+              );
+              if (p) { addProduct(p.id); setSearch(""); }
+              else if (visibleProducts.length === 1) { addProduct((visibleProducts[0] as any).id); setSearch(""); }
+            }}
+            placeholder="পণ্য / বারকোড সার্চ..."
             className="h-11 rounded-full border-slate-200 bg-slate-50 pl-9 pr-12"
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-white px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline-block">/</kbd>
@@ -688,7 +700,7 @@ function Page() {
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[min(92vw,22rem)] p-0">
+          <SheetContent side="right" className="w-[min(96vw,24rem)] p-0">
             <SheetTitle className="sr-only">অর্ডার</SheetTitle>
             <OrderPanel />
           </SheetContent>
@@ -727,13 +739,13 @@ function Page() {
 
       {/* Main grid + cart */}
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto p-3 md:p-4">
+        <div className="min-w-0 flex-1 overflow-y-auto p-2 pb-24 md:p-4 md:pb-4">
           {prod.isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
           ) : visibleProducts.length === 0 ? (
             <div className="p-12 text-center text-sm text-muted-foreground">কোনো পণ্য পাওয়া যায়নি</div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {visibleProducts.map((p: any) => {
                 const stock = Number(p.stock_quantity ?? 0);
                 const low = stock > 0 && stock <= Number(p.low_stock_alert ?? 0);
@@ -771,12 +783,12 @@ function Page() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="flex min-h-[64px] flex-col justify-between gap-1 p-2.5">
-                      <div className="line-clamp-2 text-[13px] font-semibold leading-tight text-slate-900">
+                    <div className="flex min-h-[56px] flex-col justify-between gap-1 p-2 sm:p-2.5">
+                      <div className="line-clamp-2 text-[12px] font-semibold leading-tight text-slate-900 sm:text-[13px]">
                         {p.name}
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <div className="text-sm font-bold text-slate-900">
+                        <div className="text-[13px] font-bold text-slate-900 sm:text-sm">
                           ৳{Number(p.sale_price).toFixed(2)}
                         </div>
                         {!out && !low && (
@@ -797,6 +809,45 @@ function Page() {
         <aside className="hidden w-[22rem] shrink-0 border-l bg-white md:flex md:flex-col">
           <OrderPanel />
         </aside>
+      </div>
+
+      {/* Sticky mobile bottom action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 px-3 py-2 shadow-[0_-4px_16px_-8px_rgba(0,0,0,0.15)] backdrop-blur md:hidden">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="relative flex h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left"
+            aria-label="কার্ট খুলুন"
+          >
+            <ShoppingCart className="h-5 w-5 text-slate-700" />
+            <div className="leading-tight">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">কার্ট</div>
+              <div className="text-sm font-black text-slate-900">৳{total.toFixed(2)}</div>
+            </div>
+            {lines.length > 0 && (
+              <Badge className="absolute -right-1.5 -top-1.5 h-5 min-w-5 rounded-full bg-orange-500 px-1 text-[10px]">
+                {lines.length}
+              </Badge>
+            )}
+          </button>
+          <Button
+            type="button"
+            className="h-12 flex-1 bg-amber-500 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={fullDueSave}
+          >
+            ফুল বাকি
+          </Button>
+          <Button
+            type="button"
+            className="h-12 flex-1 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
+          >
+            {m.isPending ? "..." : "চেকআউট"}
+          </Button>
+        </div>
       </div>
 
       {/* Quick add customer dialog */}
@@ -876,7 +927,7 @@ function Page() {
 
       {/* Checkout dialog */}
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>চেকআউট — ৳{total.toFixed(2)}</DialogTitle>
           </DialogHeader>
