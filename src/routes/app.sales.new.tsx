@@ -840,22 +840,8 @@ function SuccessDialog({
         {!sale ? (
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
-          <div className="space-y-3">
-            <div className="rounded-lg border bg-slate-50 p-3">
-              <div className="flex items-baseline justify-between">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ইনভয়েস</div>
-                <div className="text-sm font-bold">{sale.invoice_no ?? String(sale.id).slice(0, 8)}</div>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between">
-                <div className="text-xs text-muted-foreground">{customer?.name ?? "Walk-in"}</div>
-                <div className="text-xl font-black text-slate-900">৳{Number(sale.total || 0).toFixed(2)}</div>
-              </div>
-              {Number(sale.due || 0) > 0 && (
-                <div className="mt-1 text-right text-xs font-semibold text-orange-600">
-                  বাকি: ৳{Number(sale.due).toFixed(2)}
-                </div>
-              )}
-            </div>
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+            <InvoicePreview sale={sale} />
 
             <div>
               <Label className="text-xs">পাবলিক শেয়ারযোগ্য লিংক</Label>
@@ -910,5 +896,70 @@ function SuccessDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function InvoicePreview({ sale }: { sale: any }) {
+  const items = sale.items ?? [];
+  const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+  const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
+  return (
+    <div id="pos-invoice-preview" className="rounded-lg border bg-white p-3 text-[12px] leading-tight text-black">
+      <div className="text-center">
+        <div className="text-base font-black uppercase tracking-wide">INVOICE</div>
+      </div>
+      <div className="my-1.5 border-t border-dashed" />
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
+        <div className="text-muted-foreground">Invoice</div>
+        <div className="text-right font-semibold">{sale.invoice_no ?? String(sale.id).slice(0, 8)}</div>
+        <div className="text-muted-foreground">Date</div>
+        <div className="text-right">{new Date(sale.sale_date).toLocaleString("en-GB")}</div>
+        <div className="text-muted-foreground">Type</div>
+        <div className="text-right">{typeLabel[sale.sale_type] ?? sale.sale_type}</div>
+        <div className="text-muted-foreground">Customer</div>
+        <div className="text-right">{sale.customer?.name ?? "Walk-in"}</div>
+        {sale.customer?.phone && (
+          <>
+            <div className="text-muted-foreground">Phone</div>
+            <div className="text-right">{sale.customer.phone}</div>
+          </>
+        )}
+      </div>
+      <div className="my-1.5 border-t border-dashed" />
+      <div className="space-y-0.5">
+        {items.map((it: any, i: number) => (
+          <div key={it.id} className="grid grid-cols-[1fr_auto] gap-x-2 text-[11px]">
+            <div>
+              <div className="font-medium">{i + 1}. {it.product?.name ?? "-"}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {it.quantity} {it.product?.unit?.short_name ?? ""} × {fmt(it.unit_price)}
+                {Number(it.discount_amount || 0) > 0 && ` − ${fmt(it.discount_amount)}`}
+                {Number(it.tax_rate || 0) > 0 && ` + VAT ${it.tax_rate}%`}
+              </div>
+            </div>
+            <div className="text-right font-semibold">{fmt(it.line_total)}</div>
+          </div>
+        ))}
+      </div>
+      <div className="my-1.5 border-t border-dashed" />
+      <div className="space-y-0.5 text-[11px]">
+        <div className="flex justify-between"><span>Subtotal</span><span>{fmt(sale.subtotal)}</span></div>
+        {Number(sale.discount || 0) > 0 && (
+          <div className="flex justify-between"><span>Discount</span><span>-{fmt(sale.discount)}</span></div>
+        )}
+        {Number(sale.tax_amount || 0) > 0 && (
+          <div className="flex justify-between"><span>VAT</span><span>+{fmt(sale.tax_amount)}</span></div>
+        )}
+        <div className="mt-0.5 flex justify-between border-t pt-0.5 text-sm font-black">
+          <span>TOTAL</span><span>৳ {fmt(sale.total)}</span>
+        </div>
+        <div className="flex justify-between"><span>Paid</span><span>{fmt(sale.paid)}</span></div>
+        {Number(sale.due || 0) > 0 && (
+          <div className="flex justify-between font-bold text-rose-600">
+            <span>Due</span><span>{fmt(sale.due)}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
