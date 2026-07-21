@@ -33,6 +33,22 @@ export const getPublicInvoice = createServerFn({ method: "GET" })
     return { sale: rest, shop: shop ?? null, template: template ?? null };
   });
 
+export const regenerateShareToken = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ sale_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // RLS ensures caller can only touch sales in their shop
+    const { data: updated, error } = await context.supabase
+      .from("sales")
+      .update({ share_token: crypto.randomUUID() })
+      .eq("id", data.sale_id)
+      .select("id, share_token")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!updated) throw new Error("বিক্রয় পাওয়া যায়নি বা অনুমতি নেই");
+    return { ok: true, share_token: updated.share_token };
+  });
+
 export const sendInvoiceLinkSms = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
