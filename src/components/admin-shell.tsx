@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText, Bell, History } from "lucide-react";
+import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText, Bell, History, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,6 +31,7 @@ const navGroups: NavGroup[] = [
     icon: Store,
     items: [
       { to: "/admin/shops", label: "দোকান সমূহ", icon: Store },
+      { to: "/admin/demo-requests", label: "ডেমো রিকোয়েস্ট", icon: Inbox },
       { to: "/admin/subscriptions", label: "পেমেন্ট", icon: CreditCard },
       { to: "/admin/packages", label: "প্যাকেজ", icon: Package },
       { to: "/admin/admins", label: "এডমিন ইউজার", icon: Users },
