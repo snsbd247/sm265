@@ -201,16 +201,18 @@ function Page() {
   }, [prod.data, search, activeCat]);
 
   const m = useMutation({
-    mutationFn: () =>
-      createFn({
+    mutationFn: (vars: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
+      const st = vars.saleTypeOverride ?? saleType;
+      const p = vars.paidOverride ?? (st === "cash" ? total : paid);
+      return createFn({
         data: {
           customer_id: customerId || null,
           invoice_no: invoiceNo || null,
           sale_date: saleDate,
           discount,
-          paid: effectivePaid,
-          payment_method: saleType === "cash" ? method : saleType === "due" ? "due" : method,
-          sale_type: saleType,
+          paid: p,
+          payment_method: st === "cash" ? method : st === "due" ? "due" : method,
+          sale_type: st,
           note: note || null,
           items: lines.map((l) => ({
             product_id: l.product_id,
@@ -220,11 +222,12 @@ function Page() {
             discount_amount: l.discount_amount || 0,
             tax_rate: taxRate || 0,
           })),
-          installments: saleType === "installment" ? installments : null,
+          installments: st === "installment" ? installments : null,
           installment_frequency: instFreq,
           installment_start: instStart,
         },
-      }),
+      });
+    },
     onSuccess: (saleId: any) => {
       toast.success("বিক্রয় সংরক্ষিত");
       // Refresh inventory + low-stock badge in real time
@@ -253,17 +256,46 @@ function Page() {
     },
   });
 
-  const submit = () => {
+  const submit = (overrides: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
+    const st = overrides.saleTypeOverride ?? saleType;
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
     if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
-    if (saleType !== "cash" && !customerId)
+    if (st !== "cash" && !customerId)
       return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
     for (const l of lines) {
       if (l.quantity > l.stock)
         return toast.error(`"${l.name}" এর স্টক অপর্যাপ্ত (${l.stock})`);
     }
-    m.mutate();
+    m.mutate(overrides);
   };
+
+  const fullDueSave = () => {
+    if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
+    if (!customerId) {
+      toast.error("ফুল বাকি বিক্রির জন্য কাস্টমার বাছাই করুন");
+      customerSelectRef.current?.click();
+      return;
+    }
+    setSaleType("due");
+    setPaid(0);
+    submit({ saleTypeOverride: "due", paidOverride: 0 });
+  };
+
+  const quickAddM = useMutation({
+    mutationFn: () => saveCustomerFn({ data: {
+      name: quickName.trim(), phone: quickPhone.trim() || null,
+      opening_balance: 0, is_active: true,
+    } as any }),
+    onSuccess: async (res: any) => {
+      toast.success("কাস্টমার যোগ হয়েছে");
+      await qc.invalidateQueries({ queryKey: ["customers"] });
+      const newId = res?.id;
+      if (newId) setCustomerId(newId);
+      setQuickAddOpen(false);
+      setQuickName(""); setQuickPhone("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "যোগ করা যায়নি"),
+  });
 
   const catList: { id: string; name: string }[] = [
     { id: "all", name: "সব" },
