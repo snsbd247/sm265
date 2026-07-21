@@ -277,21 +277,11 @@ function Page() {
   const submit = (overrides: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
     const st = overrides.saleTypeOverride ?? saleType;
     const paidNow = overrides.paidOverride ?? (st === "cash" ? total : paid);
-    if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
-    if (total <= 0) return toast.error("মোট প্রদেয় ০ বা ঋণাত্মক — ছাড় ঠিক করুন");
+    if (m.isPending) return; // block duplicate submissions
+    const t2 = computeCartTotals({ lines, order_discount: discount, tax_rate: taxRate, sale_type: st, paid: paidNow });
+    const err = validateSale({ totals: t2, sale_type: st, hasCustomer: !!customerId, installments });
+    if (err) return toast.error(err);
     if (!shiftQ.data?.shift) return toast.error("আগে POS শিফট শুরু করুন");
-    if (st !== "cash" && !customerId)
-      return toast.error("বাকি/কিস্তি বিক্রির জন্য কাস্টমার বাছাই করুন");
-    if (st !== "cash") {
-      if (paidNow < 0) return toast.error("পরিশোধ ঋণাত্মক হতে পারবে না");
-      if (paidNow > total) return toast.error(`পরিশোধ মোটের চেয়ে বেশি (৳${total.toFixed(2)})`);
-      if (st === "due" && paidNow >= total)
-        return toast.error("সম্পূর্ণ পরিশোধ হলে 'নগদ বিক্রি' বাছাই করুন");
-      if (st === "installment") {
-        if (paidNow >= total) return toast.error("কিস্তি বিক্রয়ে বাকি টাকা লাগবে");
-        if (!installments || installments < 1) return toast.error("কিস্তির সংখ্যা কমপক্ষে ১ দিন");
-      }
-    }
     for (const l of lines) {
       if (l.quantity > l.stock)
         return toast.error(`"${l.name}" এর স্টক অপর্যাপ্ত (${l.stock})`);
@@ -301,6 +291,7 @@ function Page() {
   };
 
   const fullDueSave = () => {
+    if (m.isPending) return;
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
     if (!customerId) {
       toast.error("ফুল বাকি বিক্রির জন্য কাস্টমার বাছাই করুন");
@@ -315,9 +306,8 @@ function Page() {
   const quickAddM = useMutation({
     mutationFn: () => {
       const phone = quickPhone.trim();
-      if (phone) {
-        const dup = (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === phone);
-        if (dup) throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${dup.name}`);
+      if (phone && existingByPhone) {
+        throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${existingByPhone.name}`);
       }
       return saveCustomerFn({ data: {
         name: quickName.trim(),
