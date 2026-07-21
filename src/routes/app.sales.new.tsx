@@ -84,7 +84,11 @@ function Page() {
 
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
-  const customerSelectRef = useRef<HTMLButtonElement>(null);
+  const customerBoxRef = useRef<HTMLDivElement>(null);
+  const focusCustomerPicker = () => {
+    const btn = customerBoxRef.current?.querySelector<HTMLButtonElement>('button[role="combobox"]');
+    btn?.click();
+  };
   const qc = useQueryClient();
 
   const subtotal = useMemo(
@@ -152,7 +156,7 @@ function Page() {
       } else if (e.key === "F9" && !inField) {
         e.preventDefault(); if (lines.length) setCheckoutOpen(true);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault(); customerSelectRef.current?.click();
+        e.preventDefault(); focusCustomerPicker();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -274,7 +278,7 @@ function Page() {
     if (lines.length === 0) return toast.error("কমপক্ষে একটি পণ্য যোগ করুন");
     if (!customerId) {
       toast.error("ফুল বাকি বিক্রির জন্য কাস্টমার বাছাই করুন");
-      customerSelectRef.current?.click();
+      focusCustomerPicker();
       return;
     }
     setSaleType("due");
