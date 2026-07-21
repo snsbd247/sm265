@@ -12,10 +12,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog, Wallet, FileText, KeyRound } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { isModuleAllowed, type ModuleKey } from "@/lib/modules";
 
 export const Route = createFileRoute("/app")({ ssr: false, component: AppLayout });
 
-type NavItem = { to: string; label: string; icon: any; exact?: boolean };
+type NavItem = { to: string; label: string; icon: any; exact?: boolean; module: ModuleKey };
 type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -24,7 +25,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ওভারভিউ",
     icon: Activity,
     items: [
-      { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, exact: true },
+      { to: "/app", label: "ড্যাশবোর্ড", icon: LayoutDashboard, exact: true, module: "dashboard" },
     ],
   },
   {
@@ -32,10 +33,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ইনভেন্টরি",
     icon: Warehouse,
     items: [
-      { to: "/app/products", label: "পণ্য", icon: Package },
-      { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag },
-      { to: "/app/units", label: "একক", icon: Ruler },
-      { to: "/app/stock", label: "স্টক", icon: Boxes },
+      { to: "/app/products", label: "পণ্য", icon: Package, module: "products" },
+      { to: "/app/categories", label: "ক্যাটাগরি", icon: Tag, module: "categories" },
+      { to: "/app/units", label: "একক", icon: Ruler, module: "units" },
+      { to: "/app/stock", label: "স্টক", icon: Boxes, module: "stock" },
     ],
   },
   {
@@ -43,8 +44,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ক্রয়",
     icon: ShoppingCart,
     items: [
-      { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck },
-      { to: "/app/purchases", label: "ক্রয় অর্ডার", icon: ShoppingCart },
+      { to: "/app/suppliers", label: "সাপ্লায়ার", icon: Truck, module: "suppliers" },
+      { to: "/app/purchases", label: "ক্রয় অর্ডার", icon: ShoppingCart, module: "purchases" },
     ],
   },
   {
@@ -52,10 +53,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: "বিক্রয়",
     icon: TrendingUp,
     items: [
-      { to: "/app/customers", label: "কাস্টমার", icon: Users },
-      { to: "/app/sales", label: "বিক্রয়", icon: Receipt },
-      { to: "/app/installments", label: "কিস্তি", icon: CalendarClock },
-      { to: "/app/shifts", label: "শিফট", icon: Wallet },
+      { to: "/app/customers", label: "কাস্টমার", icon: Users, module: "customers" },
+      { to: "/app/sales", label: "বিক্রয়", icon: Receipt, module: "sales" },
+      { to: "/app/installments", label: "কিস্তি", icon: CalendarClock, module: "installments" },
+      { to: "/app/shifts", label: "শিফট", icon: Wallet, module: "shifts" },
     ],
   },
   {
@@ -63,7 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ইনসাইটস",
     icon: PieChart,
     items: [
-      { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3 },
+      { to: "/app/reports", label: "রিপোর্ট", icon: BarChart3, module: "reports" },
     ],
   },
   {
@@ -71,10 +72,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: "একাউন্ট",
     icon: UserCog,
     items: [
-      { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard },
-      { to: "/app/usage", label: "ব্যবহার রিপোর্ট", icon: PieChart },
-      { to: "/app/settings/invoice-template", label: "ইনভয়েস টেমপ্লেট", icon: FileText },
-      { to: "/app/change-password", label: "পাসওয়ার্ড পরিবর্তন", icon: KeyRound },
+      { to: "/app/subscription", label: "সাবস্ক্রিপশন", icon: CreditCard, module: "subscription" },
+      { to: "/app/usage", label: "ব্যবহার রিপোর্ট", icon: PieChart, module: "usage" },
+      { to: "/app/settings/invoice-template", label: "ইনভয়েস টেমপ্লেট", icon: FileText, module: "invoice_template" },
+      { to: "/app/change-password", label: "পাসওয়ার্ড পরিবর্তন", icon: KeyRound, module: "change_password" },
     ],
   },
 ];
@@ -94,8 +95,14 @@ function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const loc = useLocation();
 
+  const allowedModules: string[] | null =
+    (shopQ.data?.shop?.package as any)?.allowed_modules ?? null;
+  const visibleGroups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((n) => isModuleAllowed(allowedModules, n.module)) }))
+    .filter((g) => g.items.length > 0);
+
   const isItemActive = (n: NavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
-  const activeGroupId = NAV_GROUPS.find((g) => g.items.some(isItemActive))?.id ?? "overview";
+  const activeGroupId = visibleGroups.find((g) => g.items.some(isItemActive))?.id ?? "overview";
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map((g) => [g.id, true]))
   );
@@ -138,7 +145,7 @@ function AppLayout() {
 
   const NavList = ({ onClick }: { onClick?: () => void }) => (
     <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
-      {NAV_GROUPS.map((g) => {
+      {visibleGroups.map((g) => {
         const isOpen = openGroups[g.id] ?? true;
         const hasActive = g.items.some(isItemActive);
         return (
