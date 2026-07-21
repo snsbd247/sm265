@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION public.update_sale_probe(_sale_id uuid) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ DECLARE _sale RECORD; BEGIN SELECT * INTO _sale FROM public.sales WHERE id = _sale_id FOR UPDATE; IF _sale IS NULL THEN RAISE EXCEPTION 'not found'; END IF; RETURN _sale_id; END; $$;

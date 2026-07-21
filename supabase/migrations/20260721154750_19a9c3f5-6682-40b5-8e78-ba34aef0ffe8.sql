@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION public.update_sale_test(_x integer) RETURNS integer LANGUAGE plpgsql AS $$ DECLARE _y INTEGER; BEGIN _y := _x + 1; RETURN _y; END; $$;
