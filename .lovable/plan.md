@@ -1,59 +1,70 @@
-## POS পেজের নতুন লেআউট ও ফ্লো
+# বিক্রয় ইনভয়েস ডিটেইল পেজ — প্ল্যান
 
-### লক্ষ্য
-POS পেজে কাস্টমার সিলেকশনকে টপে ইনলাইন সার্চ-ড্রপডাউনে রূপান্তর, ডান সাইডকে শুধু "কার্ট + সামারি + অ্যাকশন" এ সরলীকরণ, এবং দুইটি ভিন্ন ফ্লো — "ফুল বাকি" (এক ক্লিকে সেভ) ও "চেকআউট" (পেমেন্ট মোডাল)।
+## ১. লিস্ট পেজ (`/app/sales`) আপডেট
+- পুরো row ক্লিকযোগ্য করা (এখন কেবল "রিসিট" বাটন) → ক্লিকে সরাসরি ডিটেইল পেজে যাবে
+- Action কলামে dropdown menu: দেখুন / প্রিন্ট / PDF / লিঙ্ক কপি / SMS / ইমেইল / ক্যান্সেল
+- Status badge (Active / Cancelled / Returned / Partial Return) কলাম যোগ
 
-### লেআউট পরিবর্তন
+## ২. ইনভয়েস ডিটেইল পেজ (`/app/sales/$saleId`) নতুন ডিজাইন
+বর্তমান পেজটি পুরোনো thermal-receipt style — এটাকে full-page invoice ডিটেইল ভিউ বানানো হবে।
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│ [টপ বার] কাস্টমার সার্চ (ID/ফোন/নাম)  |  Walk-in ডিফল্ট │
-├────────────────────────────────┬─────────────────────────┤
-│                                │  কার্ট আইটেম লিস্ট     │
-│   প্রোডাক্ট গ্রিড              │  ────────────────       │
-│   (ক্যাটেগরি + সার্চ +         │  ৫ আইটেম · ১২ ইউনিট    │
-│    বারকোড)                     │  ছাড় [ % ] [ ৳ ]        │
-│                                │  ────────────────       │
-│                                │  মোট প্রদেয়: ৳ ১২৩০     │
-│                                │  [বাতিল][ফুল বাকি][চেকআউট]│
-└────────────────────────────────┴─────────────────────────┘
+### লেআউট
+```
+┌─ Header bar ──────────────────────────────────────────────┐
+│ ← ফিরে   Inv# INV-2026-000123  [Status badge]             │
+│                  [Actions dropdown ▼] [Edit] [Print] [PDF]│
+└───────────────────────────────────────────────────────────┘
+┌─ Left (2/3) ─────────────────────┬─ Right sidebar (1/3) ──┐
+│ Original invoice preview (same    │ Quick info card:       │
+│ template as public link /i/):     │  • কাস্টমার + link     │
+│  • Shop header, logo              │  • Total / Paid / Due  │
+│  • Customer info                  │  • Payment breakdown   │
+│  • Items table                    │  • Installment list    │
+│  • Totals + payment breakdown     │                        │
+│  • QR code (public link)          │ Tabs:                  │
+│                                   │  [Delivery] [Revisions]│
+│                                   │  [Activity log]        │
+└───────────────────────────────────┴────────────────────────┘
 ```
 
-### কাস্টমার সিলেক্টর (টপ বার)
-- ডিফল্ট: "Walk-in Customer" সিলেক্ট থাকবে (customerId = null)।
-- ইনলাইন `SearchableSelect` কম্পোনেন্ট — ক্লিক করলেই ড্রপডাউন খুলবে, পপ-আপ ডায়ালগ নয়।
-- সার্চ কী: কাস্টমার নাম, ফোন, বা ID (`keywords` ফিল্ডে সব যুক্ত)।
-- অপশনগুলোতে দেখাবে: নাম (হেডলাইন) + ফোন/বকেয়া (hint)।
-- পাশে "+ নতুন কাস্টমার" বাটন — quick-add ডায়ালগ (নাম + ফোন)।
-- বর্তমান `customerPickerOpen` Sheet ও `OrderPanel` এর ভিতরের ডেসক্রিট বাটন সরানো হবে।
+### Actions toolbar (উপরে)
+- **Edit** — বিদ্যমান edit flow (rollback + re-open in POS) কল করবে; cancelled/returned হলে disable
+- **Cancel** — existing dialog, শিফট চেক সহ
+- **Return** — existing dialog
+- **Print** — `window.print()`, original template
+- **PDF ডাউনলোড** — `sales.new.tsx`-এ থাকা html2canvas + jsPDF logic reuse (shared helper-এ move)
+- **Share dropdown**:
+  - লিঙ্ক কপি (public `/i/$token`)
+  - SMS পাঠান (existing `sendInvoiceSms`)
+  - ইমেইল পাঠান (existing invoice email server fn — টেমপ্লেট থেকে)
+  - WhatsApp share (`wa.me/?text=...link...`)
+- Copy invoice number, Duplicate as new sale (draft) — অপশনাল
 
-### কার্ট প্যানেল (ডান সাইড)
-- শুধু কার্ট লাইন লিস্ট (বর্তমান স্টাইল রাখা হবে)।
-- নিচে নতুন সামারি ব্লক:
-  1. `{n} আইটেম · {u} ইউনিট`
-  2. ছাড়: `[% ইনপুট]` ও `[৳ ইনপুট]` (দুইটাই — একটা বদলালে অন্যটা রিক্যালকুলেট)।
-  3. **মোট প্রদেয়** (বড় ফন্ট)।
-  4. অ্যাকশন সারি:
-     - **বাতিল** (আউটলাইন) → `clearCart()`
-     - **ফুল বাকি** (অরেঞ্জ/সেকেন্ডারি) → sale_type = "due", paid = 0, ডাইরেক্ট সেভ → ইনভয়েস প্রিভিউ। কাস্টমার Walk-in হলে টোস্ট "কাস্টমার বাছাই করুন"।
-     - **চেকআউট** (প্রাইমারি) → বর্তমান checkout ডায়ালগ ওপেন।
+### ডান পাশে Tabs
+1. **Delivery History** — SMS/Email logs (existing `SaleDeliveryHistory` component), resend button প্রতিটা row থেকে
+2. **Edit History** — existing `SaleRevisionsList`, প্রতিটা version-এ "দেখুন" (modal) ও "PDF" বাটন
+3. **Activity log** — created / edited / cancelled / returned / payment received timeline (audit_logs থেকে)
 
-### চেকআউট মোডাল (unchanged বেসিক, minor tune)
-- পেমেন্ট মেথড: নগদ/কার্ড/বিকাশ/ব্যাংক
-- পেমেন্ট টাইপ: নগদ (ফুল) / আংশিক / কিস্তি
-- আংশিক হলে `paid` ইনপুট, কিস্তি হলে সংখ্যা+ফ্রিকোয়েন্সি+স্টার্ট ডেট।
-- **বিক্রয় নিশ্চিত করুন** → সেভ → সাকসেস ডায়ালগ (ইনভয়েস প্রিভিউ, প্রিন্ট/PDF/SMS)।
+## ৩. সাজেশন (এড করা ভালো)
+1. **Payment history section** — এই ইনভয়েসের against যত customer_payments হয়েছে (তারিখ, method, amount) + এখান থেকে "আরো পেমেন্ট রিসিভ" বাটন (due > 0 হলে)
+2. **Installment schedule table** — প্রতিটা কিস্তিতে "পরিশোধ" বাটন
+3. **QR code visible on-screen** — শুধু PDF-এ না, স্ক্রিনেও যাতে কাস্টমার সরাসরি স্ক্যান করতে পারে
+4. **WhatsApp share** — বাংলাদেশে সবচেয়ে বেশি ব্যবহৃত
+5. **"Duplicate as new sale"** — একই কাস্টমার/আইটেম দিয়ে নতুন invoice draft
+6. **Keyboard shortcut**: `P` = print, `E` = edit, `S` = share
+7. **Print-friendly** — শুধু invoice body প্রিন্ট হবে, sidebar/tabs হাইড
 
-### অতিরিক্ত সাজেশন (আপনার জন্য)
-1. **কীবোর্ড শর্টকাট**: `F4` = ফুল বাকি সেভ, `F9` = চেকআউট (ইতিমধ্যে আছে), `Ctrl+K` = কাস্টমার সার্চ ফোকাস।
-2. **কাস্টমার তথ্য চিপ**: সিলেক্ট করার পর টপ বারে একটা ছোট চিপে "নাম · ফোন · বর্তমান বকেয়া ৳X" দেখাবে যাতে বিক্রেতা সাথে সাথে বকেয়া অবস্থা জানে।
-3. **মোবাইল রেসপন্সিভ**: ছোট স্ক্রিনে ডান কার্ট প্যানেল একটা floating "কার্ট (৳X)" বাটনে কনভার্ট হবে যা Sheet খুলবে (এখনকার `cartOpen` লজিক পুনঃব্যবহার)।
-4. **"ফুল বাকি" গার্ড**: যদি কাস্টমার Walk-in থাকে, স্বয়ংক্রিয়ভাবে কাস্টমার সার্চে ফোকাস করবে + টোস্ট।
+## ৪. Technical notes
+- `InvoicePreview` component `app.sales.new.tsx` থেকে `src/components/invoice-preview.tsx`-এ extract করে detail page + success dialog + public link — তিন জায়গাতেই reuse
+- PDF ও public-link generator একই `src/lib/invoice-share.ts` helper-এ move
+- নতুন কোনো DB migration লাগবে না — সব data (deliveries, revisions, payments) আগে থেকেই আছে
+- Activity timeline `audit_logs` table থেকে (existing) filter করে দেখাবো
 
-### টেকনিক্যাল স্কোপ
-- ফাইল: `src/routes/app.sales.new.tsx` (একটাই ফাইল edit)।
-- নতুন কম্পোনেন্ট/সার্ভার fn লাগবে না — বিদ্যমান `SearchableSelect`, `createSale`, checkout ডায়ালগ পুনঃব্যবহার।
-- ডাটাবেস মাইগ্রেশন **নেই**।
-- ব্যাকএন্ড লজিক অপরিবর্তিত (create_sale RPC আগের মতোই কাজ করবে)।
+## Files affected
+- `src/routes/app.sales.$saleId.tsx` — সম্পূর্ণ redesign
+- `src/routes/app.sales.index.tsx` — row click + actions dropdown
+- `src/components/invoice-preview.tsx` — নতুন shared component
+- `src/lib/invoice-share.ts` — PDF/link/share helpers
+- `src/components/invoice-actions-menu.tsx` — নতুন dropdown component
 
-আপনি এপ্রুভ করলে বাস্তবায়ন শুরু করবো।
+এপ্রুভ করলে কাজ শুরু করব।
