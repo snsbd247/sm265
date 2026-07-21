@@ -408,20 +408,35 @@ function Page() {
       </div>
 
       <div className="border-t bg-white px-4 py-3">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {lines.length} আইটেম · {totalUnits.toFixed(2)} ইউনিট
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            <span className="font-semibold text-slate-700">{lines.length}</span> আইটেম ·{" "}
+            <span className="font-semibold text-slate-700">{totalUnits.toFixed(2)}</span> ইউনিট
           </span>
           <span className="text-slate-700">৳{subtotal.toFixed(2)}</span>
         </div>
+
         <div className="mt-2 flex items-center gap-2">
           <Percent className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">ছাড়</span>
           <Input
+            type="number" step="0.01" min="0" max="100"
+            value={discountBase > 0 ? Number(((discount / discountBase) * 100).toFixed(2)) : 0}
+            onChange={(e) => {
+              const pct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+              setDiscount(Math.max(0, +(discountBase * pct / 100).toFixed(2)));
+            }}
+            className="ml-auto h-8 w-16 text-right"
+            placeholder="%"
+          />
+          <span className="text-xs text-muted-foreground">%</span>
+          <Input
             type="number" step="0.01" min="0" value={discount}
             onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
-            className="ml-auto h-8 w-24 text-right"
+            className="h-8 w-20 text-right"
+            placeholder="৳"
           />
+          <span className="text-xs text-muted-foreground">৳</span>
         </div>
 
         <div className="mt-3 flex items-baseline justify-between border-t pt-3">
@@ -432,22 +447,22 @@ function Page() {
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Button type="button" variant="outline" className="h-11" onClick={() => nav({ to: "/app/sales" })}>
+          <Button type="button" variant="outline" className="h-11" onClick={clearCart}>
             বাতিল
           </Button>
           <Button
             type="button"
-            variant="outline"
-            className="h-11"
-            disabled={lines.length === 0}
-            onClick={() => { setSaleType("due"); setCheckoutOpen(true); }}
+            className="h-11 bg-amber-500 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+            disabled={lines.length === 0 || m.isPending}
+            onClick={fullDueSave}
+            title="ফুল বাকি — সরাসরি সেভ ও ইনভয়েস"
           >
-            বাকি
+            ফুল বাকি
           </Button>
           <Button
             type="button"
             disabled={lines.length === 0}
-            onClick={() => setCheckoutOpen(true)}
+            onClick={() => { setSaleType("cash"); setCheckoutOpen(true); }}
             className="h-11 bg-orange-500 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
           >
             চেকআউট
