@@ -44,6 +44,7 @@ import { Route as AdminAuditLogsRouteImport } from './routes/admin.audit-logs'
 import { Route as AdminAdminsRouteImport } from './routes/admin.admins'
 import { Route as AppSalesIndexRouteImport } from './routes/app.sales.index'
 import { Route as AppPurchasesIndexRouteImport } from './routes/app.purchases.index'
+import { Route as AppCustomersIndexRouteImport } from './routes/app.customers.index'
 import { Route as AdminShopsIndexRouteImport } from './routes/admin.shops.index'
 import { Route as AppSettingsInvoiceTemplateRouteImport } from './routes/app.settings.invoice-template'
 import { Route as AppSalesNewRouteImport } from './routes/app.sales.new'
@@ -235,6 +236,11 @@ const AppPurchasesIndexRoute = AppPurchasesIndexRouteImport.update({
   path: '/purchases/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCustomersIndexRoute = AppCustomersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppCustomersRoute,
+} as any)
 const AdminShopsIndexRoute = AdminShopsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -359,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
+  '/app/customers/': typeof AppCustomersIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
@@ -385,7 +392,6 @@ export interface FileRoutesByTo {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/app/categories': typeof AppCategoriesRoute
   '/app/change-password': typeof AppChangePasswordRoute
-  '/app/customers': typeof AppCustomersRouteWithChildren
   '/app/installments': typeof AppInstallmentsRoute
   '/app/pay-invoice': typeof AppPayInvoiceRoute
   '/app/products': typeof AppProductsRouteWithChildren
@@ -408,6 +414,7 @@ export interface FileRoutesByTo {
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops': typeof AdminShopsIndexRoute
+  '/app/customers': typeof AppCustomersIndexRoute
   '/app/purchases': typeof AppPurchasesIndexRoute
   '/app/sales': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
@@ -461,6 +468,7 @@ export interface FileRoutesById {
   '/app/sales/new': typeof AppSalesNewRoute
   '/app/settings/invoice-template': typeof AppSettingsInvoiceTemplateRoute
   '/admin/shops/': typeof AdminShopsIndexRoute
+  '/app/customers/': typeof AppCustomersIndexRoute
   '/app/purchases/': typeof AppPurchasesIndexRoute
   '/app/sales/': typeof AppSalesIndexRoute
   '/admin/invoices/en/$subscriptionId': typeof AdminInvoicesEnSubscriptionIdRoute
@@ -515,6 +523,7 @@ export interface FileRouteTypes {
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops/'
+    | '/app/customers/'
     | '/app/purchases/'
     | '/app/sales/'
     | '/admin/invoices/en/$subscriptionId'
@@ -541,7 +550,6 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/app/categories'
     | '/app/change-password'
-    | '/app/customers'
     | '/app/installments'
     | '/app/pay-invoice'
     | '/app/products'
@@ -564,6 +572,7 @@ export interface FileRouteTypes {
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops'
+    | '/app/customers'
     | '/app/purchases'
     | '/app/sales'
     | '/admin/invoices/en/$subscriptionId'
@@ -616,6 +625,7 @@ export interface FileRouteTypes {
     | '/app/sales/new'
     | '/app/settings/invoice-template'
     | '/admin/shops/'
+    | '/app/customers/'
     | '/app/purchases/'
     | '/app/sales/'
     | '/admin/invoices/en/$subscriptionId'
@@ -887,6 +897,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPurchasesIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/customers/': {
+      id: '/app/customers/'
+      path: '/'
+      fullPath: '/app/customers/'
+      preLoaderRoute: typeof AppCustomersIndexRouteImport
+      parentRoute: typeof AppCustomersRoute
+    }
     '/admin/shops/': {
       id: '/admin/shops/'
       path: '/'
@@ -1049,10 +1066,12 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppCustomersRouteChildren {
   AppCustomersCustomerIdRoute: typeof AppCustomersCustomerIdRoute
+  AppCustomersIndexRoute: typeof AppCustomersIndexRoute
 }
 
 const AppCustomersRouteChildren: AppCustomersRouteChildren = {
   AppCustomersCustomerIdRoute: AppCustomersCustomerIdRoute,
+  AppCustomersIndexRoute: AppCustomersIndexRoute,
 }
 
 const AppCustomersRouteWithChildren = AppCustomersRoute._addFileChildren(
