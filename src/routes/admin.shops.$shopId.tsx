@@ -287,6 +287,18 @@ function ShopDetail() {
             </div>
             <Button size="sm" onClick={openUpgrade}><ArrowUpCircle className="mr-1 h-4 w-4" />প্যাকেজ পরিবর্তন</Button>
           </div>
+          {shop.pending_package_id && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div>
+                <span className="font-semibold text-amber-800">পেন্ডিং আপগ্রেড:</span>{" "}
+                {pkgs.data?.find((p: any) => p.id === shop.pending_package_id)?.name ?? "—"} ({shop.pending_billing_cycle === "yearly" ? "বাৎসরিক" : "মাসিক"}) — পেমেন্টের অপেক্ষায়
+              </div>
+              <Button size="sm" variant="outline" onClick={() => cancelUpgMut.mutate()} disabled={cancelUpgMut.isPending}>বাতিল</Button>
+            </div>
+          )}
+          {Number(shop.credit_balance ?? 0) > 0 && (
+            <div className="mt-2 text-xs text-emerald-700">ক্রেডিট ব্যালেন্স: <span className="font-semibold">{bdt(shop.credit_balance)}</span></div>
+          )}
         </Card>
 
         {/* Tabs */}
