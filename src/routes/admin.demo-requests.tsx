@@ -57,7 +57,12 @@ function DemoRequestsPage() {
   });
 
   return (
-    <AdminShell title="ডেমো রিকোয়েস্ট" subtitle="নতুন ডেমো আবেদন অনুমোদন করুন">
+    <AdminShell>
+      <div className="p-4 md:p-6 space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">ডেমো রিকোয়েস্ট</h1>
+        <p className="text-sm text-muted-foreground">নতুন ডেমো আবেদন অনুমোদন করুন</p>
+      </div>
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="pending">পেন্ডিং</TabsTrigger>
@@ -159,6 +164,7 @@ function DemoRequestsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </AdminShell>
   );
 }
