@@ -48,6 +48,12 @@ export const saveCustomer = createServerFn({ method: "POST" })
     } else {
       const { enforceLimit } = await import("./limits.server");
       await enforceLimit(context.supabase, shopId, "customers", 1);
+      // Duplicate phone guard (per shop)
+      if (data.phone && data.phone.trim()) {
+        const { data: dup } = await context.supabase.from("customers")
+          .select("id").eq("shop_id", shopId).eq("phone", data.phone.trim()).maybeSingle();
+        if (dup) throw new Error("এই ফোন নাম্বারে ইতিমধ্যে একটি কাস্টমার আছে");
+      }
       const { data: created, error } = await context.supabase.from("customers").insert({
         shop_id: shopId, name: data.name, phone: data.phone || null, address: data.address || null,
         opening_balance: data.opening_balance, current_balance: data.opening_balance,
