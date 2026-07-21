@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   getShopDetail, updateShop, deleteShop, listPackages, updateShopStatus,
-  extendShopSubscription, upgradeShopPackage, resetShopUserPassword, removeShopUser,
+  extendShopSubscription, upgradeShopPackage, previewPackageChange, cancelPendingUpgrade,
+  resetShopUserPassword, removeShopUser,
 } from "@/lib/admin.functions";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,8 @@ function ShopDetail() {
   const statusFn = useServerFn(updateShopStatus);
   const extendFn = useServerFn(extendShopSubscription);
   const upgradeFn = useServerFn(upgradeShopPackage);
+  const previewFn = useServerFn(previewPackageChange);
+  const cancelUpgFn = useServerFn(cancelPendingUpgrade);
   const resetPwFn = useServerFn(resetShopUserPassword);
   const removeUserFn = useServerFn(removeShopUser);
 
@@ -125,8 +128,22 @@ function ShopDetail() {
     onSuccess: () => { toast.success("আপডেট হয়েছে"); invalidate(); setEditOpen(false); },
     onError: (e: any) => toast.error(e.message) });
 
-  const upgradeMut = useMutation({ mutationFn: () => upgradeFn({ data: { shop_id: shopId, ...upgradeForm } }),
-    onSuccess: () => { toast.success("প্যাকেজ আপডেট হয়েছে"); invalidate(); setUpgradeOpen(false); },
+  const upgradeMut = useMutation({ mutationFn: () => upgradeFn({ data: { shop_id: shopId, package_id: upgradeForm.package_id, billing_cycle: upgradeForm.billing_cycle } }),
+    onSuccess: (res: any) => {
+      if (res?.kind === "pending") toast.success(`ইনভয়েস তৈরি হয়েছে (${res.invoice?.invoice_no}) — শপ পেমেন্ট করলে এক্টিভ হবে`);
+      else toast.success("প্যাকেজ পরিবর্তন হয়েছে");
+      invalidate(); setUpgradeOpen(false);
+    },
+    onError: (e: any) => toast.error(e.message) });
+
+  const previewQ = useQuery({
+    queryKey: ["proration", shopId, upgradeForm.package_id, upgradeForm.billing_cycle],
+    queryFn: () => previewFn({ data: { shop_id: shopId, package_id: upgradeForm.package_id, billing_cycle: upgradeForm.billing_cycle } }),
+    enabled: upgradeOpen && !!upgradeForm.package_id,
+  });
+
+  const cancelUpgMut = useMutation({ mutationFn: () => cancelUpgFn({ data: { shop_id: shopId } }),
+    onSuccess: () => { toast.success("পেন্ডিং আপগ্রেড বাতিল"); invalidate(); },
     onError: (e: any) => toast.error(e.message) });
 
   const delMut = useMutation({ mutationFn: () => deleteFn({ data: { shop_id: shopId } }),
@@ -270,6 +287,18 @@ function ShopDetail() {
             </div>
             <Button size="sm" onClick={openUpgrade}><ArrowUpCircle className="mr-1 h-4 w-4" />প্যাকেজ পরিবর্তন</Button>
           </div>
+          {shop.pending_package_id && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+              <div>
+                <span className="font-semibold text-amber-800">পেন্ডিং আপগ্রেড:</span>{" "}
+                {pkgs.data?.find((p: any) => p.id === shop.pending_package_id)?.name ?? "—"} ({shop.pending_billing_cycle === "yearly" ? "বাৎসরিক" : "মাসিক"}) — পেমেন্টের অপেক্ষায়
+              </div>
+              <Button size="sm" variant="outline" onClick={() => cancelUpgMut.mutate()} disabled={cancelUpgMut.isPending}>বাতিল</Button>
+            </div>
+          )}
+          {Number(shop.credit_balance ?? 0) > 0 && (
+            <div className="mt-2 text-xs text-emerald-700">ক্রেডিট ব্যালেন্স: <span className="font-semibold">{bdt(shop.credit_balance)}</span></div>
+          )}
         </Card>
 
         {/* Tabs */}
@@ -494,10 +523,25 @@ function ShopDetail() {
                   <SelectContent><SelectItem value="monthly">মাসিক</SelectItem><SelectItem value="yearly">বাৎসরিক</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div><Label>মেয়াদ (মাস)</Label>
-                <Input type="number" min={1} value={upgradeForm.months} onChange={(e) => setUpgradeForm({ ...upgradeForm, months: parseInt(e.target.value || "1") })} />
-              </div>
             </div>
+            {previewQ.data && (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">নতুন প্যাকেজ প্রাইস</span><span>{bdt(previewQ.data.new_amount)}</span></div>
+                <div className="flex justify-between text-emerald-700"><span>পুরনো প্যাকেজের ব্যবহারবিহীন মূল্য</span><span>− {bdt(previewQ.data.unused_value)}</span></div>
+                {previewQ.data.credit_applied > 0 && (
+                  <div className="flex justify-between text-emerald-700"><span>ক্রেডিট প্রয়োগ</span><span>− {bdt(previewQ.data.credit_applied)}</span></div>
+                )}
+                <div className="flex justify-between border-t pt-1 font-bold">
+                  <span>{previewQ.data.net_amount > 0 ? "পরিশোধযোগ্য" : "ক্রেডিট যোগ হবে"}</span>
+                  <span>{bdt(Math.abs(previewQ.data.net_amount))}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {previewQ.data.net_amount > 0
+                    ? "কনফার্ম করলে শপে একটি পেন্ডিং ইনভয়েস তৈরি হবে; পেমেন্ট হলে নতুন প্যাকেজ এক্টিভ হবে।"
+                    : "কনফার্ম করলে সরাসরি প্যাকেজ পরিবর্তন হবে এবং অবশিষ্ট টাকা ক্রেডিট হিসেবে জমা থাকবে।"}
+                </div>
+              </div>
+            )}
             <DialogFooter><Button type="submit" disabled={upgradeMut.isPending || !upgradeForm.package_id}>কনফার্ম</Button></DialogFooter>
           </form>
         </DialogContent>

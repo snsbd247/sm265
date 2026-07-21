@@ -59,7 +59,7 @@ export const listShops = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("shops")
-      .select("*, package:packages(name)")
+      .select("*, package:packages!package_id(name), pending_package:packages!pending_package_id(name)")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -148,18 +148,12 @@ export const createShop = createServerFn({ method: "POST" })
     });
     if (userErr || !userData.user) throw new Error(userErr?.message ?? "User create failed");
 
-    // 2) Compute subscription end
-    const start = new Date();
-    const end = new Date(start);
-    if (data.billing_cycle === "monthly") end.setMonth(end.getMonth() + 1);
-    else end.setFullYear(end.getFullYear() + 1);
-
-    // 3) Get package price
+    // 2) Get package price
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("id", data.package_id).single();
     const amount = data.billing_cycle === "monthly" ? pkg?.price_monthly : pkg?.price_yearly;
 
-    // 4) Create shop
+    // 3) Create shop in pending_payment state (no subscription_end yet)
     const { data: shop, error: shopErr } = await supabaseAdmin
       .from("shops")
       .insert({
@@ -170,34 +164,38 @@ export const createShop = createServerFn({ method: "POST" })
         address: data.address,
         package_id: data.package_id,
         billing_cycle: data.billing_cycle,
-        status: "active",
-        subscription_start: start.toISOString(),
-        subscription_end: end.toISOString(),
+        status: "pending_payment",
         created_by: context.userId,
       })
       .select()
       .single();
     if (shopErr) throw new Error(shopErr.message);
 
-    // 5) Assign shop_owner role
+    // 4) Assign shop_owner role
     await supabaseAdmin.from("user_roles").insert({
       user_id: userData.user.id,
       role: "shop_owner",
       shop_id: shop.id,
     });
 
-    // 6) Log subscription
-    await supabaseAdmin.from("subscriptions").insert({
-      shop_id: shop.id,
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      amount: amount ?? 0,
-      status: "active",
-      starts_at: start.toISOString(),
-      ends_at: end.toISOString(),
-    });
+    // 5) Generate initial pending invoice
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const { data: invoice } = await supabaseAdmin
+      .from("subscription_payments")
+      .insert({
+        shop_id: shop.id,
+        amount: amount ?? 0,
+        payment_method: "bkash",
+        status: "pending",
+        invoice_type: "initial",
+        due_date: dueDate.toISOString().slice(0, 10),
+        raw_response: { manual: true, package_id: data.package_id, billing_cycle: data.billing_cycle },
+      })
+      .select("id, invoice_no, amount")
+      .single();
 
-    // 7) Send account created SMS (non-blocking)
+    // 6) Send account created SMS (non-blocking)
     try {
       const { sendTemplateSMS } = await import("./sms.server");
       await sendTemplateSMS("account_created", data.phone, {
@@ -206,13 +204,15 @@ export const createShop = createServerFn({ method: "POST" })
         phone: data.phone,
         password: data.password,
         package: pkg?.name ?? "",
-        end_date: end.toLocaleDateString("bn-BD"),
+        end_date: dueDate.toLocaleDateString("bn-BD"),
+        invoice_no: invoice?.invoice_no ?? "",
+        amount: String(amount ?? 0),
       }, { shopId: shop.id });
     } catch (e) {
       console.error("account_created SMS failed", e);
     }
 
-    return { shop, credentials: { email: data.email, password: data.password } };
+    return { shop, invoice, credentials: { email: data.email, password: data.password } };
   });
 
 export const updateShopStatus = createServerFn({ method: "POST" })
@@ -408,7 +408,7 @@ export const approveSubscriptionPayment = createServerFn({ method: "POST" })
     if (pay.status !== "pending") throw new Error("এই পেমেন্ট already processed");
 
     const { data: shop } = await supabaseAdmin
-      .from("shops").select("*, package:packages(*)").eq("id", pay.shop_id).single();
+      .from("shops").select("*, package:packages!package_id(*)").eq("id", pay.shop_id).single();
     if (!shop) throw new Error("Shop not found");
 
     // Determine billing cycle from linked subscription (if any) or shop default
@@ -567,7 +567,7 @@ export const getShopDetail = createServerFn({ method: "GET" })
     const sid = data.shop_id;
 
     const { data: shop, error } = await supabaseAdmin
-      .from("shops").select("*, package:packages(*)").eq("id", sid).single();
+      .from("shops").select("*, package:packages!package_id(*), pending_package:packages!pending_package_id(*)").eq("id", sid).single();
     if (error) throw new Error(error.message);
 
     const [payments, subs, roles, sales, purchases, customers, suppliers, products, custPays, supPays] = await Promise.all([
@@ -632,29 +632,83 @@ export const upgradeShopPackage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const months = data.months ?? (data.billing_cycle === "yearly" ? 12 : 1);
-    const { data: pkg } = await supabaseAdmin.from("packages").select("*").eq("id", data.package_id).single();
-    const amount = data.billing_cycle === "monthly" ? pkg?.price_monthly : pkg?.price_yearly;
-    const start = new Date();
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + months);
-    const { error } = await supabaseAdmin.from("shops").update({
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      status: "active",
-      subscription_start: start.toISOString(),
-      subscription_end: end.toISOString(),
-    }).eq("id", data.shop_id);
-    if (error) throw new Error(error.message);
-    await supabaseAdmin.from("subscriptions").insert({
+    const { computePackageChange, applyImmediateDowngrade } = await import("./proration.server");
+    const change = await computePackageChange({
       shop_id: data.shop_id,
-      package_id: data.package_id,
-      billing_cycle: data.billing_cycle,
-      amount: amount ?? 0,
-      status: "active",
-      starts_at: start.toISOString(),
-      ends_at: end.toISOString(),
+      new_package_id: data.package_id,
+      new_billing_cycle: data.billing_cycle,
     });
+
+    // Downgrade or zero-net → apply immediately with credit
+    if (change.net_amount <= 0) {
+      await applyImmediateDowngrade(data.shop_id, change);
+      return { ok: true, kind: "immediate", change };
+    }
+
+    // Upgrade → create pending invoice, keep current package active
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    const { data: invoice, error: invErr } = await supabaseAdmin
+      .from("subscription_payments")
+      .insert({
+        shop_id: data.shop_id,
+        amount: change.net_amount,
+        payment_method: "bkash",
+        status: "pending",
+        invoice_type: "upgrade",
+        due_date: dueDate.toISOString().slice(0, 10),
+        proration_details: change as any,
+        raw_response: { manual: true, package_id: data.package_id, billing_cycle: data.billing_cycle },
+      })
+      .select("id, invoice_no, amount")
+      .single();
+    if (invErr) throw new Error(invErr.message);
+
+    await supabaseAdmin.from("shops").update({
+      pending_package_id: data.package_id,
+      pending_billing_cycle: data.billing_cycle,
+    }).eq("id", data.shop_id);
+
+    return { ok: true, kind: "pending", invoice, change };
+  });
+
+// Preview a package change without creating anything
+export const previewPackageChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      shop_id: z.string().uuid(),
+      package_id: z.string().uuid(),
+      billing_cycle: z.enum(["monthly", "yearly"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { computePackageChange } = await import("./proration.server");
+    return await computePackageChange({
+      shop_id: data.shop_id,
+      new_package_id: data.package_id,
+      new_billing_cycle: data.billing_cycle,
+    });
+  });
+
+// Cancel a pending upgrade (admin)
+export const cancelPendingUpgrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ shop_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Cancel pending upgrade invoices
+    await supabaseAdmin.from("subscription_payments")
+      .update({ status: "failed" })
+      .eq("shop_id", data.shop_id)
+      .eq("status", "pending")
+      .eq("invoice_type", "upgrade");
+    await supabaseAdmin.from("shops").update({
+      pending_package_id: null,
+      pending_billing_cycle: null,
+    }).eq("id", data.shop_id);
     return { ok: true };
   });
 
@@ -731,7 +785,7 @@ export const getPaymentReceipt = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pay, error } = await supabaseAdmin
       .from("subscription_payments")
-      .select("*, shop:shops(name, owner_name, phone, email, address, package:packages(name)), subscription:subscriptions(billing_cycle, starts_at, ends_at, package:packages(name))")
+      .select("*, shop:shops(name, owner_name, phone, email, address, package:packages!package_id(name)), subscription:subscriptions(billing_cycle, starts_at, ends_at, package:packages(name))")
       .eq("id", data.payment_id)
       .single();
     if (error) throw new Error(error.message);

@@ -12,10 +12,13 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
 
   const { data: shop } = await supabaseAdmin
     .from("shops")
-    .select("*, package:packages(*)")
+    .select("*, package:packages!package_id(*), pending_package:packages!pending_package_id(*)")
     .eq("id", pay.shop_id)
     .single();
   if (!shop) throw new Error("Shop not found");
+
+  const invoiceType = (pay.invoice_type ?? "renewal") as
+    | "initial" | "renewal" | "upgrade" | "downgrade";
 
   const raw: any = pay.raw_response ?? {};
   let pkgId: string | null = raw.package_id ?? shop.package_id;
@@ -32,17 +35,31 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
     }
   }
 
-  const base = shop.subscription_end && new Date(shop.subscription_end) > new Date()
-    ? new Date(shop.subscription_end) : new Date();
+  // For initial / upgrade: use pending package if present; period restarts from today
+  if (invoiceType === "upgrade" && shop.pending_package_id) {
+    pkgId = shop.pending_package_id;
+    cycle = (shop.pending_billing_cycle ?? cycle) as any;
+    months = cycle === "yearly" ? 12 : 1;
+  }
+
   const start = new Date();
+  const restartCycle = invoiceType === "initial" || invoiceType === "upgrade";
+  const base = restartCycle
+    ? new Date(start)
+    : (shop.subscription_end && new Date(shop.subscription_end) > new Date()
+        ? new Date(shop.subscription_end) : new Date());
   base.setMonth(base.getMonth() + months);
 
   await supabaseAdmin.from("shops").update({
     status: "active",
     subscription_end: base.toISOString(),
-    subscription_start: shop.subscription_start ?? start.toISOString(),
+    subscription_start: restartCycle ? start.toISOString() : (shop.subscription_start ?? start.toISOString()),
     package_id: pkgId,
     billing_cycle: cycle,
+    pending_package_id: null,
+    pending_billing_cycle: null,
+    // Consume credit on upgrade approval
+    credit_balance: invoiceType === "upgrade" ? 0 : shop.credit_balance,
   }).eq("id", shop.id);
 
   await supabaseAdmin.from("subscription_payments").update({
@@ -71,9 +88,9 @@ export async function activatePaymentAndExtendShop(paymentId: string) {
     const { sendTemplateSMS } = await import("./sms.server");
     const { data: pkgRow } = await supabaseAdmin
       .from("packages").select("name").eq("id", pkgId!).maybeSingle();
-    const isUpgrade = pkgId && shop.package_id && pkgId !== shop.package_id;
+    const isUpgrade = invoiceType === "upgrade" || (pkgId && shop.package_id && pkgId !== shop.package_id);
     const endStr = new Date(base).toLocaleDateString("bn-BD");
-    const code = isUpgrade ? "upgraded" : "renewed";
+    const code = invoiceType === "initial" ? "renewed" : (isUpgrade ? "upgraded" : "renewed");
     await sendTemplateSMS(code, shop.phone, {
       shop_name: shop.name, owner: shop.owner_name,
       package: pkgRow?.name ?? "", end_date: endStr, amount: pay.amount,

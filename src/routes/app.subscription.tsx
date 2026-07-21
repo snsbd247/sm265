@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getMyShop, listMyPayments, listMySubscriptions, submitRenewalPayment } from "@/lib/shop.functions";
+import { getMyShop, listMyPayments, listMySubscriptions, submitRenewalPayment, getMyPendingInvoice } from "@/lib/shop.functions";
 import { listPackages } from "@/lib/admin.functions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useState } from "react";
-import { CreditCard, TrendingUp } from "lucide-react";
+import { CreditCard, TrendingUp, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/app/subscription")({ component: Page });
 
@@ -23,11 +23,13 @@ function Page() {
   const subsFn = useServerFn(listMySubscriptions);
   const pkgFn = useServerFn(listPackages);
   const submitFn = useServerFn(submitRenewalPayment);
+  const pendingFn = useServerFn(getMyPendingInvoice);
 
   const shopQ = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
   const paysQ = useQuery({ queryKey: ["my-payments"], queryFn: () => paysFn() });
   const subsQ = useQuery({ queryKey: ["my-subs"], queryFn: () => subsFn() });
   const pkgQ = useQuery({ queryKey: ["packages"], queryFn: () => pkgFn() });
+  const pendingQ = useQuery({ queryKey: ["my-pending-invoice"], queryFn: () => pendingFn() });
 
   const shop = shopQ.data?.shop;
 
@@ -63,6 +65,23 @@ function Page() {
         <h1 className="truncate text-xl font-bold sm:text-2xl">সাবস্ক্রিপশন</h1>
         <p className="text-sm text-muted-foreground">আপনার প্যাকেজ, মেয়াদ, রিনিউ, আপগ্রেড</p>
       </div>
+
+      {pendingQ.data && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <FileText className="h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 text-sm">
+              <div className="font-semibold text-amber-900">
+                পেন্ডিং ইনভয়েস: {(pendingQ.data as any).invoice_no} — ৳{Number((pendingQ.data as any).amount).toLocaleString("bn-BD")}
+              </div>
+              <div className="text-xs text-amber-800">
+                {(pendingQ.data as any).invoice_type === "initial" ? "একাউন্ট এক্টিভেশন পেমেন্ট বাকি" : "প্যাকেজ আপগ্রেড পেমেন্ট বাকি"}
+              </div>
+            </div>
+          </div>
+          <Link to="/app/pay-invoice"><Button size="sm">পেমেন্ট করুন</Button></Link>
+        </div>
+      )}
 
       <Card className="p-4 sm:p-6">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">

@@ -843,12 +843,15 @@ export type Database = {
           billing_cycle: Database["public"]["Enums"]["billing_cycle"]
           created_at: string
           created_by: string | null
+          credit_balance: number
           email: string | null
           id: string
           logo_url: string | null
           name: string
           owner_name: string
           package_id: string | null
+          pending_billing_cycle: string | null
+          pending_package_id: string | null
           phone: string
           status: Database["public"]["Enums"]["shop_status"]
           subscription_end: string | null
@@ -860,12 +863,15 @@ export type Database = {
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
           created_at?: string
           created_by?: string | null
+          credit_balance?: number
           email?: string | null
           id?: string
           logo_url?: string | null
           name: string
           owner_name: string
           package_id?: string | null
+          pending_billing_cycle?: string | null
+          pending_package_id?: string | null
           phone: string
           status?: Database["public"]["Enums"]["shop_status"]
           subscription_end?: string | null
@@ -877,12 +883,15 @@ export type Database = {
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"]
           created_at?: string
           created_by?: string | null
+          credit_balance?: number
           email?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           owner_name?: string
           package_id?: string | null
+          pending_billing_cycle?: string | null
+          pending_package_id?: string | null
           phone?: string
           status?: Database["public"]["Enums"]["shop_status"]
           subscription_end?: string | null
@@ -893,6 +902,13 @@ export type Database = {
           {
             foreignKeyName: "shops_package_id_fkey"
             columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shops_pending_package_id_fkey"
+            columns: ["pending_package_id"]
             isOneToOne: false
             referencedRelation: "packages"
             referencedColumns: ["id"]
@@ -1068,9 +1084,13 @@ export type Database = {
           amount: number
           bkash_payment_id: string | null
           created_at: string
+          due_date: string | null
           id: string
+          invoice_no: string | null
+          invoice_type: string
           paid_at: string | null
           payment_method: string
+          proration_details: Json | null
           raw_response: Json | null
           shop_id: string
           status: Database["public"]["Enums"]["payment_status"]
@@ -1082,9 +1102,13 @@ export type Database = {
           amount: number
           bkash_payment_id?: string | null
           created_at?: string
+          due_date?: string | null
           id?: string
+          invoice_no?: string | null
+          invoice_type?: string
           paid_at?: string | null
           payment_method?: string
+          proration_details?: Json | null
           raw_response?: Json | null
           shop_id: string
           status?: Database["public"]["Enums"]["payment_status"]
@@ -1096,9 +1120,13 @@ export type Database = {
           amount?: number
           bkash_payment_id?: string | null
           created_at?: string
+          due_date?: string | null
           id?: string
+          invoice_no?: string | null
+          invoice_type?: string
           paid_at?: string | null
           payment_method?: string
+          proration_details?: Json | null
           raw_response?: Json | null
           shop_id?: string
           status?: Database["public"]["Enums"]["payment_status"]
@@ -1450,8 +1478,18 @@ export type Database = {
     Enums: {
       app_role: "super_admin" | "shop_owner" | "shop_manager" | "shop_cashier"
       billing_cycle: "monthly" | "yearly"
-      payment_status: "pending" | "success" | "failed" | "refunded"
-      shop_status: "active" | "expired" | "locked" | "suspended"
+      payment_status:
+        | "pending"
+        | "success"
+        | "failed"
+        | "refunded"
+        | "cancelled"
+      shop_status:
+        | "active"
+        | "expired"
+        | "locked"
+        | "suspended"
+        | "pending_payment"
       sms_status: "pending" | "sent" | "failed"
       subscription_status: "pending" | "active" | "expired" | "cancelled"
     }
@@ -1583,8 +1621,14 @@ export const Constants = {
     Enums: {
       app_role: ["super_admin", "shop_owner", "shop_manager", "shop_cashier"],
       billing_cycle: ["monthly", "yearly"],
-      payment_status: ["pending", "success", "failed", "refunded"],
-      shop_status: ["active", "expired", "locked", "suspended"],
+      payment_status: ["pending", "success", "failed", "refunded", "cancelled"],
+      shop_status: [
+        "active",
+        "expired",
+        "locked",
+        "suspended",
+        "pending_payment",
+      ],
       sms_status: ["pending", "sent", "failed"],
       subscription_status: ["pending", "active", "expired", "cancelled"],
     },

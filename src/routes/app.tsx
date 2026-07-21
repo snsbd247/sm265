@@ -108,7 +108,10 @@ function AppLayout() {
     if (shopQ.data?.shop && ["expired", "locked", "suspended"].includes(shopQ.data.shop.status)) {
       navigate({ to: "/renew" });
     }
-  }, [shopQ.data, navigate]);
+    if (shopQ.data?.shop?.status === "pending_payment" && loc.pathname !== "/app/pay-invoice") {
+      navigate({ to: "/app/pay-invoice" });
+    }
+  }, [shopQ.data, navigate, loc.pathname]);
 
   // Close drawer on route change
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
