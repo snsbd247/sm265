@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listProducts, saveProduct, deleteProduct, listCategories, listUnits } from "@/lib/inventory.functions";
+import { listProducts, saveProduct, deleteProduct, listCategories, listUnits, getPackageUsage } from "@/lib/inventory.functions";
+import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,10 +26,16 @@ function Page() {
   const delFn = useServerFn(deleteProduct);
   const catFn = useServerFn(listCategories);
   const unitFn = useServerFn(listUnits);
+  const usageFn = useServerFn(getPackageUsage);
 
   const prodQ = useQuery({ queryKey: ["products"], queryFn: () => listFn() });
   const catQ = useQuery({ queryKey: ["categories"], queryFn: () => catFn() });
   const unitQ = useQuery({ queryKey: ["units"], queryFn: () => unitFn() });
+  const usageQ = useQuery({ queryKey: ["package-usage"], queryFn: () => usageFn() });
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState("");
+  const productUsage = usageQ.data?.products;
+  const atLimit = !!(productUsage && productUsage.limit != null && productUsage.used >= productUsage.limit);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -41,12 +48,21 @@ function Page() {
 
   const save = useMutation({
     mutationFn: (d: any) => saveFn({ data: d }),
-    onSuccess: () => { toast.success("সংরক্ষিত"); qc.invalidateQueries({ queryKey: ["products"] }); setOpen(false); setEditing(null); },
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => { toast.success("সংরক্ষিত"); qc.invalidateQueries({ queryKey: ["products"] }); qc.invalidateQueries({ queryKey: ["package-usage"] }); setOpen(false); setEditing(null); },
+    onError: (e: any) => {
+      const msg = e?.message ?? "";
+      if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
+        setUpgradeMsg(msg || "প্যাকেজের সর্বোচ্চ সীমা শেষ। আপগ্রেড করুন।");
+        setUpgradeOpen(true);
+        setOpen(false);
+      } else {
+        toast.error(msg);
+      }
+    },
   });
   const del = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
-    onSuccess: () => { toast.success("মুছে ফেলা হয়েছে"); qc.invalidateQueries({ queryKey: ["products"] }); },
+    onSuccess: () => { toast.success("মুছে ফেলা হয়েছে"); qc.invalidateQueries({ queryKey: ["products"] }); qc.invalidateQueries({ queryKey: ["package-usage"] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -72,7 +88,14 @@ function Page() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-bold sm:text-2xl">পণ্য সমূহ</h1>
-          <p className="text-sm text-muted-foreground">মোট {prodQ.data?.length ?? 0} টি পণ্য</p>
+          <p className="text-sm text-muted-foreground">
+            মোট {prodQ.data?.length ?? 0} টি পণ্য
+            {productUsage && productUsage.limit != null && (
+              <span className={atLimit ? "ml-2 font-medium text-amber-600" : "ml-2 text-muted-foreground"}>
+                • প্যাকেজ সীমা {productUsage.used}/{productUsage.limit}
+              </span>
+            )}
+          </p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
           <div className="flex shrink-0 items-center gap-2">
@@ -93,7 +116,13 @@ function Page() {
             >
               <Download className="mr-2 h-4 w-4" /> CSV
             </Button>
-            <DialogTrigger asChild><Button className="shrink-0"><Plus className="mr-2 h-4 w-4" /> নতুন পণ্য</Button></DialogTrigger>
+            {atLimit && !editing ? (
+              <Button className="shrink-0" onClick={() => { setUpgradeMsg(`আপনার প্যাকেজে পণ্যের সর্বোচ্চ সীমা (${productUsage!.limit}) শেষ হয়েছে। প্যাকেজ আপগ্রেড করুন।`); setUpgradeOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> নতুন পণ্য
+              </Button>
+            ) : (
+              <DialogTrigger asChild><Button className="shrink-0"><Plus className="mr-2 h-4 w-4" /> নতুন পণ্য</Button></DialogTrigger>
+            )}
           </div>
           <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
             <DialogHeader><DialogTitle>{editing ? "এডিট" : "নতুন"} পণ্য</DialogTitle></DialogHeader>
@@ -107,6 +136,7 @@ function Page() {
           </DialogContent>
         </Dialog>
       </div>
+      <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
