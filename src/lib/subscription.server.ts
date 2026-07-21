@@ -88,7 +88,18 @@ export async function activatePaymentAndExtendShop(
     await supabaseAdmin.from("subscriptions").update({
       status: "active", ends_at: base.toISOString(),
     }).eq("id", pay.subscription_id);
+    // Supersede any other active subs for this shop — one active per shop.
+    await supabaseAdmin.from("subscriptions")
+      .update({ status: "expired", ends_at: new Date().toISOString() })
+      .eq("shop_id", shop.id)
+      .eq("status", "active")
+      .neq("id", pay.subscription_id);
   } else {
+    // Close existing active subs before inserting the new one.
+    await supabaseAdmin.from("subscriptions")
+      .update({ status: "expired", ends_at: new Date().toISOString() })
+      .eq("shop_id", shop.id)
+      .eq("status", "active");
     await supabaseAdmin.from("subscriptions").insert({
       shop_id: shop.id,
       package_id: pkgId!,
