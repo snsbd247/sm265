@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const passwordSchema = z.string().min(6, "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে");
+
 async function assertSuperAdmin(context: { supabase: any; userId: string }) {
   const { data, error } = await context.supabase
     .from("user_roles")
@@ -129,7 +131,7 @@ const createShopSchema = z.object({
   address: z.string().optional(),
   package_id: z.string().uuid(),
   billing_cycle: z.enum(["monthly", "yearly"]),
-  password: z.string().min(6),
+  password: passwordSchema,
 });
 
 export const createShop = createServerFn({ method: "POST" })
@@ -884,7 +886,7 @@ export const cancelPendingUpgrade = createServerFn({ method: "POST" })
 export const resetShopUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ user_id: z.string().uuid(), password: z.string().min(6) }).parse(d),
+    z.object({ user_id: z.string().uuid(), password: passwordSchema }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
@@ -1093,7 +1095,7 @@ export const createAdmin = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       email: z.string().email(),
-      password: z.string().min(6),
+      password: passwordSchema,
       full_name: z.string().min(1),
     }).parse(d),
   )
@@ -1136,7 +1138,7 @@ export const deleteAdmin = createServerFn({ method: "POST" })
 export const resetAdminPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ user_id: z.string().uuid(), password: z.string().min(6) }).parse(d),
+    z.object({ user_id: z.string().uuid(), password: passwordSchema }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
@@ -1417,7 +1419,7 @@ export const approveDemoRequest = createServerFn({ method: "POST" })
 export const changeMyPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ new_password: z.string().min(6, "কমপক্ষে ৬ ডিজিটের পাসওয়ার্ড দিন") }).parse(d),
+    z.object({ new_password: passwordSchema }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

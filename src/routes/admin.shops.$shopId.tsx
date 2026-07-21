@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowLeft, Pencil, Trash2, Lock, Unlock, CalendarPlus, ArrowUpCircle, KeyRound, UserX, Search, Inbox, RefreshCw, ChevronLeft, ChevronRight, LogIn, Loader2, Printer, FileText } from "lucide-react";
 import { createImpersonationToken } from "@/lib/impersonation.functions";
 import { getActiveImpersonation, setActiveImpersonation, clearActiveImpersonation } from "@/lib/impersonation-window";
@@ -155,6 +155,12 @@ function ShopDetail() {
     onSuccess: () => { toast.success("পাসওয়ার্ড আপডেট হয়েছে"); setPwOpen(null); setNewPw(""); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const submitPasswordReset = (e: FormEvent) => {
+    e.preventDefault();
+    if (newPw.length < 6) return toast.error("পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে");
+    resetPwMut.mutate();
+  };
 
   // Filtered/paginated collections (declared before early-returns to keep hook order stable)
   const qLower = search.q.trim().toLowerCase();
@@ -551,9 +557,9 @@ function ShopDetail() {
       <Dialog open={!!pwOpen} onOpenChange={(o) => !o && setPwOpen(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>পাসওয়ার্ড পরিবর্তন</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); resetPwMut.mutate(); }} className="space-y-3">
+          <form onSubmit={submitPasswordReset} className="space-y-3">
             <div className="text-sm text-muted-foreground">{pwOpen?.email}</div>
-            <div><Label>নতুন পাসওয়ার্ড</Label><Input required minLength={6} value={newPw} onChange={(e) => setNewPw(e.target.value)} /></div>
+            <div><Label>নতুন পাসওয়ার্ড</Label><Input type="password" required minLength={6} value={newPw} onChange={(e) => setNewPw(e.target.value)} /></div>
             <DialogFooter><Button type="submit" disabled={resetPwMut.isPending}>সেভ করুন</Button></DialogFooter>
           </form>
         </DialogContent>
