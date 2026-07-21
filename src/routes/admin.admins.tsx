@@ -41,6 +41,14 @@ function Page() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const validatePassword = (password: string) => {
+    if (password.length < 6) {
+      toast.error("পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে");
+      return false;
+    }
+    return true;
+  };
+
   return (
     <AdminShell>
       <div className="p-4 sm:p-6">
@@ -63,9 +71,11 @@ function Page() {
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
+                  const password = String(fd.get("password") ?? "");
+                  if (!validatePassword(password)) return;
                   create.mutate({
                     email: String(fd.get("email") ?? ""),
-                    password: String(fd.get("password") ?? ""),
+                    password,
                     full_name: String(fd.get("full_name") ?? ""),
                   });
                 }} className="grid gap-3">
@@ -128,7 +138,9 @@ function Page() {
             <form onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
-              reset.mutate({ user_id: resetFor.user_id, password: String(fd.get("password") ?? "") });
+              const password = String(fd.get("password") ?? "");
+              if (!validatePassword(password)) return;
+              reset.mutate({ user_id: resetFor.user_id, password });
             }} className="grid gap-3">
               <div><Label>নতুন পাসওয়ার্ড</Label><Input name="password" type="password" required minLength={6} /></div>
               <DialogFooter><Button type="submit" disabled={reset.isPending}>সংরক্ষণ</Button></DialogFooter>
