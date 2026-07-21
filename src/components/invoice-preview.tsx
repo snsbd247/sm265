@@ -70,23 +70,24 @@ export function InvoicePreview({
       }
       style={{ color: textColor }}
     >
-      <div className="flex items-center gap-3 px-4 py-3" style={{ background: primary, color: "#ffffff" }}>
+      <div className="flex flex-col items-center gap-1 px-4 pt-4 pb-2 text-center">
         {logoSrc && (
-          <img src={logoSrc} alt={shop?.name ?? ""} className="h-10 w-10 rounded bg-white/15 object-contain p-0.5" />
+          <img src={logoSrc} alt={shop?.name ?? ""} className="mb-1 h-12 w-12 rounded object-contain" />
         )}
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-widest opacity-80">Invoice</div>
-          <div className="truncate text-lg font-black uppercase">{shop?.name ?? tpl?.header_title ?? "SALES INVOICE"}</div>
-        </div>
+        <div className="text-lg font-black">{shop?.name ?? tpl?.header_title ?? "SALES INVOICE"}</div>
+        {(tpl?.address_line || shop?.address) && (
+          <div className="text-[11px]">ঠিকানাঃ {tpl?.address_line || shop?.address}</div>
+        )}
+        {(shop?.phone || tpl?.contact_line) && (
+          <div className="text-[11px]">মোবাইলঃ {shop?.phone || tpl?.contact_line}</div>
+        )}
+        {shop?.email && (
+          <div className="text-[11px]">ইমেইলঃ {shop.email}</div>
+        )}
+        {(shop?.bin_number || shop?.vat_number || tpl?.bin_number) && (
+          <div className="text-[11px]">বিন নাম্বারঃ {shop?.bin_number || shop?.vat_number || tpl?.bin_number}</div>
+        )}
       </div>
-      {(tpl?.address_line || tpl?.contact_line || shop?.address || shop?.phone) && (
-        <div className="px-4 py-2 text-[11px]" style={{ background: accent }}>
-          {(tpl?.address_line || shop?.address) && <div>{tpl?.address_line || shop.address}</div>}
-          {(tpl?.contact_line || shop?.phone) && (
-            <div className="opacity-80">{tpl?.contact_line || `ফোন: ${shop.phone}`}</div>
-          )}
-        </div>
-      )}
       <div className="p-4">
         <div className="my-2 border-t border-dashed" />
         <div className="text-center font-bold">SALES INVOICE</div>
@@ -228,9 +229,6 @@ export function InvoicePreview({
                   style={{ imageRendering: "pixelated" }}
                 />
                 <div className="text-[10px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
-                <div className="max-w-[220px] break-all text-center text-[9px] font-mono opacity-60 print:opacity-70">
-                  {publicUrl}
-                </div>
               </>
             ) : (
               <div className="w-full max-w-xs rounded-md border border-dashed border-amber-400 bg-amber-50/60 p-2 text-center text-[11px] text-amber-900 invoice-hide-on-print">
