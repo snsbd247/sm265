@@ -21,9 +21,11 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone, Camera, CloudOff, RefreshCcw } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 import { computeCartTotals, clampDiscount as clampD, validateSale } from "@/lib/pos-calc";
+import { BarcodeScannerDialog } from "@/components/barcode-scanner-dialog";
+import { loadDraft, saveDraft, clearDraft, readQueue, enqueueSale, removeFromQueue, isNetworkError, type SaleQueueItem } from "@/lib/pos-offline";
 
 function cryptoRandomId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
@@ -89,6 +91,9 @@ function Page() {
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => cryptoRandomId());
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editInvoiceNo, setEditInvoiceNo] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [queueCount, setQueueCount] = useState<number>(() => (typeof window === "undefined" ? 0 : readQueue().length));
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -176,6 +181,98 @@ function Page() {
     } catch { /* ignore malformed */ }
   }, [prod.data]);
 
+  // Auto-persist current cart as a local draft so a reload / brief network drop won't lose it.
+  const draftHydrated = useRef(false);
+  useEffect(() => {
+    if (draftHydrated.current) return;
+    if (!prod.data) return;
+    // Skip auto-hydration if the edit-invoice flow already loaded something
+    if (restoredRef.current || lines.length > 0) { draftHydrated.current = true; return; }
+    const d = loadDraft<any>();
+    if (d?.lines?.length) {
+      const restored: Line[] = d.lines.map((it: any) => {
+        const p = prod.data?.find((x: any) => x.id === it.product_id);
+        return {
+          product_id: it.product_id,
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price ?? p?.sale_price ?? 0),
+          unit_cost: Number(it.unit_cost ?? p?.purchase_price ?? 0),
+          discount_amount: Number(it.discount_amount ?? 0),
+          stock: Number(p?.stock_quantity ?? it.stock ?? 0),
+          name: p?.name ?? it.name ?? "পণ্য",
+          unit: p?.unit?.short_name ?? it.unit,
+          image_url: p?.image_url ?? it.image_url ?? null,
+          sku: p?.sku ?? it.sku ?? null,
+        };
+      });
+      setLines(restored);
+      if (d.customer_id) setCustomerId(d.customer_id);
+      if (typeof d.discount === "number") setDiscount(d.discount);
+      if (typeof d.taxRate === "number") setTaxRate(d.taxRate);
+      if (d.note) setNote(d.note);
+      toast.info("অসম্পূর্ণ কার্ট পুনরুদ্ধার হয়েছে");
+    }
+    draftHydrated.current = true;
+  }, [prod.data]);
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    if (editSaleId) return; // don't overwrite draft with an in-flight edit
+    if (lines.length === 0 && !customerId && !discount && !taxRate && !note) {
+      clearDraft();
+      return;
+    }
+    saveDraft({
+      lines: lines.map((l) => ({
+        product_id: l.product_id, quantity: l.quantity, unit_price: l.unit_price,
+        unit_cost: l.unit_cost, discount_amount: l.discount_amount,
+        name: l.name, sku: l.sku, unit: l.unit, image_url: l.image_url, stock: l.stock,
+      })),
+      customer_id: customerId || null,
+      discount, taxRate, note,
+    });
+  }, [lines, customerId, discount, taxRate, note, editSaleId]);
+
+  // Online/offline listeners + auto-flush queued sales when back online
+  const createFnRef = useRef(createFn);
+  createFnRef.current = createFn;
+  const flushQueue = async () => {
+    const queue = readQueue();
+    if (queue.length === 0) return;
+    let flushed = 0;
+    for (const item of queue) {
+      try {
+        // Only createSale is queueable (updates are rare and safer to redo manually)
+        await createFnRef.current({ data: item.payload });
+        removeFromQueue(item.id);
+        flushed++;
+      } catch (e) {
+        if (isNetworkError(e)) break; // stop; will retry later
+        // Non-network error → drop it so it doesn't loop forever
+        removeFromQueue(item.id);
+      }
+    }
+    setQueueCount(readQueue().length);
+    if (flushed > 0) {
+      toast.success(`${flushed}টি অফলাইন বিক্রয় সিঙ্ক হয়েছে`);
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["shop-notifications"] });
+    }
+  };
+  useEffect(() => {
+    const on = () => { setIsOnline(true); flushQueue(); };
+    const off = () => setIsOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    // Attempt an initial flush in case queued items were left from an earlier session
+    if (navigator.onLine) flushQueue();
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const addProduct = (pid: string) => {
     if (!pid) return;
     const p = prod.data?.find((x: any) => x.id === pid);
@@ -248,6 +345,22 @@ function Page() {
     else toast.error(`পণ্য পাওয়া যায়নি: ${code}`);
   };
 
+  const handleScannedCode = (code: string) => {
+    const c = code.trim();
+    if (!c) return;
+    const p = (prod.data ?? []).find(
+      (x: any) =>
+        (x.barcode && x.barcode === c) ||
+        (x.sku && x.sku.toLowerCase() === c.toLowerCase()),
+    );
+    if (p) {
+      addProduct(p.id);
+      toast.success(`যোগ হয়েছে: ${p.name}`);
+    } else {
+      toast.error(`পণ্য পাওয়া যায়নি: ${c}`);
+    }
+  };
+
   const catCounts = useMemo(() => {
     const map: Record<string, number> = { all: 0, uncat: 0 };
     for (const p of prod.data ?? []) {
@@ -315,6 +428,8 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["shop-trend"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       if (editSaleId) qc.invalidateQueries({ queryKey: ["sale", editSaleId] });
+      // Successful commit → clear the offline draft
+      clearDraft();
       const id = typeof saleId === "string" ? saleId : saleId?.id;
       if (id) {
         if (editSaleId) {
@@ -333,8 +448,42 @@ function Page() {
         nav({ to: "/app/sales" });
       }
     },
-    onError: (e: any) => {
+    onError: (e: any, vars: any) => {
       const msg = e?.message ?? "";
+      // Offline / network failure → queue the sale locally and reset the cart
+      if (!editSaleId && isNetworkError(e)) {
+        try {
+          const st = vars?.saleTypeOverride ?? saleType;
+          const p = vars?.paidOverride ?? (st === "cash" ? total : paid);
+          const payload = {
+            customer_id: customerId || null,
+            invoice_no: invoiceNo || null,
+            sale_date: saleDate,
+            discount,
+            paid: p,
+            payment_method: st === "cash" ? method : st === "due" ? "due" : method,
+            sale_type: st,
+            note: note || null,
+            items: lines.map((l) => ({
+              product_id: l.product_id, quantity: l.quantity,
+              unit_price: l.unit_price, unit_cost: l.unit_cost,
+              discount_amount: l.discount_amount || 0, tax_rate: taxRate || 0,
+            })),
+            installments: st === "installment" ? installments : null,
+            installment_frequency: instFreq,
+            installment_start: instStart,
+            idempotency_key: idempotencyKey,
+          };
+          enqueueSale({ payload, is_update: false });
+          setQueueCount(readQueue().length);
+          toast.success("অফলাইন — বিক্রয় সংরক্ষিত হয়েছে, কানেকশন ফিরে এলে সিঙ্ক হবে");
+          setCheckoutOpen(false);
+          clearDraft();
+          setLines([]); setDiscount(0); setTaxRate(0); setPaid(0); setNote(""); setInvoiceNo("");
+          setIdempotencyKey(cryptoRandomId());
+          return;
+        } catch { /* fall through to error toast */ }
+      }
       if (/লিমিট|LIMIT_EXCEEDED|সীমা/i.test(msg)) {
         setUpgradeMsg(msg);
         setUpgradeOpen(true);
@@ -705,7 +854,31 @@ function Page() {
             <OrderPanel />
           </SheetContent>
         </Sheet>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setScanOpen(true)}
+          className="h-11 w-11 shrink-0"
+          aria-label="ক্যামেরা স্ক্যান"
+        >
+          <Camera className="h-5 w-5" />
+        </Button>
       </div>
+
+      {(!isOnline || queueCount > 0) && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 md:px-4">
+          <div className="flex items-center gap-1.5">
+            <CloudOff className="h-3.5 w-3.5" />
+            {!isOnline ? "অফলাইন — বিক্রয় লোকালি সেভ হবে" : `অনলাইন — ${queueCount}টি বিক্রয় সিঙ্ক অপেক্ষমাণ`}
+          </div>
+          {queueCount > 0 && isOnline && (
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-amber-900" onClick={() => { flushQueue(); }}>
+              <RefreshCcw className="mr-1 h-3 w-3" /> এখনই সিঙ্ক
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Category tabs */}
       <div className="flex items-center gap-2 overflow-x-auto border-b bg-white px-3 py-2 md:px-4">
@@ -1127,6 +1300,7 @@ function Page() {
         }}
       />
       <UpgradePackageDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} message={upgradeMsg} />
+      <BarcodeScannerDialog open={scanOpen} onOpenChange={setScanOpen} onDetected={handleScannedCode} />
     </div>
   );
 }
