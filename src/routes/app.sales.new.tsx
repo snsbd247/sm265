@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listCustomers, createSale, getSale, cancelSale } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
+import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
+import { snapshotSale } from "@/lib/sale-revisions.functions";
+import { getInvoiceTemplate, DEFAULT_TEMPLATE } from "@/lib/invoice-template.functions";
+import { SaleDeliveryHistory } from "@/components/invoice-delivery-history";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
@@ -16,7 +20,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
