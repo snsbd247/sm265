@@ -249,6 +249,73 @@ export const createSale = createServerFn({ method: "POST" })
     return { ok: true, id: sid, duplicate: false };
   });
 
+/* -------- Update (edit invoice in place) -------- */
+
+const updateSaleSchema = saleSchema.extend({
+  sale_id: z.string().uuid(),
+});
+
+export const updateSale = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => updateSaleSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const shopId = await getShopId(context);
+    // Ensure caller belongs to the shop that owns this sale
+    const { data: existing, error: fetchErr } = await context.supabase
+      .from("sales").select("id, shop_id, invoice_no")
+      .eq("id", data.sale_id).eq("shop_id", shopId).maybeSingle();
+    if (fetchErr) throw new Error(fetchErr.message);
+    if (!existing) throw new Error("ইনভয়েস পাওয়া যায়নি");
+
+    const { error } = await context.supabase.rpc("update_sale", {
+      _sale_id: data.sale_id,
+      _customer_id: data.customer_id ?? null,
+      _sale_date: data.sale_date ?? null,
+      _discount: data.discount,
+      _paid: data.paid,
+      _payment_method: data.payment_method,
+      _sale_type: data.sale_type,
+      _note: data.note ?? null,
+      _items: data.items,
+      _installments: data.sale_type === "installment" ? (data.installments ?? null) : null,
+      _installment_frequency: data.installment_frequency ?? "monthly",
+      _installment_start: data.installment_start ?? null,
+    } as any);
+    if (error) throw new Error(error.message);
+
+    // Refresh payment breakdown snapshot
+    const saleTotal = data.items.reduce((s, it) => {
+      const line = it.quantity * it.unit_price - (it.discount_amount ?? 0);
+      const tax = line * ((it.tax_rate ?? 0) / 100);
+      return s + line + tax;
+    }, 0) - (data.discount ?? 0);
+    const paidFinal = data.sale_type === "cash" ? saleTotal : data.paid;
+    const breakdown = {
+      sale_type: data.sale_type,
+      method: data.payment_method,
+      total: Math.round(saleTotal * 100) / 100,
+      paid_now: paidFinal,
+      due: Math.max(0, Math.round((saleTotal - paidFinal) * 100) / 100),
+      installments: data.sale_type === "installment" ? (data.installments ?? 0) : 0,
+      installment_frequency: data.sale_type === "installment" ? (data.installment_frequency ?? "monthly") : null,
+      is_partial: data.sale_type !== "cash" && paidFinal > 0 && paidFinal < saleTotal,
+      edited_at: new Date().toISOString(),
+    };
+    try {
+      await context.supabase.from("sales").update({ payment_breakdown: breakdown })
+        .eq("id", data.sale_id);
+    } catch { /* non-fatal */ }
+    try {
+      const { logAudit } = await import("./audit.server");
+      await logAudit({
+        actor_user_id: context.userId, shop_id: shopId,
+        action: "invoice.updated", target_type: "sale", target_id: data.sale_id,
+        details: { breakdown, invoice_no: existing.invoice_no ?? null },
+      });
+    } catch { /* non-fatal */ }
+    return { ok: true, id: data.sale_id };
+  });
+
 /* -------- Cancel & Return -------- */
 
 export const cancelSale = createServerFn({ method: "POST" })
