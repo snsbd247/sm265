@@ -12,6 +12,7 @@ import {
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { KpiSkeleton, BlockSkeleton } from "@/components/dashboard/kpi-skeleton";
 import { useState } from "react";
+import { KpiDialog, type DrillColumn } from "@/components/dashboard/kpi-dialog";
 
 export const Route = createFileRoute("/app/")({ component: ShopDashboard });
 
@@ -46,13 +47,14 @@ function ShopDashboard() {
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
+  const [drill, setDrill] = useState<null | "today" | "month" | "due" | "lowStock" | "topProducts">(null);
 
   const { data } = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
-  const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn() });
-  const extraQ = useQuery({ queryKey: ["dash-extras"], queryFn: () => extraFn() });
-  const trendQ = useQuery({ queryKey: ["shop-trend", range], queryFn: () => trendFn({ data: { days: range } }) });
-  const recentSalesQ = useQuery({ queryKey: ["recent-sales"], queryFn: () => salesFn({ data: {} }) });
-  const overdueQ = useQuery({ queryKey: ["overdue-inst"], queryFn: () => instFn({ data: { status: "overdue" } }) });
+  const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn(), refetchInterval: 60_000 });
+  const extraQ = useQuery({ queryKey: ["dash-extras"], queryFn: () => extraFn(), refetchInterval: 60_000 });
+  const trendQ = useQuery({ queryKey: ["shop-trend", range], queryFn: () => trendFn({ data: { days: range } }), refetchInterval: 120_000 });
+  const recentSalesQ = useQuery({ queryKey: ["recent-sales"], queryFn: () => salesFn({ data: {} }), refetchInterval: 60_000 });
+  const overdueQ = useQuery({ queryKey: ["overdue-inst"], queryFn: () => instFn({ data: { status: "overdue" } }), refetchInterval: 60_000 });
 
   const shop = data?.shop;
   const end = shop?.subscription_end ? new Date(shop.subscription_end) : null;
@@ -63,17 +65,45 @@ function ShopDashboard() {
 
   const recent = (recentSalesQ.data ?? []).slice(0, 6);
   const overdue = (overdueQ.data as any)?.rows ?? [];
+  const allRecentSales = (recentSalesQ.data ?? []) as any[];
+  const today = new Date().toISOString().slice(0, 10);
+  const todaySales = allRecentSales.filter((s: any) => (s.sale_date ?? "").slice(0, 10) === today);
 
-  const stats: { label: string; value: string; sub: string; icon: any; tone: Tone }[] = [
-    { label: "আজকের বিক্রয়",  value: fmt(snap?.sales_today ?? 0),      sub: "আজকের মোট আয়",         icon: TrendingUp,   tone: "emerald" },
-    { label: "এ মাসের বিক্রয়", value: fmt(snap?.sales_month ?? 0),      sub: "চলতি মাস",              icon: Receipt,      tone: "blue" },
+  type Drill = null | "today" | "month" | "due" | "lowStock" | "topProducts";
+  const stats: { label: string; value: string; sub: string; icon: any; tone: Tone; drill?: Drill }[] = [
+    { label: "আজকের বিক্রয়",  value: fmt(snap?.sales_today ?? 0),      sub: "আজকের মোট আয়",         icon: TrendingUp,   tone: "emerald", drill: "today" },
+    { label: "এ মাসের বিক্রয়", value: fmt(snap?.sales_month ?? 0),      sub: "চলতি মাস",              icon: Receipt,      tone: "blue", drill: "month" },
     { label: "এ মাসের ক্রয়",   value: fmt(snap?.purchase_month ?? 0),   sub: "সাপ্লায়ার থেকে",         icon: TrendingDown, tone: "amber" },
-    { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet" },
-    { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose" },
+    { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet", drill: "topProducts" },
+    { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose", drill: "due" },
     { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange" },
-    { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky" },
-    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink" },
+    { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky", drill: "lowStock" },
+    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink", drill: "lowStock" },
     { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal" },
+  ];
+
+  const salesCols: DrillColumn[] = [
+    { key: "invoice_no", label: "ইনভয়েস", render: (r: any) => `#${r.invoice_no ?? r.id.slice(0, 8)}` },
+    { key: "customer", label: "কাস্টমার", render: (r: any) => r.customer?.name ?? "Walk-in" },
+    { key: "sale_date", label: "তারিখ", render: (r: any) => new Date(r.sale_date).toLocaleDateString("bn-BD") },
+    { key: "total", label: "মোট", align: "right", render: (r: any) => fmt(r.total) },
+    { key: "due", label: "বাকি", align: "right", render: (r: any) => Number(r.due) > 0 ? <span className="font-semibold text-rose-600">{fmt(r.due)}</span> : "-" },
+  ];
+  const overdueCols: DrillColumn[] = [
+    { key: "customer", label: "কাস্টমার", render: (r: any) => r.sale?.customer?.name ?? "-" },
+    { key: "invoice", label: "ইনভয়েস", render: (r: any) => `#${r.sale?.invoice_no ?? "-"}` },
+    { key: "due_date", label: "তারিখ" },
+    { key: "amount", label: "বাকি", align: "right", render: (r: any) => <span className="font-semibold text-rose-600">{fmt(Number(r.amount) - Number(r.paid_amount || 0))}</span> },
+  ];
+  const lowStockCols: DrillColumn[] = [
+    { key: "name", label: "পণ্য" },
+    { key: "stock_quantity", label: "স্টক", align: "right", render: (r: any) => `${num(r.stock_quantity)} ${r.unit?.short_name ?? ""}` },
+    { key: "low_stock_alert", label: "Alert", align: "right", render: (r: any) => num(r.low_stock_alert) },
+  ];
+  const topCols: DrillColumn[] = [
+    { key: "name", label: "পণ্য" },
+    { key: "qty", label: "একক", align: "right", render: (r: any) => num(r.qty) },
+    { key: "revenue", label: "রেভিনিউ", align: "right", render: (r: any) => fmt(r.revenue) },
   ];
 
   const trendData = trendQ.data ?? [];
@@ -120,7 +150,15 @@ function ShopDashboard() {
       ) : (
       <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${compact ? "xl:grid-cols-6" : "xl:grid-cols-3"}`}>
         {stats.map((s) => (
-          <div key={s.label} className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md ${compact ? "p-3" : "p-5"}`}>
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => s.drill && setDrill(s.drill)}
+            disabled={!s.drill}
+            className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition ${
+              s.drill ? "cursor-pointer hover:border-emerald-200 hover:shadow-md" : "cursor-default"
+            } ${compact ? "p-3" : "p-5"}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{s.label}</p>
@@ -131,10 +169,36 @@ function ShopDashboard() {
                 <s.icon className="h-4.5 w-4.5" />
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
       )}
+
+      <KpiDialog
+        open={drill === "today"} onOpenChange={(v) => !v && setDrill(null)}
+        title="আজকের বিক্রয়" subtitle={`${todaySales.length} টি ইনভয়েস • ${fmt(snap?.sales_today ?? 0)}`}
+        columns={salesCols} rows={todaySales}
+      />
+      <KpiDialog
+        open={drill === "month"} onOpenChange={(v) => !v && setDrill(null)}
+        title="সাম্প্রতিক বিক্রয়" subtitle={`${allRecentSales.length} টি ইনভয়েস • এ মাসে ${fmt(snap?.sales_month ?? 0)}`}
+        columns={salesCols} rows={allRecentSales.slice(0, 100)}
+      />
+      <KpiDialog
+        open={drill === "due"} onOpenChange={(v) => !v && setDrill(null)}
+        title="বকেয়া কিস্তি" subtitle={`মোট বাকি ${fmt(snap?.customer_due ?? 0)}`}
+        columns={overdueCols} rows={overdue.slice(0, 100)}
+      />
+      <KpiDialog
+        open={drill === "lowStock"} onOpenChange={(v) => !v && setDrill(null)}
+        title="স্টক শেষ প্রায়" subtitle={`${extras?.lowStockCount ?? 0} টি পণ্য`}
+        columns={lowStockCols} rows={(extras?.lowStock ?? []) as any[]}
+      />
+      <KpiDialog
+        open={drill === "topProducts"} onOpenChange={(v) => !v && setDrill(null)}
+        title="টপ পণ্য (এ মাস)" subtitle={`রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)} • লাভ ${fmt(extras?.monthProfit ?? 0)}`}
+        columns={topCols} rows={(extras?.topProducts ?? []) as any[]}
+      />
 
       {/* Trend + Overdue */}
       <div className="grid gap-6 lg:grid-cols-3">
