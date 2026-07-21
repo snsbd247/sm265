@@ -37,7 +37,7 @@ export function SaleRevisionsList({ saleId }: { saleId: string }) {
     setPdfBusy(true);
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"), import("jspdf"),
+        import("html2canvas-pro"), import("jspdf"),
       ]);
       const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
       const img = canvas.toDataURL("image/png");
