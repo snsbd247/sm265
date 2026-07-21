@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2 } from "lucide-react";
+import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
@@ -814,7 +814,7 @@ function Page() {
 }
 
 function SuccessDialog({
-  open, onOpenChange, saleId, getSaleFn, sendSmsFn, onNewSale, onOpenFullReceipt,
+  open, onOpenChange, saleId, getSaleFn, sendSmsFn, onNewSale, onOpenFullReceipt, onEdit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -823,6 +823,7 @@ function SuccessDialog({
   sendSmsFn: (args: { data: { sale_id: string; phone?: string | null; origin: string } }) => Promise<any>;
   onNewSale: () => void;
   onOpenFullReceipt: (id: string) => void;
+  onEdit: (sale: any) => void | Promise<void>;
 }) {
   const q = useQuery({
     queryKey: ["sale-share", saleId],
@@ -835,13 +836,23 @@ function SuccessDialog({
   const publicUrl = sale?.share_token ? `${origin}/i/${sale.share_token}` : "";
 
   const [smsPhone, setSmsPhone] = useState("");
+  const [lastSmsAt, setLastSmsAt] = useState<Date | null>(null);
+  const [smsSentTo, setSmsSentTo] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   useEffect(() => {
     if (customer?.phone) setSmsPhone(customer.phone);
   }, [customer?.phone]);
+  useEffect(() => {
+    if (!open) { setLastSmsAt(null); setSmsSentTo(null); }
+  }, [open]);
 
   const smsM = useMutation({
     mutationFn: () => sendSmsFn({ data: { sale_id: saleId!, phone: smsPhone || null, origin } }),
-    onSuccess: () => toast.success("SMS পাঠানো হয়েছে"),
+    onSuccess: () => {
+      setLastSmsAt(new Date());
+      setSmsSentTo(smsPhone);
+      toast.success("SMS পাঠানো হয়েছে");
+    },
     onError: (e: any) => toast.error(e.message ?? "SMS পাঠানো যায়নি"),
   });
 
@@ -870,11 +881,57 @@ function SuccessDialog({
     } catch { /* cancelled */ }
   };
 
+  const printInvoice = () => {
+    if (typeof window === "undefined") return;
+    const el = document.getElementById("pos-invoice-preview");
+    if (!el) return;
+    document.body.classList.add("printing-invoice");
+    const done = () => {
+      document.body.classList.remove("printing-invoice");
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+    // fallback cleanup
+    setTimeout(done, 2000);
+  };
+
+  const downloadPdf = async () => {
+    const el = document.getElementById("pos-invoice-preview");
+    if (!el) return;
+    setPdfBusy(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 6;
+      const availW = pageW - margin * 2;
+      const ratio = canvas.height / canvas.width;
+      let w = availW;
+      let h = availW * ratio;
+      if (h > pageH - margin * 2) { h = pageH - margin * 2; w = h / ratio; }
+      pdf.addImage(imgData, "PNG", (pageW - w) / 2, margin, w, h);
+      const name = `invoice-${sale?.invoice_no ?? sale?.id ?? Date.now()}.pdf`;
+      pdf.save(name);
+      toast.success("PDF ডাউনলোড হয়েছে");
+    } catch (e: any) {
+      toast.error(e?.message ?? "PDF তৈরি করা যায়নি");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md print:max-w-none print:border-0 print:shadow-none">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 print:hidden">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             বিক্রয় সম্পন্ন
           </DialogTitle>
@@ -883,10 +940,22 @@ function SuccessDialog({
         {!sale ? (
           <div className="py-6 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
         ) : (
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
             <InvoicePreview sale={sale} />
 
-            <div>
+            <div className="flex flex-wrap gap-2 print:hidden">
+              <Button size="sm" variant="outline" onClick={printInvoice} className="flex-1 min-w-[110px]">
+                <Printer className="mr-1 h-4 w-4" /> প্রিন্ট
+              </Button>
+              <Button size="sm" variant="outline" onClick={downloadPdf} disabled={pdfBusy} className="flex-1 min-w-[110px]">
+                <Download className="mr-1 h-4 w-4" /> {pdfBusy ? "..." : "PDF"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onEdit(sale)} className="flex-1 min-w-[110px]">
+                <Pencil className="mr-1 h-4 w-4" /> সম্পাদনা
+              </Button>
+            </div>
+
+            <div className="print:hidden">
               <Label className="text-xs">পাবলিক শেয়ারযোগ্য লিংক</Label>
               <div className="mt-1 flex items-center gap-1">
                 <Input readOnly value={publicUrl} className="h-9 text-xs" onFocus={(e) => e.currentTarget.select()} />
@@ -902,7 +971,7 @@ function SuccessDialog({
               </p>
             </div>
 
-            <div>
+            <div className="print:hidden">
               <Label className="text-xs">SMS পাঠান (কাস্টমারের মোবাইলে লিংক যাবে)</Label>
               <div className="mt-1 flex items-center gap-1">
                 <Input
@@ -918,14 +987,25 @@ function SuccessDialog({
                   onClick={() => smsM.mutate()}
                 >
                   <MessageSquare className="mr-1 h-4 w-4" />
-                  {smsM.isPending ? "..." : "পাঠান"}
+                  {smsM.isPending ? "পাঠাচ্ছে..." : lastSmsAt ? "আবার পাঠান" : "পাঠান"}
                 </Button>
               </div>
+              {smsM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
+                  <X className="h-3 w-3" /> পাঠানো যায়নি — আবার চেষ্টা করুন
+                </div>
+              )}
+              {lastSmsAt && !smsM.isPending && !smsM.isError && (
+                <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+                  <CheckCheck className="h-3 w-3" />
+                  পাঠানো হয়েছে {smsSentTo && `→ ${smsSentTo}`} • {lastSmsAt.toLocaleTimeString("bn-BD")}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between print:hidden">
           <Button variant="outline" onClick={onNewSale}>
             <Plus className="mr-1 h-4 w-4" /> নতুন বিক্রয়
           </Button>
@@ -934,7 +1014,7 @@ function SuccessDialog({
             onClick={() => saleId && onOpenFullReceipt(saleId)}
             className="bg-orange-500 hover:bg-orange-600"
           >
-            <Printer className="mr-1 h-4 w-4" /> প্রিন্ট রিসিট
+            <Printer className="mr-1 h-4 w-4" /> ফুল রিসিট
           </Button>
         </DialogFooter>
       </DialogContent>
