@@ -8,7 +8,6 @@ import { snapshotSale } from "@/lib/sale-revisions.functions";
 import { getInvoiceTemplate, DEFAULT_TEMPLATE } from "@/lib/invoice-template.functions";
 import { SaleDeliveryHistory } from "@/components/invoice-delivery-history";
 import { InvoicePreview } from "@/components/invoice-preview";
-import { downloadInvoicePdf, copyToClipboard, nativeShare as sharePublicUrl } from "@/lib/invoice-share";
 import { listProducts, listCategories } from "@/lib/inventory.functions";
 import { getCurrentShift } from "@/lib/shifts.functions";
 import { Button } from "@/components/ui/button";
