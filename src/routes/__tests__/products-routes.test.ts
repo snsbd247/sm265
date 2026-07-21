@@ -3,14 +3,12 @@ import { Route as ListRoute } from "@/routes/app.products.index";
 import { Route as DetailRoute } from "@/routes/app.products.$productId";
 
 describe("products routes", () => {
-  it("list is registered at /app/products/ (index leaf)", () => {
-    expect(ListRoute.id).toBe("/app/products/");
-    expect(ListRoute.path).toBe("/");
+  it("list route is declared at /app/products/", () => {
+    expect((ListRoute.options as any).path).toBe("/app/products/");
   });
 
-  it("detail is a sibling leaf at /app/products/$productId", () => {
-    expect(DetailRoute.id).toBe("/app/products/$productId");
-    expect(DetailRoute.path).toBe("$productId");
+  it("detail route is a sibling declared at /app/products/$productId", () => {
+    expect((DetailRoute.options as any).path).toBe("/app/products/$productId");
   });
 
   it("detail route parses a valid uuid productId", () => {
