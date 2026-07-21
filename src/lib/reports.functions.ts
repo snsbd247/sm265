@@ -204,11 +204,13 @@ export const getReportSnapshot = createServerFn({ method: "GET" })
     ]);
 
     const sum = (arr: any[] | null, k: string) => (arr ?? []).reduce((s, r) => s + (+r[k] || 0), 0);
+    const sumPositive = (arr: any[] | null, k: string) =>
+      (arr ?? []).reduce((s, r) => s + Math.max(+r[k] || 0, 0), 0);
     return {
       sales_today: sum(salesToday.data, "total"),
       sales_month: sum(salesMonth.data, "total"),
       purchase_month: sum(purchasesMonth.data, "total"),
-      customer_due: sum(dueTotal.data, "current_balance"),
+      customer_due: sumPositive(dueTotal.data, "current_balance"),
     };
   });
 
@@ -229,9 +231,9 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
     }
     const from = days[0];
 
-    const [products, supplierDue, custIn, supOut, salesTrend, topItems, recentPurchases, monthProfit] = await Promise.all([
+    const [products, supplierDue, custIn, supOut, salesTrend, topItems, recentPurchases, monthProfit, monthPurchases, customersAll, suppliersAll] = await Promise.all([
       context.supabase.from("products")
-        .select("id, name, stock_quantity, low_stock_alert, sale_price, unit:units(short_name)")
+        .select("id, name, stock_quantity, low_stock_alert, sale_price, purchase_price, unit:units(short_name)")
         .eq("shop_id", shopId).eq("is_active", true),
       context.supabase.from("suppliers").select("current_balance").eq("shop_id", shopId),
       context.supabase.from("customer_payments").select("amount, payment_method, payment_date").eq("shop_id", shopId).gte("payment_date", from).lte("payment_date", today),
@@ -250,6 +252,18 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
         .gte("sale.sale_date", monthStart)
         .lte("sale.sale_date", today)
         .limit(20000),
+      context.supabase.from("purchases")
+        .select("id, purchase_date, invoice_no, total, paid, due, supplier:suppliers(name)")
+        .eq("shop_id", shopId).gte("purchase_date", monthStart).lte("purchase_date", today)
+        .order("purchase_date", { ascending: false }).limit(200),
+      context.supabase.from("customers")
+        .select("id, name, phone, current_balance")
+        .eq("shop_id", shopId).gt("current_balance", 0)
+        .order("current_balance", { ascending: false }).limit(200),
+      context.supabase.from("suppliers")
+        .select("id, name, phone, current_balance")
+        .eq("shop_id", shopId).gt("current_balance", 0)
+        .order("current_balance", { ascending: false }).limit(200),
     ]);
 
     const productList = (products.data ?? []) as any[];
@@ -290,6 +304,8 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
       productsCount: productList.length,
       lowStockCount: lowStock.length,
       lowStock: lowStock.slice(0, 6),
+      lowStockAll: lowStock,
+      productsAll: productList,
       supplierDue: sum(supplierDue.data, "current_balance"),
       cashInToday: sum(custIn.data, "amount", (r) => r.payment_date === today && r.payment_method === "cash"),
       bkashInToday: sum(custIn.data, "amount", (r) => r.payment_date === today && r.payment_method === "bkash"),
@@ -298,6 +314,11 @@ export const getDashboardExtras = createServerFn({ method: "GET" })
       trend,
       topProducts,
       recentPurchases: recentPurchases.data ?? [],
+      monthPurchases: monthPurchases.data ?? [],
+      customersWithDue: customersAll.data ?? [],
+      suppliersWithDue: suppliersAll.data ?? [],
+      cashInTodayRows: ((custIn.data ?? []) as any[]).filter((r) => r.payment_date === today),
+      cashOutTodayRows: ((supOut.data ?? []) as any[]).filter((r) => r.payment_date === today),
       monthProfit: mRev - mCost,
       monthRevenue: mRev,
       stockValue: productList.reduce((s, p) => s + Number(p.stock_quantity || 0) * Number(p.purchase_price || 0), 0),

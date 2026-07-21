@@ -43,7 +43,8 @@ function Dashboard() {
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
   const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }), refetchInterval: 120_000 });
-  const [drill, setDrill] = useState<null | "all" | "active" | "expired" | "locked" | "expiring">(null);
+  type Drill = null | "all" | "active" | "expired" | "locked" | "expiring" | "revenue" | "sms";
+  const [drill, setDrill] = useState<Drill>(null);
 
   const [email, setEmail] = useState<string>("");
   useEffect(() => {
@@ -54,16 +55,15 @@ function Dashboard() {
   const ext = extrasQ.data;
 
   const monthlyRevenue = Number(data?.monthlyRevenue ?? 0);
-  type Drill = null | "all" | "active" | "expired" | "locked" | "expiring";
   const stats: { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean; drill?: Drill }[] = [
     { label: "মোট দোকান",           value: data?.totalShops ?? 0,     sub: "সব রেজিস্টার্ড",       icon: Store,        tone: "blue", drill: "all" },
     { label: "সক্রিয় সাবস্ক্রিপশন",   value: data?.activeShops ?? 0,    sub: "চলমান",                icon: CheckCircle2, tone: "emerald", drill: "active" },
     { label: "এ মাসের আয়",           value: monthlyRevenue > 0 ? fmt(monthlyRevenue) : "—",
       sub: monthlyRevenue > 0 ? `মোট ৳${monthlyRevenue.toLocaleString("bn-BD")}` : "এখনো কোনো পেমেন্ট নেই",
-      icon: Wallet, tone: "violet", empty: monthlyRevenue <= 0 },
+      icon: Wallet, tone: "violet", empty: monthlyRevenue <= 0, drill: monthlyRevenue > 0 ? "revenue" : undefined },
     { label: "লকড অ্যাকাউন্ট",        value: data?.lockedShops ?? 0,    sub: "পর্যালোচনা প্রয়োজন",   icon: Lock,         tone: "rose", drill: "locked" },
     { label: "মেয়াদ শেষ",             value: data?.expiredShops ?? 0,   sub: "রিনিউ প্রয়োজন",         icon: XCircle,      tone: "amber", drill: "expired" },
-    { label: "SMS পাঠানো",           value: data?.smsSent ?? 0,        sub: "মোট ডেলিভারি",         icon: MessageSquare, tone: "sky" },
+    { label: "SMS পাঠানো",           value: data?.smsSent ?? 0,        sub: "মোট ডেলিভারি",         icon: MessageSquare, tone: "sky", drill: "sms" },
   ];
 
   const allShops = (shopsQ.data ?? []) as any[];
@@ -82,6 +82,20 @@ function Dashboard() {
     { key: "package", label: "প্যাকেজ", render: (r: any) => r.package?.name ?? "-" },
     { key: "subscription_end", label: "মেয়াদ", render: (r: any) => r.subscription_end ? new Date(r.subscription_end).toLocaleDateString("bn-BD") : "-" },
     { key: "status", label: "স্ট্যাটাস", align: "right", render: (r: any) => badge(r.status) },
+  ];
+  const revenueCols: DrillColumn[] = [
+    { key: "created_at", label: "তারিখ", render: (r: any) => new Date(r.created_at).toLocaleDateString("bn-BD") },
+    { key: "shop", label: "দোকান", render: (r: any) => r.shop?.name ?? "-" },
+    { key: "method", label: "মাধ্যম", render: (r: any) => r.method ?? "-" },
+    { key: "amount", label: "পরিমাণ", align: "right", render: (r: any) => fmt(r.amount) },
+  ];
+  const smsCols: DrillColumn[] = [
+    { key: "created_at", label: "তারিখ", render: (r: any) => new Date(r.created_at).toLocaleString("bn-BD") },
+    { key: "phone", label: "মোবাইল" },
+    { key: "message", label: "বার্তা", render: (r: any) => <span className="line-clamp-2 text-xs">{r.message}</span> },
+    { key: "status", label: "স্ট্যাটাস", align: "right", render: (r: any) => (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${r.status === "sent" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{r.status}</span>
+    ) },
   ];
 
   const actions: { label: string; icon: any; to: string; tone: Tone }[] = [
@@ -173,11 +187,25 @@ function Dashboard() {
             drill === "all" ? "সব দোকান" :
             drill === "active" ? "সক্রিয় দোকান" :
             drill === "expired" ? "মেয়াদ শেষ দোকান" :
-            drill === "locked" ? "লকড দোকান" : "দোকান"
+            drill === "locked" ? "লকড দোকান" :
+            drill === "revenue" ? `এ মাসের আয় — ${fmt(monthlyRevenue)}` :
+            drill === "sms" ? "SMS পাঠানোর হিস্টরি" : "দোকান"
           }
-          subtitle={drill ? `${shopsBy(drill).length} টি` : ""}
-          columns={shopCols}
-          rows={drill && drill !== "expiring" ? shopsBy(drill).slice(0, 100) : []}
+          subtitle={
+            drill === "revenue" ? `${(ext?.recentPayments ?? []).length} টি পেমেন্ট (শেষ ${range} দিন)` :
+            drill === "sms" ? `${(ext?.recentSms ?? []).length} টি বার্তা (শেষ ${range} দিন)` :
+            drill ? `${shopsBy(drill as any).length} টি` : ""
+          }
+          columns={
+            drill === "revenue" ? revenueCols :
+            drill === "sms" ? smsCols :
+            shopCols
+          }
+          rows={
+            drill === "revenue" ? ((ext?.recentPayments ?? []) as any[]) :
+            drill === "sms" ? ((ext?.recentSms ?? []) as any[]) :
+            drill && drill !== "expiring" ? shopsBy(drill as any).slice(0, 200) : []
+          }
         />
 
         {/* Trend chart */}
@@ -360,8 +388,8 @@ function Dashboard() {
                 <h2 className="text-sm font-bold uppercase tracking-tight text-slate-700">সিস্টেম অবস্থা</h2>
               </div>
               <div className="space-y-2 p-4">
-                <StatusRow icon={Database} label="Database" ok={true} note="সংযুক্ত" />
-                <StatusRow icon={Server} label="Scheduler / Cron" ok={true} note="সক্রিয়" />
+                <StatusRow icon={Database} label="Database" ok={!!data} note={data ? "সংযুক্ত" : "সংযোগ নেই"} />
+                <StatusRow icon={Server} label="ট্রেন্ড ডেটা" ok={!extrasQ.isError} note={extrasQ.isError ? "ত্রুটি" : `${ext?.newShopsPeriod ?? 0} নতুন শপ`} />
                 <StatusRow icon={MessageSquare} label={`SMS (${range}দিন)`} ok={(ext?.smsStats.failed ?? 0) === 0} note={`${ext?.smsStats.sent ?? 0} সফল / ${ext?.smsStats.failed ?? 0} ব্যর্থ`} />
               </div>
             </div>
