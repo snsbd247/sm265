@@ -915,6 +915,31 @@ export const getBranding = createServerFn({ method: "GET" })
     return data;
   });
 
+// ---------- Audit logs ----------
+export const listAuditLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      shop_id: z.string().uuid().optional(),
+      action: z.string().optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("audit_logs")
+      .select("*, shop:shops(name)")
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 200);
+    if (data.shop_id) q = q.eq("shop_id", data.shop_id);
+    if (data.action) q = q.eq("action", data.action);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 export const saveBranding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
