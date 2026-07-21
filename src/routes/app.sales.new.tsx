@@ -593,6 +593,23 @@ function Page() {
           </Button>
         </div>
       )}
+      {editSaleId && (
+        <div className="flex items-center justify-between gap-3 border-b border-sky-300 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+          <span>✏️ সম্পাদনা মোড — ইনভয়েস <b>#{editInvoiceNo ?? editSaleId.slice(0,8)}</b> আপডেট হবে (নতুন ইনভয়েস তৈরি হবে না)।</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (!confirm("সম্পাদনা বাতিল করবেন? পরিবর্তনগুলো হারিয়ে যাবে।")) return;
+              const id = editSaleId;
+              setEditSaleId(null); setEditInvoiceNo(null); clearCart();
+              nav({ to: "/app/sales/$saleId", params: { saleId: id! } });
+            }}
+          >
+            বাতিল করুন
+          </Button>
+        </div>
+      )}
       {/* Top bar */}
       {/* Customer bar */}
       <div ref={customerBoxRef} className="flex flex-wrap items-center gap-2 border-b bg-white px-3 py-2 md:px-4">
