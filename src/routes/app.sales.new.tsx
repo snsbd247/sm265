@@ -1096,15 +1096,31 @@ function SuccessDialog({
   );
 }
 
-function InvoicePreview({ sale }: { sale: any }) {
+function InvoicePreview({ sale, tpl, publicUrl }: { sale: any; tpl?: any; publicUrl?: string }) {
   const items = sale.items ?? [];
   const fmt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const typeLabel: Record<string, string> = { cash: "নগদ", due: "বাকি", installment: "কিস্তি" };
+  const primary = tpl?.primary_color ?? "#0f766e";
+  const accent = tpl?.accent_color ?? "#f0fdfa";
+  const textColor = tpl?.text_color ?? "#0f172a";
   return (
-    <div id="pos-invoice-preview" className="rounded-lg border bg-white p-3 text-[12px] leading-tight text-black">
-      <div className="text-center">
-        <div className="text-base font-black uppercase tracking-wide">INVOICE</div>
+    <div id="pos-invoice-preview" className="overflow-hidden rounded-lg border bg-white text-[12px] leading-tight" style={{ color: textColor }}>
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: primary, color: "#ffffff" }}>
+        {tpl?.show_logo && tpl?.logo_url && (
+          <img src={tpl.logo_url} alt="logo" className="h-9 w-9 rounded bg-white/15 object-contain p-0.5" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] uppercase tracking-widest opacity-80">Invoice</div>
+          <div className="truncate text-sm font-black uppercase">{tpl?.header_title ?? "SALES INVOICE"}</div>
+        </div>
       </div>
+      {(tpl?.address_line || tpl?.contact_line) && (
+        <div className="px-3 py-1.5 text-[10px]" style={{ background: accent }}>
+          {tpl?.address_line && <div>{tpl.address_line}</div>}
+          {tpl?.contact_line && <div className="opacity-80">{tpl.contact_line}</div>}
+        </div>
+      )}
+      <div className="p-3">
       <div className="my-1.5 border-t border-dashed" />
       <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
         <div className="text-muted-foreground">Invoice</div>
@@ -1147,7 +1163,7 @@ function InvoicePreview({ sale }: { sale: any }) {
         {Number(sale.tax_amount || 0) > 0 && (
           <div className="flex justify-between"><span>VAT</span><span>+{fmt(sale.tax_amount)}</span></div>
         )}
-        <div className="mt-0.5 flex justify-between border-t pt-0.5 text-sm font-black">
+        <div className="mt-0.5 flex justify-between border-t pt-0.5 text-sm font-black" style={{ color: primary }}>
           <span>TOTAL</span><span>৳ {fmt(sale.total)}</span>
         </div>
         <div className="flex justify-between"><span>Paid</span><span>{fmt(sale.paid)}</span></div>
@@ -1156,6 +1172,37 @@ function InvoicePreview({ sale }: { sale: any }) {
             <span>Due</span><span>{fmt(sale.due)}</span>
           </div>
         )}
+      </div>
+      {tpl?.terms_note && (
+        <div className="mt-2 rounded-md border border-dashed p-1.5 text-[10px] opacity-80">
+          <span className="font-semibold">শর্তাবলী: </span>{tpl.terms_note}
+        </div>
+      )}
+      {tpl?.show_signature && (
+        <div className="mt-3 grid grid-cols-2 gap-3 text-[10px]">
+          <div className="text-center">
+            <div className="mx-auto mb-0.5 h-6 border-b" />
+            <div>কাস্টমার</div>
+          </div>
+          <div className="text-center">
+            <div className="mx-auto mb-0.5 h-6 border-b" />
+            <div>{tpl?.signature_label || "অনুমোদনকারী"}</div>
+          </div>
+        </div>
+      )}
+      {tpl?.footer_note && (
+        <div className="mt-2 border-t pt-1.5 text-center text-[10px] opacity-70">{tpl.footer_note}</div>
+      )}
+      {tpl?.show_qr && publicUrl && (
+        <div className="mt-2 flex flex-col items-center gap-0.5">
+          <img
+            alt="qr"
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=88x88&data=${encodeURIComponent(publicUrl)}`}
+            className="h-16 w-16"
+          />
+          <div className="text-[9px] opacity-70">স্ক্যান করে ইনভয়েস দেখুন</div>
+        </div>
+      )}
       </div>
     </div>
   );
