@@ -16,7 +16,7 @@ import { ArrowLeft, HandCoins, Phone, MapPin, Download, Receipt, Wallet, Clock, 
 import { downloadCSV } from "@/lib/export-utils";
 import { CustomerDeliveryHistory } from "@/components/invoice-delivery-history";
 
-export const Route = createFileRoute("/app/customers/$customerId")({ component: Page });
+export const Route = createFileRoute("/app/customers/")({ component: Page });
 
 const money = (n: any) => `৳${Number(n || 0).toLocaleString("bn-BD", { maximumFractionDigits: 2 })}`;
 
