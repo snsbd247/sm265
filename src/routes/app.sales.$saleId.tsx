@@ -149,23 +149,22 @@ function InvoicePage() {
   const handleEdit = async () => {
     if (!sale) return;
     if (isCancelled || isReturned) return;
-    if (!confirm("বর্তমান বিক্রয়টি বাতিল করে সম্পাদনার জন্য কার্টে ফেরত আনা হবে। চালিয়ে যাবেন?")) return;
+    if (!confirm("এই ইনভয়েসটি সম্পাদনা মোডে খুলবে। সেভ করলে একই ইনভয়েস নম্বরে আপডেট হবে।")) return;
     try {
       try { await snapshotFn({ data: { sale_id: saleId, reason: "Edit from detail page" } }); } catch { /* non-fatal */ }
-      // Stash restore payload for the POS page to consume
       try {
         sessionStorage.setItem("pos:restore-sale", JSON.stringify({
+          edit_sale_id: saleId,
+          invoice_no: sale.invoice_no ?? null,
           items,
           customer_id: sale.customer_id ?? null,
           discount: Number(sale.discount ?? 0),
+          paid: Number(sale.paid ?? 0),
           sale_type: sale.sale_type ?? "cash",
+          payment_method: sale.payment_method ?? "cash",
           note: sale.note ?? "",
         }));
       } catch { /* ignore quota */ }
-      await cancelFn({ data: { sale_id: saleId, reason: "Edit from detail page" } });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["sales"] });
-      toast.success("বিক্রয় বাতিল হয়েছে — কার্টে সম্পাদনা করুন");
       nav({ to: "/app/sales/new" });
     } catch (e: any) {
       toast.error(e?.message ?? "সম্পাদনা ব্যর্থ");

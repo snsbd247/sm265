@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCustomers, createSale, getSale, cancelSale, saveCustomer } from "@/lib/sales.functions";
+import { listCustomers, createSale, updateSale, getSale, cancelSale, saveCustomer } from "@/lib/sales.functions";
 import { sendInvoiceLinkSms } from "@/lib/public-invoice.functions";
 import { sendInvoiceLinkEmail } from "@/lib/invoice-delivery.functions";
 import { snapshotSale } from "@/lib/sale-revisions.functions";
@@ -45,6 +45,7 @@ function Page() {
   const prodFn = useServerFn(listProducts);
   const catFn = useServerFn(listCategories);
   const createFn = useServerFn(createSale);
+  const updateFn = useServerFn(updateSale);
   const getSaleFn = useServerFn(getSale);
   const sendSmsFn = useServerFn(sendInvoiceLinkSms);
   const cancelFn = useServerFn(cancelSale);
@@ -86,6 +87,8 @@ function Page() {
   const [quickOpening, setQuickOpening] = useState(0);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => cryptoRandomId());
+  const [editSaleId, setEditSaleId] = useState<string | null>(null);
+  const [editInvoiceNo, setEditInvoiceNo] = useState<string | null>(null);
 
   // Post-sale success dialog
   const [successOpen, setSuccessOpen] = useState(false);
@@ -130,10 +133,14 @@ function Page() {
     try { sessionStorage.removeItem("pos:restore-sale"); } catch { /* ignore */ }
     try {
       const payload = JSON.parse(raw) as {
+        edit_sale_id?: string;
+        invoice_no?: string | null;
         items?: Array<{ product_id: string; quantity: number; unit_price?: number; unit_cost?: number; discount_amount?: number; product?: { name?: string; sku?: string; unit?: { short_name?: string } } }>;
         customer_id?: string | null;
         discount?: number;
+        paid?: number;
         sale_type?: SaleType;
+        payment_method?: "cash" | "card" | "bkash" | "bank" | "due";
         note?: string;
       };
       const restored: Line[] = (payload.items ?? []).map((it) => {
@@ -154,9 +161,18 @@ function Page() {
       if (restored.length) setLines(restored);
       if (payload.customer_id) setCustomerId(payload.customer_id);
       if (typeof payload.discount === "number") setDiscount(payload.discount);
+      if (typeof payload.paid === "number") setPaid(payload.paid);
       if (payload.sale_type) setSaleType(payload.sale_type);
+      if (payload.payment_method) setMethod(payload.payment_method);
       if (payload.note) setNote(payload.note);
-      toast.success("সম্পাদনার জন্য ইনভয়েসের ডাটা কার্টে লোড হয়েছে");
+      if (payload.edit_sale_id) {
+        setEditSaleId(payload.edit_sale_id);
+        setEditInvoiceNo(payload.invoice_no ?? null);
+        if (payload.invoice_no) setInvoiceNo(payload.invoice_no);
+        toast.success(`সম্পাদনা মোড: ইনভয়েস #${payload.invoice_no ?? ""}`);
+      } else {
+        toast.success("সম্পাদনার জন্য ইনভয়েসের ডাটা কার্টে লোড হয়েছে");
+      }
     } catch { /* ignore malformed */ }
   }, [prod.data]);
 
@@ -262,8 +278,7 @@ function Page() {
     mutationFn: (vars: { saleTypeOverride?: SaleType; paidOverride?: number } = {}) => {
       const st = vars.saleTypeOverride ?? saleType;
       const p = vars.paidOverride ?? (st === "cash" ? total : paid);
-      return createFn({
-        data: {
+      const payload = {
           customer_id: customerId || null,
           invoice_no: invoiceNo || null,
           sale_date: saleDate,
@@ -283,24 +298,37 @@ function Page() {
           installments: st === "installment" ? installments : null,
           installment_frequency: instFreq,
           installment_start: instStart,
-            idempotency_key: idempotencyKey,
-        },
-      });
+          idempotency_key: idempotencyKey,
+      };
+      if (editSaleId) {
+        return updateFn({ data: { ...payload, sale_id: editSaleId } as any });
+      }
+      return createFn({ data: payload });
     },
     onSuccess: (saleId: any) => {
-      if ((saleId as any)?.duplicate) toast.info("এই বিক্রয় ইতিমধ্যে সংরক্ষিত (ডুপ্লিকেট এড়ানো হয়েছে)");
+      if (editSaleId) toast.success("ইনভয়েস আপডেট হয়েছে");
+      else if ((saleId as any)?.duplicate) toast.info("এই বিক্রয় ইতিমধ্যে সংরক্ষিত (ডুপ্লিকেট এড়ানো হয়েছে)");
       else toast.success("বিক্রয় সংরক্ষিত");
       // Refresh inventory + low-stock badge in real time
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["shop-notifications"] });
       qc.invalidateQueries({ queryKey: ["shop-trend"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      if (editSaleId) qc.invalidateQueries({ queryKey: ["sale", editSaleId] });
       const id = typeof saleId === "string" ? saleId : saleId?.id;
       if (id) {
-        setLastSaleId(id);
-        setCheckoutOpen(false);
-        setSuccessOpen(true);
-        setIdempotencyKey(cryptoRandomId());
+        if (editSaleId) {
+          const editedId = editSaleId;
+          setEditSaleId(null);
+          setEditInvoiceNo(null);
+          setCheckoutOpen(false);
+          nav({ to: "/app/sales/$saleId", params: { saleId: editedId } });
+        } else {
+          setLastSaleId(id);
+          setCheckoutOpen(false);
+          setSuccessOpen(true);
+          setIdempotencyKey(cryptoRandomId());
+        }
       } else {
         nav({ to: "/app/sales" });
       }
@@ -562,6 +590,23 @@ function Page() {
           <span>⚠️ POS শিফট বন্ধ। বিক্রয় করার আগে শিফট শুরু করুন।</span>
           <Button asChild size="sm" className="bg-amber-500 hover:bg-amber-600">
             <Link to="/app/shifts">শিফট শুরু করুন</Link>
+          </Button>
+        </div>
+      )}
+      {editSaleId && (
+        <div className="flex items-center justify-between gap-3 border-b border-sky-300 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+          <span>✏️ সম্পাদনা মোড — ইনভয়েস <b>#{editInvoiceNo ?? editSaleId.slice(0,8)}</b> আপডেট হবে (নতুন ইনভয়েস তৈরি হবে না)।</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (!confirm("সম্পাদনা বাতিল করবেন? পরিবর্তনগুলো হারিয়ে যাবে।")) return;
+              const id = editSaleId;
+              setEditSaleId(null); setEditInvoiceNo(null); clearCart();
+              nav({ to: "/app/sales/$saleId", params: { saleId: id! } });
+            }}
+          >
+            বাতিল করুন
           </Button>
         </div>
       )}

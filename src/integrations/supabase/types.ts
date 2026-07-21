@@ -2067,6 +2067,27 @@ export type Database = {
         }
         Returns: Json
       }
+      update_sale: {
+        Args: {
+          _customer_id: string
+          _discount: number
+          _installment_frequency: string
+          _installment_start: string
+          _installments: number
+          _items: Json
+          _note: string
+          _paid: number
+          _payment_method: string
+          _sale_date: string
+          _sale_id: string
+          _sale_type: string
+        }
+        Returns: string
+      }
+      update_sale_probe:
+        | { Args: { _sale_id: string }; Returns: string }
+        | { Args: { _items: Json; _sale_id: string }; Returns: string }
+      update_sale_reverse: { Args: { _sale_id: string }; Returns: undefined }
       user_shop_ids: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
