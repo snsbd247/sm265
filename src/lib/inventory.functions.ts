@@ -15,6 +15,19 @@ async function getShopId(context: { supabase: any; userId: string }) {
   return shopId;
 }
 
+export const getPackageUsage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const shopId = await getShopId(context);
+    const { getUsage } = await import("./limits.server");
+    const [products, users, sms] = await Promise.all([
+      getUsage(context.supabase, shopId, "products"),
+      getUsage(context.supabase, shopId, "users"),
+      getUsage(context.supabase, shopId, "sms"),
+    ]);
+    return { products, users, sms };
+  });
+
 /* ---------------- Categories ---------------- */
 
 export const listCategories = createServerFn({ method: "GET" })
@@ -162,6 +175,8 @@ export const saveProduct = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
     } else {
+      const { enforceLimit } = await import("./limits.server");
+      await enforceLimit(context.supabase, shopId, "products", 1);
       const { data: created, error } = await context.supabase.from("products")
         .insert({ ...payload, shop_id: shopId, stock_quantity: 0 })
         .select("id").single();
