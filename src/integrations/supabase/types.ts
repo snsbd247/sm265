@@ -65,6 +65,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_role: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          shop_id: string | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          shop_id?: string | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          shop_id?: string | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -1088,10 +1135,12 @@ export type Database = {
           id: string
           invoice_no: string | null
           invoice_type: string
+          last_reminder_at: string | null
           paid_at: string | null
           payment_method: string
           proration_details: Json | null
           raw_response: Json | null
+          reminder_count: number
           shop_id: string
           status: Database["public"]["Enums"]["payment_status"]
           subscription_id: string | null
@@ -1106,10 +1155,12 @@ export type Database = {
           id?: string
           invoice_no?: string | null
           invoice_type?: string
+          last_reminder_at?: string | null
           paid_at?: string | null
           payment_method?: string
           proration_details?: Json | null
           raw_response?: Json | null
+          reminder_count?: number
           shop_id: string
           status?: Database["public"]["Enums"]["payment_status"]
           subscription_id?: string | null
@@ -1124,10 +1175,12 @@ export type Database = {
           id?: string
           invoice_no?: string | null
           invoice_type?: string
+          last_reminder_at?: string | null
           paid_at?: string | null
           payment_method?: string
           proration_details?: Json | null
           raw_response?: Json | null
+          reminder_count?: number
           shop_id?: string
           status?: Database["public"]["Enums"]["payment_status"]
           subscription_id?: string | null
