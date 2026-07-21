@@ -149,3 +149,10 @@ export async function enforceLimit(
     throw new LimitExceededError(kind, info.used, info.limit, info.packageName);
   }
 }
+
+/** Return all usage metrics in one call — used by the usage report UI. */
+export async function getAllUsage(supabase: any, shopId: string) {
+  const kinds: LimitKind[] = ["products", "users", "sms", "customers", "invoices", "invoice_total"];
+  const results = await Promise.all(kinds.map((k) => getUsage(supabase, shopId, k)));
+  return Object.fromEntries(kinds.map((k, i) => [k, results[i]])) as Record<LimitKind, UsageInfo>;
+}
