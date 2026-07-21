@@ -118,6 +118,48 @@ function Page() {
     if (paid > total) setPaid(total);
   }, [total]);
 
+  // Restore cart from an edit-invoice flow (populated in sessionStorage by the sale detail page)
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    if (!prod.data) return;
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem("pos:restore-sale"); } catch { /* ignore */ }
+    if (!raw) return;
+    restoredRef.current = true;
+    try { sessionStorage.removeItem("pos:restore-sale"); } catch { /* ignore */ }
+    try {
+      const payload = JSON.parse(raw) as {
+        items?: Array<{ product_id: string; quantity: number; unit_price?: number; unit_cost?: number; discount_amount?: number; product?: { name?: string; sku?: string; unit?: { short_name?: string } } }>;
+        customer_id?: string | null;
+        discount?: number;
+        sale_type?: SaleType;
+        note?: string;
+      };
+      const restored: Line[] = (payload.items ?? []).map((it) => {
+        const p = prod.data?.find((x: any) => x.id === it.product_id);
+        return {
+          product_id: it.product_id,
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price ?? p?.sale_price ?? 0),
+          unit_cost: Number(it.unit_cost ?? p?.purchase_price ?? 0),
+          discount_amount: Number(it.discount_amount ?? 0),
+          stock: Number(p?.stock_quantity ?? 0),
+          name: p?.name ?? it.product?.name ?? "পণ্য",
+          unit: p?.unit?.short_name ?? it.product?.unit?.short_name,
+          image_url: p?.image_url ?? null,
+          sku: p?.sku ?? it.product?.sku ?? null,
+        };
+      });
+      if (restored.length) setLines(restored);
+      if (payload.customer_id) setCustomerId(payload.customer_id);
+      if (typeof payload.discount === "number") setDiscount(payload.discount);
+      if (payload.sale_type) setSaleType(payload.sale_type);
+      if (payload.note) setNote(payload.note);
+      toast.success("সম্পাদনার জন্য ইনভয়েসের ডাটা কার্টে লোড হয়েছে");
+    } catch { /* ignore malformed */ }
+  }, [prod.data]);
+
   const addProduct = (pid: string) => {
     if (!pid) return;
     const p = prod.data?.find((x: any) => x.id === pid);
