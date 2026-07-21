@@ -1032,6 +1032,7 @@ export type Database = {
           payment_method: string
           sale_date: string
           sale_type: string
+          share_token: string
           shift_id: string | null
           shop_id: string
           status: string
@@ -1053,6 +1054,7 @@ export type Database = {
           payment_method?: string
           sale_date?: string
           sale_type?: string
+          share_token?: string
           shift_id?: string | null
           shop_id: string
           status?: string
@@ -1074,6 +1076,7 @@ export type Database = {
           payment_method?: string
           sale_date?: string
           sale_type?: string
+          share_token?: string
           shift_id?: string | null
           shop_id?: string
           status?: string
