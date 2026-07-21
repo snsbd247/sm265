@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, ChevronDown, Activity, FileText, Bell, History, Inbox } from "lucide-react";
+import { LayoutDashboard, Store, Package, Settings, LogOut, ShieldCheck, CreditCard, MessageSquare, Menu, ShieldAlert, Users, Activity, FileText, Bell, History, Inbox, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,12 +11,9 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getAdminNotifications } from "@/lib/admin.functions";
+import { SidebarNavList, SidebarIconRail, readCollapsed, writeCollapsed, type SidebarNavGroup, type SidebarNavItem } from "@/components/sidebar-nav";
 
-
-type NavItem = { to: string; label: string; icon: any; exact?: boolean };
-type NavGroup = { id: string; label: string; icon: any; items: NavItem[] };
-
-const navGroups: NavGroup[] = [
+const navGroups: SidebarNavGroup[] = [
   {
     id: "overview",
     label: "ওভারভিউ",
@@ -63,9 +60,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const loc = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(readCollapsed()); }, []);
+  const toggleCollapsed = () => { const n = !collapsed; setCollapsed(n); writeCollapsed(n); };
   const { siteName, logoUrl } = useBranding();
 
-  const isItemActive = (n: NavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
+  const isItemActive = (n: SidebarNavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
   const activeGroupId = navGroups.find((g) => g.items.some(isItemActive))?.id ?? "overview";
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map((g) => [g.id, true]))
@@ -81,52 +81,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     navigate({ to: "/admin/login" });
   };
 
-  const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex-1 space-y-6 overflow-y-auto p-4">
-      {navGroups.map((g) => {
-        const isOpen = openGroups[g.id] ?? true;
-        const hasActive = g.items.some(isItemActive);
-        return (
-          <div key={g.id} className="space-y-1">
-            <button
-              type="button"
-              onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-md px-4 pb-2 text-[10px] font-bold uppercase tracking-widest transition ${
-                hasActive ? "text-emerald-400/80" : "text-emerald-500/50 hover:text-emerald-400/80"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <g.icon className="h-3 w-3" />
-                {g.label}
-              </span>
-              <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
-            </button>
-            {isOpen && (
-              <div className="space-y-1">
-                {g.items.map((n) => {
-                  const active = isItemActive(n);
-                  return (
-                    <Link key={n.to} to={n.to} onClick={onClick}
-                      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-sm transition-all ${
-                        active
-                          ? "bg-emerald-500/10 text-emerald-400 border-r-4 border-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]"
-                          : "text-emerald-100/70 hover:bg-white/5 hover:text-white"
-                      }`}>
-                      <n.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "" : "opacity-70 group-hover:opacity-100"}`} strokeWidth={active ? 2.5 : 2} />
-                      <span className="truncate font-medium">{n.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </nav>
-  );
-
-  const Brand = () => (
-    <div className="flex min-w-0 items-center gap-3 border-b border-emerald-900/50 bg-emerald-900/40 px-6 py-5 pr-12">
+  const Brand = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`flex min-w-0 items-center border-b border-emerald-900/50 bg-emerald-900/40 ${compact ? "justify-center px-3 py-4" : "gap-3 px-6 py-5 pr-12"}`}>
       {logoUrl ? (
         <img src={logoUrl} alt={siteName} className="h-10 w-10 shrink-0 rounded-xl object-contain bg-white p-1" />
       ) : (
@@ -134,10 +90,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <ShieldCheck className="h-5 w-5 text-white" />
         </div>
       )}
-      <div className="min-w-0">
-        <div className="truncate font-bold text-white leading-tight">{siteName}</div>
-        <div className="truncate text-xs font-medium text-emerald-400/80 mt-0.5">সুপার এডমিন প্যানেল</div>
-      </div>
+      {!compact && (
+        <div className="min-w-0">
+          <div className="truncate font-bold text-white leading-tight">{siteName}</div>
+          <div className="truncate text-xs font-medium text-emerald-400/80 mt-0.5">সুপার এডমিন প্যানেল</div>
+        </div>
+      )}
     </div>
   );
 
@@ -146,12 +104,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="hidden w-64 flex-col bg-emerald-950 text-slate-100 border-r border-emerald-900/50 md:flex">
-        <Brand />
-        <NavList />
-        <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
-          <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
-            <LogOut className="h-4 w-4" /> লগআউট
+      <aside className={`hidden flex-col bg-emerald-950 text-slate-100 border-r border-emerald-900/50 md:flex transition-[width] duration-200 ${collapsed ? "w-[72px]" : "w-64"}`}>
+        <Brand compact={collapsed} />
+        {collapsed ? (
+          <SidebarIconRail groups={navGroups} isItemActive={isItemActive} />
+        ) : (
+          <SidebarNavList groups={navGroups} isItemActive={isItemActive} openGroups={openGroups} toggleGroup={toggleGroup} />
+        )}
+        <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-3 space-y-1">
+          <button
+            onClick={toggleCollapsed}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white transition-all ${collapsed ? "justify-center" : ""}`}
+            aria-label={collapsed ? "সাইডবার এক্সপ্যান্ড" : "সাইডবার কোল্যাপ্স"}
+          >
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /> কোল্যাপ্স</>}
+          </button>
+          <button onClick={signOut} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all ${collapsed ? "justify-center" : ""}`} aria-label="লগআউট">
+            <LogOut className="h-4 w-4" /> {!collapsed && "লগআউট"}
           </button>
         </div>
       </aside>
@@ -171,7 +140,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <SheetTitle className="sr-only">মেন্যু</SheetTitle>
               <div className="flex h-full flex-col">
                 <Brand />
-                <NavList onClick={() => setOpen(false)} />
+                <SidebarNavList groups={navGroups} isItemActive={isItemActive} openGroups={openGroups} toggleGroup={toggleGroup} onItemClick={() => setOpen(false)} />
                 <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
                   <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
                     <LogOut className="h-4 w-4" /> লগআউট

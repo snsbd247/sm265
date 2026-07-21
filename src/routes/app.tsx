@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, ChevronDown, Activity, Warehouse, TrendingUp, PieChart, UserCog, Wallet, FileText, KeyRound } from "lucide-react";
+import { LayoutDashboard, Store, LogOut, CreditCard, Package, Tag, Ruler, Boxes, Truck, ShoppingCart, Users, Receipt, CalendarClock, BarChart3, Bell, Menu, Activity, Warehouse, TrendingUp, PieChart, UserCog, Wallet, FileText, KeyRound, PanelLeftClose, PanelLeft } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { isModuleAllowed, type ModuleKey } from "@/lib/modules";
+import { SidebarNavList, SidebarIconRail, readCollapsed, writeCollapsed, type SidebarNavItem } from "@/components/sidebar-nav";
 
 export const Route = createFileRoute("/app")({ ssr: false, component: AppLayout });
 
@@ -93,6 +94,9 @@ function AppLayout() {
     refetchInterval: 60_000,
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(readCollapsed()); }, []);
+  const toggleCollapsed = () => { const n = !collapsed; setCollapsed(n); writeCollapsed(n); };
   const loc = useLocation();
 
   const allowedModules: string[] | null =
@@ -102,6 +106,7 @@ function AppLayout() {
     .filter((g) => g.items.length > 0);
 
   const isItemActive = (n: NavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
+  const isItemActiveGeneric = (n: SidebarNavItem) => (n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to));
   const activeGroupId = visibleGroups.find((g) => g.items.some(isItemActive))?.id ?? "overview";
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map((g) => [g.id, true]))
@@ -143,79 +148,45 @@ function AppLayout() {
     return null;
   };
 
-  const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex-1 space-y-6 overflow-y-auto p-4">
-      {visibleGroups.map((g) => {
-        const isOpen = openGroups[g.id] ?? true;
-        const hasActive = g.items.some(isItemActive);
-        return (
-          <div key={g.id} className="space-y-1">
-            <button
-              type="button"
-              onClick={() => toggleGroup(g.id)}
-              className={`flex w-full items-center justify-between rounded-md px-4 pb-2 text-[10px] font-bold uppercase tracking-widest transition ${
-                hasActive ? "text-emerald-400/80" : "text-emerald-500/50 hover:text-emerald-400/80"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <g.icon className="h-3 w-3" />
-                {g.label}
-              </span>
-              <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
-            </button>
-            {isOpen && (
-              <div className="space-y-1">
-                {g.items.map((n) => {
-                  const active = isItemActive(n);
-                  const b = itemBadge(n.to);
-                  return (
-                    <Link key={n.to} to={n.to} onClick={onClick}
-                      className={`group relative flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-sm transition-all ${
-                        active
-                          ? "bg-emerald-500/10 text-emerald-400 border-r-4 border-emerald-400 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]"
-                          : "text-emerald-100/70 hover:bg-white/5 hover:text-white"
-                      }`}>
-                      <n.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "" : "opacity-70 group-hover:opacity-100"}`} strokeWidth={active ? 2.5 : 2} />
-                      <span className="truncate font-medium">{n.label}</span>
-                      {b && (
-                        <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                          b.tone === "danger" ? "bg-rose-500 text-white" : "bg-amber-400 text-slate-900"
-                        }`}>
-                          {b.text}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </nav>
-  );
+  const groupsWithBadges = visibleGroups.map((g) => ({
+    ...g,
+    items: g.items.map((n) => ({ ...n, badge: itemBadge(n.to) })),
+  }));
 
-  const ShopHeader = () => (
-    <div className="flex min-w-0 items-center gap-3 border-b border-emerald-900/50 bg-emerald-900/40 px-6 py-5 pr-12">
+  const ShopHeader = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`flex min-w-0 items-center border-b border-emerald-900/50 bg-emerald-900/40 ${compact ? "justify-center px-3 py-4" : "gap-3 px-6 py-5 pr-12"}`}>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 shadow-lg shadow-emerald-500/20">
         <Store className="h-5 w-5 text-white" />
       </div>
-      <div className="min-w-0">
-        <div className="font-bold truncate text-white leading-tight">{shopQ.data?.shop?.name}</div>
-        <div className="text-xs font-medium text-emerald-400/80 mt-0.5 truncate">{shopQ.data?.shop?.owner_name}</div>
-      </div>
+      {!compact && (
+        <div className="min-w-0">
+          <div className="font-bold truncate text-white leading-tight">{shopQ.data?.shop?.name}</div>
+          <div className="text-xs font-medium text-emerald-400/80 mt-0.5 truncate">{shopQ.data?.shop?.owner_name}</div>
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className="flex min-h-dvh">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 flex-col bg-emerald-950 text-slate-100 border-r border-emerald-900/50 md:flex">
-        <ShopHeader />
-        <NavList />
-        <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
-          <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
-            <LogOut className="h-4 w-4" /> লগআউট
+      <aside className={`hidden flex-col bg-emerald-950 text-slate-100 border-r border-emerald-900/50 md:flex transition-[width] duration-200 ${collapsed ? "w-[72px]" : "w-64"}`}>
+        <ShopHeader compact={collapsed} />
+        {collapsed ? (
+          <SidebarIconRail groups={groupsWithBadges} isItemActive={isItemActiveGeneric} />
+        ) : (
+          <SidebarNavList groups={groupsWithBadges} isItemActive={isItemActiveGeneric} openGroups={openGroups} toggleGroup={toggleGroup} />
+        )}
+        <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-3 space-y-1">
+          <button
+            onClick={toggleCollapsed}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white transition-all ${collapsed ? "justify-center" : ""}`}
+            aria-label={collapsed ? "সাইডবার এক্সপ্যান্ড" : "সাইডবার কোল্যাপ্স"}
+          >
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /> কোল্যাপ্স</>}
+          </button>
+          <button onClick={signOut} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all ${collapsed ? "justify-center" : ""}`} aria-label="লগআউট">
+            <LogOut className="h-4 w-4" /> {!collapsed && "লগআউট"}
           </button>
         </div>
       </aside>
@@ -236,7 +207,7 @@ function AppLayout() {
               <SheetContent side="left" className="flex w-[min(84vw,20rem)] flex-col p-0 bg-emerald-950 text-slate-100 border-emerald-900/50">
                 <SheetTitle className="sr-only">মেন্যু</SheetTitle>
                 <ShopHeader />
-                <NavList onClick={() => setMobileOpen(false)} />
+                <SidebarNavList groups={groupsWithBadges} isItemActive={isItemActiveGeneric} openGroups={openGroups} toggleGroup={toggleGroup} onItemClick={() => setMobileOpen(false)} />
                 <div className="mt-auto border-t border-emerald-900/50 bg-emerald-900/20 p-4">
                   <button onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
                     <LogOut className="h-4 w-4" /> লগআউট
