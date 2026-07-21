@@ -739,13 +739,13 @@ function Page() {
 
       {/* Main grid + cart */}
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto p-3 md:p-4">
+        <div className="min-w-0 flex-1 overflow-y-auto p-2 pb-24 md:p-4 md:pb-4">
           {prod.isLoading ? (
             <div className="p-8 text-center text-sm text-muted-foreground">লোড হচ্ছে...</div>
           ) : visibleProducts.length === 0 ? (
             <div className="p-12 text-center text-sm text-muted-foreground">কোনো পণ্য পাওয়া যায়নি</div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {visibleProducts.map((p: any) => {
                 const stock = Number(p.stock_quantity ?? 0);
                 const low = stock > 0 && stock <= Number(p.low_stock_alert ?? 0);
@@ -783,12 +783,12 @@ function Page() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="flex min-h-[64px] flex-col justify-between gap-1 p-2.5">
-                      <div className="line-clamp-2 text-[13px] font-semibold leading-tight text-slate-900">
+                    <div className="flex min-h-[56px] flex-col justify-between gap-1 p-2 sm:p-2.5">
+                      <div className="line-clamp-2 text-[12px] font-semibold leading-tight text-slate-900 sm:text-[13px]">
                         {p.name}
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <div className="text-sm font-bold text-slate-900">
+                        <div className="text-[13px] font-bold text-slate-900 sm:text-sm">
                           ৳{Number(p.sale_price).toFixed(2)}
                         </div>
                         {!out && !low && (
