@@ -729,11 +729,30 @@ function Page() {
               />
             </div>
             <div>
-              <Label>ফোন</Label>
+              <Label>ফোন (ডুপ্লিকেট চেক করা হবে)</Label>
               <Input
                 value={quickPhone}
                 onChange={(e) => setQuickPhone(e.target.value)}
                 placeholder="01XXXXXXXXX"
+              />
+              {quickPhone.trim() && (cust.data ?? []).some((c: any) => (c.phone ?? "").trim() === quickPhone.trim()) && (
+                <div className="mt-1 text-xs text-rose-600">এই ফোন নাম্বার ইতিমধ্যে ব্যবহৃত</div>
+              )}
+            </div>
+            <div>
+              <Label>ঠিকানা (ঐচ্ছিক)</Label>
+              <Input
+                value={quickAddress}
+                onChange={(e) => setQuickAddress(e.target.value)}
+                placeholder="গ্রাম / থানা / জেলা"
+              />
+            </div>
+            <div>
+              <Label>প্রারম্ভিক বকেয়া (৳)</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={quickOpening}
+                onChange={(e) => setQuickOpening(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
           </div>
@@ -795,8 +814,20 @@ function Page() {
                 <Label>এখন পরিশোধ</Label>
                 <Input
                   type="number" step="0.01" min="0" max={total} value={paid}
-                  onChange={(e) => setPaid(Number(e.target.value))}
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(total, Number(e.target.value) || 0));
+                    setPaid(v);
+                  }}
                 />
+                {paid > total && (
+                  <div className="mt-1 text-xs text-rose-600">পরিশোধ মোটের চেয়ে বেশি হতে পারবে না</div>
+                )}
+                {saleType === "due" && paid >= total && total > 0 && (
+                  <div className="mt-1 text-xs text-amber-600">সম্পূর্ণ পরিশোধ — 'নগদ বিক্রি' বাছাই করুন</div>
+                )}
+                {saleType === "installment" && paid >= total && total > 0 && (
+                  <div className="mt-1 text-xs text-rose-600">কিস্তির জন্য কিছু বাকি থাকতে হবে</div>
+                )}
               </div>
             )}
             {saleType === "installment" && (
