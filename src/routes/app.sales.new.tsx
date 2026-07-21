@@ -101,6 +101,7 @@ function Page() {
   const effectivePaid = saleType === "cash" ? total : paid;
   const due = Math.max(0, total - effectivePaid);
   const totalUnits = lines.reduce((s, l) => s + (l.quantity || 0), 0);
+  const discountBase = Math.max(0, subtotal - itemDiscountTotal);
 
   const addProduct = (pid: string) => {
     if (!pid) return;
