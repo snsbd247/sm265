@@ -9,10 +9,12 @@ import {
   LineChart as LineIcon, Rows3, Grid3x3, CalendarClock, TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton";
 import { KpiDialog, type DrillColumn } from "@/components/dashboard/kpi-dialog";
+import { CardMeta } from "@/components/dashboard/card-meta";
+import { withTiming, dashboardRetry, dashboardRetryDelay, notifyQueryError } from "@/lib/query-timing";
 
 export const Route = createFileRoute("/admin/")({ component: Dashboard });
 
@@ -34,15 +36,23 @@ const val: Record<Tone, string> = {
 };
 
 function Dashboard() {
-  const statsFn = useServerFn(getAdminStats);
-  const shopsFn = useServerFn(listShops);
-  const extrasFn = useServerFn(getAdminExtras);
-  const { data } = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn(), refetchInterval: 60_000 });
-  const shopsQ = useQuery({ queryKey: ["admin-shops-recent"], queryFn: () => shopsFn(), refetchInterval: 60_000 });
+  const statsFnRaw = useServerFn(getAdminStats);
+  const shopsFnRaw = useServerFn(listShops);
+  const extrasFnRaw = useServerFn(getAdminExtras);
+  const statsFn = useMemo(() => withTiming(statsFnRaw, { label: "admin-stats" }), [statsFnRaw]);
+  const shopsFn = useMemo(() => withTiming(shopsFnRaw, { label: "admin-shops" }), [shopsFnRaw]);
+  const extrasFn = useMemo(() => withTiming(extrasFnRaw, { label: "admin-extras", slowMs: 2500 }), [extrasFnRaw]);
+  const commonRetry = { retry: dashboardRetry, retryDelay: dashboardRetryDelay } as const;
+  const statsQ = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn(), refetchInterval: 60_000, ...commonRetry });
+  const shopsQ = useQuery({ queryKey: ["admin-shops-recent"], queryFn: () => shopsFn(), refetchInterval: 60_000, ...commonRetry });
+  const data = statsQ.data;
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
-  const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }), refetchInterval: 120_000 });
+  const extrasQ = useQuery({ queryKey: ["admin-extras", range], queryFn: () => extrasFn({ data: { days: range } }), refetchInterval: 120_000, ...commonRetry });
+  useEffect(() => { if (statsQ.error) notifyQueryError("এডমিন স্ট্যাটস", statsQ.error); }, [statsQ.error]);
+  useEffect(() => { if (shopsQ.error) notifyQueryError("দোকানের তালিকা", shopsQ.error); }, [shopsQ.error]);
+  useEffect(() => { if (extrasQ.error) notifyQueryError("ট্রেন্ড ডেটা", extrasQ.error); }, [extrasQ.error]);
   type Drill = null | "all" | "active" | "expired" | "locked" | "expiring" | "revenue" | "sms";
   const [drill, setDrill] = useState<Drill>(null);
 
@@ -55,15 +65,17 @@ function Dashboard() {
   const ext = extrasQ.data;
 
   const monthlyRevenue = Number(data?.monthlyRevenue ?? 0);
-  const stats: { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean; drill?: Drill }[] = [
-    { label: "মোট দোকান",           value: data?.totalShops ?? 0,     sub: "সব রেজিস্টার্ড",       icon: Store,        tone: "blue", drill: "all" },
-    { label: "সক্রিয় সাবস্ক্রিপশন",   value: data?.activeShops ?? 0,    sub: "চলমান",                icon: CheckCircle2, tone: "emerald", drill: "active" },
+  type Stat = { label: string; value: any; sub: string; icon: any; tone: Tone; empty?: boolean; drill?: Drill; source: string; filter: string };
+  const stats: Stat[] = [
+    { label: "মোট দোকান",           value: data?.totalShops ?? 0,     sub: "সব রেজিস্টার্ড",       icon: Store,        tone: "blue", drill: "all", source: "shops", filter: "সব রো" },
+    { label: "সক্রিয় সাবস্ক্রিপশন",   value: data?.activeShops ?? 0,    sub: "চলমান",                icon: CheckCircle2, tone: "emerald", drill: "active", source: "shops", filter: "status = active" },
     { label: "এ মাসের আয়",           value: monthlyRevenue > 0 ? fmt(monthlyRevenue) : "—",
       sub: monthlyRevenue > 0 ? `মোট ৳${monthlyRevenue.toLocaleString("bn-BD")}` : "এখনো কোনো পেমেন্ট নেই",
-      icon: Wallet, tone: "violet", empty: monthlyRevenue <= 0, drill: monthlyRevenue > 0 ? "revenue" : undefined },
-    { label: "লকড অ্যাকাউন্ট",        value: data?.lockedShops ?? 0,    sub: "পর্যালোচনা প্রয়োজন",   icon: Lock,         tone: "rose", drill: "locked" },
-    { label: "মেয়াদ শেষ",             value: data?.expiredShops ?? 0,   sub: "রিনিউ প্রয়োজন",         icon: XCircle,      tone: "amber", drill: "expired" },
-    { label: "SMS পাঠানো",           value: data?.smsSent ?? 0,        sub: "মোট ডেলিভারি",         icon: MessageSquare, tone: "sky", drill: "sms" },
+      icon: Wallet, tone: "violet", empty: monthlyRevenue <= 0, drill: monthlyRevenue > 0 ? "revenue" : undefined,
+      source: "subscription_payment_ledger", filter: "চলতি মাস" },
+    { label: "লকড অ্যাকাউন্ট",        value: data?.lockedShops ?? 0,    sub: "পর্যালোচনা প্রয়োজন",   icon: Lock,         tone: "rose", drill: "locked", source: "shops", filter: "status = locked" },
+    { label: "মেয়াদ শেষ",             value: data?.expiredShops ?? 0,   sub: "রিনিউ প্রয়োজন",         icon: XCircle,      tone: "amber", drill: "expired", source: "shops", filter: "status = expired" },
+    { label: "SMS পাঠানো",           value: data?.smsSent ?? 0,        sub: "মোট ডেলিভারি",         icon: MessageSquare, tone: "sky", drill: "sms", source: "sms_logs", filter: `শেষ ${range} দিন` },
   ];
 
   const allShops = (shopsQ.data ?? []) as any[];
@@ -176,6 +188,7 @@ function Dashboard() {
                   <c.icon className="h-4 w-4" />
                 </div>
               </div>
+              {!compact && <CardMeta source={c.source} filter={c.filter} />}
             </button>
           ))}
         </div>
@@ -190,6 +203,11 @@ function Dashboard() {
             drill === "locked" ? "লকড দোকান" :
             drill === "revenue" ? `এ মাসের আয় — ${fmt(monthlyRevenue)}` :
             drill === "sms" ? "SMS পাঠানোর হিস্টরি" : "দোকান"
+          }
+          source={
+            drill === "revenue" ? `subscription_payment_ledger · শেষ ${range} দিন` :
+            drill === "sms" ? `sms_logs · শেষ ${range} দিন` :
+            "shops"
           }
           subtitle={
             drill === "revenue" ? `${(ext?.recentPayments ?? []).length} টি পেমেন্ট (শেষ ${range} দিন)` :
@@ -206,6 +224,9 @@ function Dashboard() {
             drill === "sms" ? ((ext?.recentSms ?? []) as any[]) :
             drill && drill !== "expiring" ? shopsBy(drill as any).slice(0, 200) : []
           }
+          loading={(drill === "revenue" || drill === "sms") ? extrasQ.isLoading : shopsQ.isLoading}
+          error={((drill === "revenue" || drill === "sms") ? extrasQ.error : shopsQ.error) as Error | null}
+          onRetry={() => (drill === "revenue" || drill === "sms") ? extrasQ.refetch() : shopsQ.refetch()}
         />
 
         {/* Trend chart */}

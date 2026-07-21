@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { KpiSkeleton, BlockSkeleton } from "@/components/dashboard/kpi-skeleton";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KpiDialog, type DrillColumn } from "@/components/dashboard/kpi-dialog";
+import { CardMeta } from "@/components/dashboard/card-meta";
+import { withTiming, dashboardRetry, dashboardRetryDelay, notifyQueryError } from "@/lib/query-timing";
 
 export const Route = createFileRoute("/app/")({ component: ShopDashboard });
 
@@ -38,24 +40,41 @@ const toneValue: Record<Tone, string> = {
 };
 
 function ShopDashboard() {
-  const shopFn = useServerFn(getMyShop);
-  const snapFn = useServerFn(getReportSnapshot);
-  const extraFn = useServerFn(getDashboardExtras);
-  const trendFn = useServerFn(getShopTrend);
-  const salesFn = useServerFn(listSales);
-  const instFn = useServerFn(listInstallments);
+  const shopFnRaw = useServerFn(getMyShop);
+  const snapFnRaw = useServerFn(getReportSnapshot);
+  const extraFnRaw = useServerFn(getDashboardExtras);
+  const trendFnRaw = useServerFn(getShopTrend);
+  const salesFnRaw = useServerFn(listSales);
+  const instFnRaw = useServerFn(listInstallments);
+
+  // Wrap once so the timing/error handler identity is stable across renders.
+  const shopFn = useMemo(() => withTiming(shopFnRaw, { label: "my-shop" }), [shopFnRaw]);
+  const snapFn = useMemo(() => withTiming(snapFnRaw, { label: "report-snap" }), [snapFnRaw]);
+  const extraFn = useMemo(() => withTiming(extraFnRaw, { label: "dashboard-extras", slowMs: 2500 }), [extraFnRaw]);
+  const trendFn = useMemo(() => withTiming(trendFnRaw, { label: "shop-trend" }), [trendFnRaw]);
+  const salesFn = useMemo(() => withTiming(salesFnRaw, { label: "recent-sales" }), [salesFnRaw]);
+  const instFn = useMemo(() => withTiming(instFnRaw, { label: "overdue-installments" }), [instFnRaw]);
 
   const [range, setRange] = useState<7 | 30 | 90>(30);
   const [compact, setCompact] = useState(false);
   type Drill = null | "today" | "month" | "due" | "lowStock" | "topProducts" | "purchaseMonth" | "supplierDue" | "cashToday" | "products";
   const [drill, setDrill] = useState<Drill>(null);
 
-  const { data } = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn() });
-  const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn(), refetchInterval: 60_000 });
-  const extraQ = useQuery({ queryKey: ["dash-extras"], queryFn: () => extraFn(), refetchInterval: 60_000 });
-  const trendQ = useQuery({ queryKey: ["shop-trend", range], queryFn: () => trendFn({ data: { days: range } }), refetchInterval: 120_000 });
-  const recentSalesQ = useQuery({ queryKey: ["recent-sales"], queryFn: () => salesFn({ data: {} }), refetchInterval: 60_000 });
-  const overdueQ = useQuery({ queryKey: ["overdue-inst"], queryFn: () => instFn({ data: { status: "overdue" } }), refetchInterval: 60_000 });
+  const commonRetry = { retry: dashboardRetry, retryDelay: dashboardRetryDelay } as const;
+  const { data, error: shopErr } = useQuery({ queryKey: ["my-shop"], queryFn: () => shopFn(), ...commonRetry });
+  const snapQ = useQuery({ queryKey: ["report-snap"], queryFn: () => snapFn(), refetchInterval: 60_000, ...commonRetry });
+  const extraQ = useQuery({ queryKey: ["dash-extras"], queryFn: () => extraFn(), refetchInterval: 60_000, ...commonRetry });
+  const trendQ = useQuery({ queryKey: ["shop-trend", range], queryFn: () => trendFn({ data: { days: range } }), refetchInterval: 120_000, ...commonRetry });
+  const recentSalesQ = useQuery({ queryKey: ["recent-sales"], queryFn: () => salesFn({ data: {} }), refetchInterval: 60_000, ...commonRetry });
+  const overdueQ = useQuery({ queryKey: ["overdue-inst"], queryFn: () => instFn({ data: { status: "overdue" } }), refetchInterval: 60_000, ...commonRetry });
+
+  // Surface any final query error as a toast (rate-limited inside helper).
+  useEffect(() => { if (shopErr) notifyQueryError("দোকানের তথ্য", shopErr); }, [shopErr]);
+  useEffect(() => { if (snapQ.error) notifyQueryError("রিপোর্ট স্ন্যাপশট", snapQ.error); }, [snapQ.error]);
+  useEffect(() => { if (extraQ.error) notifyQueryError("ড্যাশবোর্ড ডেটা", extraQ.error); }, [extraQ.error]);
+  useEffect(() => { if (trendQ.error) notifyQueryError("ট্রেন্ড চার্ট", trendQ.error); }, [trendQ.error]);
+  useEffect(() => { if (recentSalesQ.error) notifyQueryError("সাম্প্রতিক বিক্রয়", recentSalesQ.error); }, [recentSalesQ.error]);
+  useEffect(() => { if (overdueQ.error) notifyQueryError("বকেয়া কিস্তি", overdueQ.error); }, [overdueQ.error]);
 
   const shop = data?.shop;
   const end = shop?.subscription_end ? new Date(shop.subscription_end) : null;
@@ -72,16 +91,18 @@ function ShopDashboard() {
   const monthStartStr = today.slice(0, 8) + "01";
   const monthSales = allRecentSales.filter((s: any) => (s.sale_date ?? "") >= monthStartStr && (s.sale_date ?? "") <= today);
 
-  const stats: { label: string; value: string; sub: string; icon: any; tone: Tone; drill?: Drill }[] = [
-    { label: "আজকের বিক্রয়",  value: fmt(snap?.sales_today ?? 0),      sub: "আজকের মোট আয়",         icon: TrendingUp,   tone: "emerald", drill: "today" },
-    { label: "এ মাসের বিক্রয়", value: fmt(snap?.sales_month ?? 0),      sub: "চলতি মাস",              icon: Receipt,      tone: "blue", drill: "month" },
-    { label: "এ মাসের ক্রয়",   value: fmt(snap?.purchase_month ?? 0),   sub: "সাপ্লায়ার থেকে",         icon: TrendingDown, tone: "amber", drill: "purchaseMonth" },
-    { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet", drill: "topProducts" },
-    { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose", drill: "due" },
-    { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange", drill: "supplierDue" },
-    { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky", drill: "lowStock" },
-    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink", drill: "products" },
-    { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal", drill: "cashToday" },
+  const monthStartLabel = monthStartStr.split("-").slice(1).join("-");
+  type Stat = { label: string; value: string; sub: string; icon: any; tone: Tone; drill?: Drill; source: string; filter: string };
+  const stats: Stat[] = [
+    { label: "আজকের বিক্রয়",  value: fmt(snap?.sales_today ?? 0),      sub: "আজকের মোট আয়",         icon: TrendingUp,   tone: "emerald", drill: "today", source: "sales", filter: `sale_date = ${today}` },
+    { label: "এ মাসের বিক্রয়", value: fmt(snap?.sales_month ?? 0),      sub: "চলতি মাস",              icon: Receipt,      tone: "blue", drill: "month", source: "sales", filter: `sale_date ${monthStartLabel} → আজ` },
+    { label: "এ মাসের ক্রয়",   value: fmt(snap?.purchase_month ?? 0),   sub: "সাপ্লায়ার থেকে",         icon: TrendingDown, tone: "amber", drill: "purchaseMonth", source: "purchases", filter: `purchase_date ${monthStartLabel} → আজ` },
+    { label: "এ মাসের লাভ",    value: fmt(extras?.monthProfit ?? 0),    sub: `রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)}`, icon: LineIcon, tone: "violet", drill: "topProducts", source: "sale_items ⋈ sales", filter: `চলতি মাস` },
+    { label: "কাস্টমার বাকি",   value: fmt(snap?.customer_due ?? 0),     sub: "মোট বকেয়া",             icon: Wallet,       tone: "rose", drill: "due", source: "customers", filter: "current_balance > 0" },
+    { label: "সাপ্লায়ার বাকি",  value: fmt(extras?.supplierDue ?? 0),   sub: "দিতে হবে",              icon: Truck,        tone: "orange", drill: "supplierDue", source: "suppliers", filter: "current_balance > 0" },
+    { label: "স্টক ভ্যালু",     value: fmt(extras?.stockValue ?? 0),     sub: `রিটেইল ${fmt(extras?.stockRetailValue ?? 0)}`, icon: Warehouse, tone: "sky", drill: "lowStock", source: "products", filter: "is_active = true" },
+    { label: "পণ্য সংখ্যা",     value: num(extras?.productsCount ?? 0),  sub: `${num(extras?.lowStockCount ?? 0)} টি কম স্টক`, icon: Package, tone: "pink", drill: "products", source: "products", filter: "is_active = true" },
+    { label: "নগদ (আজ)",       value: `${fmt(extras?.cashInToday ?? 0)} / ${fmt(extras?.cashOutToday ?? 0)}`, sub: "ইন / আউট", icon: Coins, tone: "teal", drill: "cashToday", source: "customer_payments + supplier_payments", filter: `payment_date = ${today}` },
   ];
 
   const salesCols: DrillColumn[] = [
@@ -197,6 +218,7 @@ function ShopDashboard() {
                 <s.icon className="h-4.5 w-4.5" />
               </div>
             </div>
+            {!compact && <CardMeta source={s.source} filter={s.filter} />}
           </button>
         ))}
       </div>
@@ -205,47 +227,74 @@ function ShopDashboard() {
       <KpiDialog
         open={drill === "today"} onOpenChange={(v) => !v && setDrill(null)}
         title="আজকের বিক্রয়" subtitle={`${todaySales.length} টি ইনভয়েস • ${fmt(snap?.sales_today ?? 0)}`}
+        source={`sales · sale_date = ${today}`}
         columns={salesCols} rows={todaySales}
+        loading={recentSalesQ.isLoading} error={recentSalesQ.error as Error | null}
+        onRetry={() => recentSalesQ.refetch()}
       />
       <KpiDialog
         open={drill === "month"} onOpenChange={(v) => !v && setDrill(null)}
         title="এ মাসের বিক্রয়" subtitle={`${monthSales.length} টি ইনভয়েস • ${fmt(snap?.sales_month ?? 0)}`}
+        source={`sales · sale_date ${monthStartLabel} → আজ`}
         columns={salesCols} rows={monthSales.slice(0, 200)}
+        loading={recentSalesQ.isLoading} error={recentSalesQ.error as Error | null}
+        onRetry={() => recentSalesQ.refetch()}
       />
       <KpiDialog
         open={drill === "due"} onOpenChange={(v) => !v && setDrill(null)}
         title="কাস্টমার বাকি" subtitle={`${(extras?.customersWithDue ?? []).length} জন • মোট ${fmt(snap?.customer_due ?? 0)}`}
+        source="customers · current_balance > 0"
         columns={customerDueCols} rows={(extras?.customersWithDue ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "supplierDue"} onOpenChange={(v) => !v && setDrill(null)}
         title="সাপ্লায়ার বাকি" subtitle={`${(extras?.suppliersWithDue ?? []).length} জন • মোট ${fmt(extras?.supplierDue ?? 0)}`}
+        source="suppliers · current_balance > 0"
         columns={supplierDueCols} rows={(extras?.suppliersWithDue ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "purchaseMonth"} onOpenChange={(v) => !v && setDrill(null)}
         title="এ মাসের ক্রয়" subtitle={`${(extras?.monthPurchases ?? []).length} টি • ${fmt(snap?.purchase_month ?? 0)}`}
+        source={`purchases · purchase_date ${monthStartLabel} → আজ`}
         columns={purchaseCols} rows={(extras?.monthPurchases ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "cashToday"} onOpenChange={(v) => !v && setDrill(null)}
         title="আজকের ক্যাশ লেনদেন" subtitle={`ইন ${fmt(extras?.cashInToday ?? 0)} • আউট ${fmt(extras?.cashOutToday ?? 0)}`}
+        source={`customer_payments + supplier_payments · payment_date = ${today}`}
         columns={cashCols} rows={cashRows}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "products"} onOpenChange={(v) => !v && setDrill(null)}
         title="সব পণ্য" subtitle={`${num(extras?.productsCount ?? 0)} টি • ${num(extras?.lowStockCount ?? 0)} টি কম স্টক`}
+        source="products · is_active = true"
         columns={productsCols} rows={(extras?.productsAll ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "lowStock"} onOpenChange={(v) => !v && setDrill(null)}
         title="স্টক শেষ প্রায়" subtitle={`${extras?.lowStockCount ?? 0} টি পণ্য`}
+        source="products · stock_quantity ≤ low_stock_alert"
         columns={lowStockCols} rows={(extras?.lowStockAll ?? extras?.lowStock ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
       <KpiDialog
         open={drill === "topProducts"} onOpenChange={(v) => !v && setDrill(null)}
         title="টপ পণ্য (এ মাস)" subtitle={`রেভিনিউ ${fmt(extras?.monthRevenue ?? 0)} • লাভ ${fmt(extras?.monthProfit ?? 0)}`}
+        source="sale_items · চলতি মাস"
         columns={topCols} rows={(extras?.topProducts ?? []) as any[]}
+        loading={extraQ.isLoading} error={extraQ.error as Error | null}
+        onRetry={() => extraQ.refetch()}
       />
 
       {/* Trend + Overdue */}
