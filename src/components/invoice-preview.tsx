@@ -272,6 +272,8 @@ export function InvoicePrintStyles() {
         body { background: white !important; }
         .invoice-hide-on-print { display: none !important; }
         #pos-invoice-preview { box-shadow: none !important; border: 0 !important; max-width: 100% !important; }
+        .invoice-qr-block { break-inside: avoid; page-break-inside: avoid; margin-top: 12mm !important; }
+        .invoice-qr-block img { image-rendering: pixelated !important; width: 28mm !important; height: 28mm !important; }
       }
       body.printing-invoice > *:not(.invoice-print-root) { display: none !important; }
       body.printing-invoice .invoice-print-root { display: block !important; }
