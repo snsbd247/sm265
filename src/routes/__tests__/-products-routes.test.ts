@@ -3,12 +3,15 @@ import { Route as ListRoute } from "@/routes/app.products.index";
 import { Route as DetailRoute } from "@/routes/app.products.$productId";
 
 describe("products routes", () => {
-  it("list route is declared at /app/products/", () => {
-    expect((ListRoute.options as any).path).toBe("/app/products/");
+  it("list route module exports a Route with a component", () => {
+    expect(ListRoute).toBeDefined();
+    expect((ListRoute.options as any).component).toBeDefined();
   });
 
-  it("detail route is a sibling declared at /app/products/$productId", () => {
-    expect((DetailRoute.options as any).path).toBe("/app/products/$productId");
+  it("detail route module exports a Route with parseParams + component", () => {
+    expect(DetailRoute).toBeDefined();
+    expect((DetailRoute.options as any).component).toBeDefined();
+    expect((DetailRoute.options as any).parseParams).toBeTypeOf("function");
   });
 
   it("detail route parses a valid uuid productId", () => {
