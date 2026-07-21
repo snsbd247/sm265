@@ -440,6 +440,135 @@ export type Database = {
           },
         ]
       }
+      invoice_deliveries: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          provider: string | null
+          recipient: string
+          response: string | null
+          sale_id: string
+          shop_id: string
+          status: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          provider?: string | null
+          recipient: string
+          response?: string | null
+          sale_id: string
+          shop_id: string
+          status?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          provider?: string | null
+          recipient?: string
+          response?: string | null
+          sale_id?: string
+          shop_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_deliveries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_deliveries_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_deliveries_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_templates: {
+        Row: {
+          accent_color: string
+          address_line: string | null
+          contact_line: string | null
+          created_at: string
+          footer_note: string | null
+          id: string
+          logo_url: string | null
+          primary_color: string
+          shop_id: string
+          show_logo: boolean
+          show_qr: boolean
+          show_signature: boolean
+          signature_label: string | null
+          terms_note: string | null
+          text_color: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          address_line?: string | null
+          contact_line?: string | null
+          created_at?: string
+          footer_note?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string
+          shop_id: string
+          show_logo?: boolean
+          show_qr?: boolean
+          show_signature?: boolean
+          signature_label?: string | null
+          terms_note?: string | null
+          text_color?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          address_line?: string | null
+          contact_line?: string | null
+          created_at?: string
+          footer_note?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string
+          shop_id?: string
+          show_logo?: boolean
+          show_qr?: boolean
+          show_signature?: boolean
+          signature_label?: string | null
+          terms_note?: string | null
+          text_color?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: true
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           created_at: string
@@ -1019,6 +1148,54 @@ export type Database = {
           },
           {
             foreignKeyName: "sale_returns_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_revisions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string | null
+          sale_id: string
+          shop_id: string
+          snapshot: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          sale_id: string
+          shop_id: string
+          snapshot: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          sale_id?: string
+          shop_id?: string
+          snapshot?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_revisions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_revisions_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
             referencedRelation: "shops"
