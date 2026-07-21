@@ -22,6 +22,12 @@ import { toast } from "sonner";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Minus, Trash2, Search, ScanLine, User, Percent, X, ShoppingCart, ImageIcon, Printer, MessageSquare, Copy, CheckCircle2, Share2, Download, Pencil, CheckCheck, Mail, UserPlus, Phone } from "lucide-react";
 import { UpgradePackageDialog } from "@/components/upgrade-package-dialog";
+import { computeCartTotals, clampDiscount as clampD, validateSale } from "@/lib/pos-calc";
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export const Route = createFileRoute("/app/sales/new")({ component: Page });
 
