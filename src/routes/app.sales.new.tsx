@@ -734,8 +734,26 @@ function Page() {
                 onChange={(e) => setQuickPhone(e.target.value)}
                 placeholder="01XXXXXXXXX"
               />
-              {quickPhone.trim() && (cust.data ?? []).some((c: any) => (c.phone ?? "").trim() === quickPhone.trim()) && (
-                <div className="mt-1 text-xs text-rose-600">এই ফোন নাম্বার ইতিমধ্যে ব্যবহৃত</div>
+              {existingQuickPhoneMatch && (
+                <div className="mt-2 flex items-start justify-between gap-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
+                  <div>
+                    <div className="font-semibold">এই ফোন ইতিমধ্যে আছে</div>
+                    <div>{existingQuickPhoneMatch.name} · {existingQuickPhoneMatch.phone}</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 border-rose-300 bg-white text-rose-700 hover:bg-rose-100"
+                    onClick={() => {
+                      setCustomerId(existingQuickPhoneMatch.id);
+                      setQuickAddOpen(false);
+                      setQuickName(""); setQuickPhone(""); setQuickAddress(""); setQuickOpening(0);
+                      toast.success(`কাস্টমার বাছাই: ${existingQuickPhoneMatch.name}`);
+                    }}
+                  >
+                    এই কাস্টমার ব্যবহার
+                  </Button>
+                </div>
               )}
             </div>
             <div>
