@@ -341,6 +341,12 @@ function Page() {
     ? (cust.data ?? []).find((c: any) => c.id === customerId)
     : null;
 
+  const existingQuickPhoneMatch = useMemo(() => {
+    const p = quickPhone.trim();
+    if (!p) return null;
+    return (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === p) ?? null;
+  }, [quickPhone, cust.data]);
+
   const OrderPanel = () => (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between border-b px-4 py-3">
