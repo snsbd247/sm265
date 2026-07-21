@@ -633,29 +633,41 @@ function Page() {
         </aside>
       </div>
 
-      {/* Customer picker dialog */}
-      <Dialog open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
-        <DialogContent className="max-w-md">
+      {/* Quick add customer dialog */}
+      <Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>কাস্টমার বাছাই করুন</DialogTitle>
+            <DialogTitle>দ্রুত কাস্টমার যোগ</DialogTitle>
           </DialogHeader>
-          <SearchableSelect
-            value={customerId}
-            onChange={(v) => { setCustomerId(v); setCustomerPickerOpen(false); }}
-            placeholder="Walk-in (ঐচ্ছিক)"
-            searchPlaceholder="নাম / ফোন সার্চ..."
-            options={(cust.data ?? []).map((c: any) => ({
-              value: c.id,
-              label: c.name,
-              hint: c.phone ?? "",
-              keywords: `${c.name} ${c.phone ?? ""}`,
-            }))}
-          />
-          {customerId && (
-            <Button variant="ghost" className="mt-2 text-rose-600" onClick={() => { setCustomerId(""); setCustomerPickerOpen(false); }}>
-              <X className="mr-1 h-4 w-4" /> কাস্টমার সরান
+          <div className="space-y-3">
+            <div>
+              <Label>নাম *</Label>
+              <Input
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
+                placeholder="কাস্টমারের নাম"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label>ফোন</Label>
+              <Input
+                value={quickPhone}
+                onChange={(e) => setQuickPhone(e.target.value)}
+                placeholder="01XXXXXXXXX"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickAddOpen(false)}>বাতিল</Button>
+            <Button
+              disabled={!quickName.trim() || quickAddM.isPending}
+              onClick={() => quickAddM.mutate()}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              <UserPlus className="mr-1 h-4 w-4" /> যোগ করুন
             </Button>
-          )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
