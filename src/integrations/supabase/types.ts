@@ -1248,9 +1248,11 @@ export type Database = {
           discount_type: string
           due: number
           id: string
+          idempotency_key: string | null
           invoice_no: string | null
           note: string | null
           paid: number
+          payment_breakdown: Json | null
           payment_method: string
           sale_date: string
           sale_type: string
@@ -1270,9 +1272,11 @@ export type Database = {
           discount_type?: string
           due?: number
           id?: string
+          idempotency_key?: string | null
           invoice_no?: string | null
           note?: string | null
           paid?: number
+          payment_breakdown?: Json | null
           payment_method?: string
           sale_date?: string
           sale_type?: string
@@ -1292,9 +1296,11 @@ export type Database = {
           discount_type?: string
           due?: number
           id?: string
+          idempotency_key?: string | null
           invoice_no?: string | null
           note?: string | null
           paid?: number
+          payment_breakdown?: Json | null
           payment_method?: string
           sale_date?: string
           sale_type?: string
