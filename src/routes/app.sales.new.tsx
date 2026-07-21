@@ -306,6 +306,9 @@ function Page() {
   const quickAddM = useMutation({
     mutationFn: () => {
       const phone = quickPhone.trim();
+      const existingByPhone = phone
+        ? (cust.data ?? []).find((c: any) => (c.phone ?? "").trim() === phone) ?? null
+        : null;
       if (phone && existingByPhone) {
         throw new Error(`এই ফোন নাম্বারে ইতিমধ্যে কাস্টমার আছে: ${existingByPhone.name}`);
       }
