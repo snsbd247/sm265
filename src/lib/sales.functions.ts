@@ -306,7 +306,12 @@ export const getSale = createServerFn({ method: "GET" })
       .eq("sale_id", data.id);
     const { data: installments } = await context.supabase.from("installment_schedules")
       .select("*").eq("sale_id", data.id).order("installment_no");
-    return { sale, items: items ?? [], installments: installments ?? [] };
+    const { data: shop } = await context.supabase.from("shops")
+      .select("name, address, phone, email, logo_url")
+      .eq("id", shopId)
+      .maybeSingle();
+    const merged = { ...sale, items: items ?? [] };
+    return { sale: merged, items: items ?? [], installments: installments ?? [], shop: shop ?? null };
   });
 
 /* -------- Customer Payments -------- */
