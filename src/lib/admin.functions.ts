@@ -59,7 +59,7 @@ export const listShops = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("shops")
-      .select("*, package:packages(name)")
+      .select("*, package:packages!package_id(name), pending_package:packages!pending_package_id(name)")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
