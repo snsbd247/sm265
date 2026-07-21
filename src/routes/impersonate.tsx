@@ -11,13 +11,33 @@ export const Route = createFileRoute("/impersonate")({
   component: ImpersonatePage,
 });
 
-// Hijack localStorage for Supabase auth keys → sessionStorage.
-// This isolates the impersonation tab's session from the super admin's tab.
-// Must run BEFORE any `import { supabase } from "@/integrations/supabase/client"` access.
-let hijacked = false;
-function hijackAuthStorage() {
-  if (hijacked || typeof window === "undefined") return;
-  hijacked = true;
+// Isolate the impersonation tab from the super-admin tab on the same origin.
+// Two Supabase cross-tab sync channels have to be neutered BEFORE the
+// GoTrueClient is instantiated (which happens the first time __root's
+// useEffect touches `supabase.auth.*`):
+//   1) localStorage — the client persists the session here. We redirect
+//      sb-* keys to sessionStorage so this tab has its own session and
+//      never overwrites the admin's localStorage entry. (Storage-event
+//      based sync is a side effect of that.)
+//   2) BroadcastChannel — GoTrue also mirrors SIGNED_IN/SIGNED_OUT events
+//      across same-origin tabs over a BroadcastChannel. Without disabling
+//      it, `verifyOtp` in this tab pushes the shop's session into the
+//      super-admin tab's in-memory client, its onAuthStateChange fires,
+//      useAuth sees a non-super-admin user, and the admin layout kicks
+//      them out to the landing page.
+//
+// We run this at MODULE SCOPE (guarded by pathname) because the route
+// module is loaded during router match, BEFORE __root's mount effect
+// creates the Supabase client. Doing it inside the component's useEffect
+// is too late.
+function isolateImpersonationTab() {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname !== "/impersonate") return;
+  const w = window as unknown as { __lovableImpersonationIsolated?: boolean };
+  if (w.__lovableImpersonationIsolated) return;
+  w.__lovableImpersonationIsolated = true;
+
+  // (1) Redirect sb-* localStorage reads/writes to sessionStorage.
   const shouldRedirect = (k: string) => k.startsWith("sb-");
   const ls = window.localStorage;
   const ss = window.sessionStorage;
@@ -25,13 +45,35 @@ function hijackAuthStorage() {
   const origSet = ls.setItem.bind(ls);
   const origRemove = ls.removeItem.bind(ls);
   ls.getItem = (k: string) => (shouldRedirect(k) ? ss.getItem(k) : origGet(k));
-  ls.setItem = (k: string, v: string) => (shouldRedirect(k) ? ss.setItem(k, v) : origSet(k, v));
-  ls.removeItem = (k: string) => (shouldRedirect(k) ? ss.removeItem(k) : origRemove(k));
-  // NOTE: do NOT clear existing sb-* keys from localStorage — localStorage is
-  // shared across tabs on the same origin, so clearing here would sign the
-  // super admin out in their original tab.
+  ls.setItem = (k: string, v: string) =>
+    shouldRedirect(k) ? ss.setItem(k, v) : origSet(k, v);
+  ls.removeItem = (k: string) =>
+    shouldRedirect(k) ? ss.removeItem(k) : origRemove(k);
   ss.setItem("__lovable_impersonating", "1");
+
+  // (2) Disable BroadcastChannel so GoTrue can't push our shop session
+  //     into the super-admin tab (or receive the admin's events here).
+  //     Replace with a no-op class scoped to this tab only.
+  class NoopBroadcastChannel {
+    name: string;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onmessageerror: ((ev: MessageEvent) => void) | null = null;
+    constructor(name: string) {
+      this.name = name;
+    }
+    postMessage(_msg: unknown) {}
+    close() {}
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent() {
+      return true;
+    }
+  }
+  (window as unknown as { BroadcastChannel: unknown }).BroadcastChannel =
+    NoopBroadcastChannel;
 }
+
+isolateImpersonationTab();
 
 function friendlyError(msg: string): string {
   const m = msg.toLowerCase();
@@ -53,10 +95,12 @@ function ImpersonatePage() {
     (async () => {
       try {
         if (!token) throw new Error("টোকেন নেই।");
-        hijackAuthStorage();
+        // Isolation already applied at module scope. Re-run as a safety net
+        // in case this route was reached without a full-page load.
+        isolateImpersonationTab();
         setStatus("টোকেন যাচাই হচ্ছে...");
         const res = await redeem({ data: { token } });
-        // Import supabase AFTER hijack so its lazy proxy captures patched storage methods
+        // Import supabase AFTER isolation so its lazy proxy captures patched storage.
         const { supabase } = await import("@/integrations/supabase/client");
         setStatus("লগইন হচ্ছে...");
         const { error: vErr } = await supabase.auth.verifyOtp({
