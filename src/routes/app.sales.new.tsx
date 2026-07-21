@@ -588,6 +588,7 @@ function Page() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">নগদ</SelectItem>
+                    <SelectItem value="card">কার্ড</SelectItem>
                     <SelectItem value="bkash">বিকাশ</SelectItem>
                     <SelectItem value="bank">ব্যাংক</SelectItem>
                     {saleType !== "cash" && <SelectItem value="due">বাকি</SelectItem>}
@@ -645,6 +646,16 @@ function Page() {
                 placeholder="স্বয়ংক্রিয় হলে ফাঁকা রাখুন"
               />
             </div>
+
+            <label className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={printAfter}
+                onChange={(e) => setPrintAfter(e.target.checked)}
+                className="h-4 w-4 accent-orange-500"
+              />
+              <span>বিক্রয়ের পর রিসিট প্রিন্ট/দেখাও</span>
+            </label>
 
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
               <div className="text-muted-foreground">সাবটোটাল</div>
