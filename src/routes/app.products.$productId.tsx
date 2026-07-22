@@ -5,7 +5,19 @@ import { getProductDetail } from "@/lib/inventory.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, TrendingUp, TrendingDown, Settings2, PlusCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { ArrowLeft, Package, TrendingDown, Settings2, PlusCircle, RefreshCw, AlertCircle, Filter } from "lucide-react";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/app/products/$productId")({
   parseParams: (p) => {
@@ -30,19 +42,47 @@ function Page() {
   const fn = useServerFn(getProductDetail);
   const q = useQuery({ queryKey: ["product-detail", productId], queryFn: () => fn({ data: { product_id: productId } }) });
 
-  if (q.isLoading) return <div className="p-6 text-center text-muted-foreground">লোড হচ্ছে...</div>;
-  if (q.error) return <div className="p-6 text-center text-destructive">{(q.error as any).message}</div>;
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
+  if (q.isLoading) return <DetailSkeleton />;
+  if (q.error) {
+    return (
+      <div className="space-y-4 p-4 sm:p-6">
+        <Crumbs name={null} />
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-10 text-center">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <div>
+            <p className="font-semibold text-destructive">পণ্য বিবরণ লোড করা যায়নি</p>
+            <p className="mt-1 text-sm text-muted-foreground">{(q.error as any).message}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => q.refetch()}><RefreshCw className="mr-2 h-4 w-4" /> আবার চেষ্টা</Button>
+            <Link to="/app/products"><Button><ArrowLeft className="mr-2 h-4 w-4" /> পণ্য তালিকা</Button></Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const p = q.data?.product;
   const totals = q.data?.totals;
   const moves = q.data?.movements ?? [];
+  const filteredMoves = useMemo(() => {
+    return moves.filter((m: any) => {
+      if (typeFilter !== "all" && m.movement_type !== typeFilter) return false;
+      const d = (m.created_at ?? "").slice(0, 10);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [moves, typeFilter, dateFrom, dateTo]);
   const low = Number(p?.stock_quantity ?? 0) <= Number(p?.low_stock_alert ?? 0);
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <Link to="/app/products"><Button variant="ghost" size="sm"><ArrowLeft className="mr-1 h-4 w-4" /> পণ্য তালিকা</Button></Link>
-      </div>
+      <Crumbs name={p?.name ?? null} />
 
       <div className="grad-violet relative overflow-hidden rounded-2xl p-5 shadow-lg">
         <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -96,10 +136,27 @@ function Page() {
 
         <Card className="overflow-hidden lg:col-span-2">
           <div className="grad-blue px-5 py-3">
-            <h2 className="font-semibold">স্টক মুভমেন্ট ({moves.length})</h2>
+            <h2 className="font-semibold">স্টক মুভমেন্ট ({filteredMoves.length}/{moves.length})</h2>
           </div>
           <CardContent className="p-0">
-            {moves.length === 0 ? (
+            <div className="flex flex-wrap items-end gap-2 border-b bg-muted/30 p-3">
+              <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" /> ফিল্টার:</div>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">সব ধরন</SelectItem>
+                  {Object.entries(MOVE_LABEL).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input type="date" className="h-8 w-36 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="From" />
+              <Input type="date" className="h-8 w-36 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="To" />
+              {(typeFilter !== "all" || dateFrom || dateTo) && (
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => { setTypeFilter("all"); setDateFrom(""); setDateTo(""); }}>রিসেট</Button>
+              )}
+            </div>
+            {filteredMoves.length === 0 ? (
               <p className="p-8 text-center text-sm text-muted-foreground">কোনো স্টক মুভমেন্ট নেই</p>
             ) : (
               <div className="overflow-x-auto">
@@ -114,7 +171,7 @@ function Page() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {moves.map((m: any) => {
+                    {filteredMoves.map((m: any) => {
                       const meta = MOVE_LABEL[m.movement_type] ?? { label: m.movement_type, cls: "bg-slate-100 text-slate-700", icon: Package };
                       const sign = ["sale", "return_out"].includes(m.movement_type) ? "-" : "+";
                       return (
@@ -133,6 +190,42 @@ function Page() {
             )}
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function Crumbs({ name }: { name: string | null }) {
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild><Link to="/app">ড্যাশবোর্ড</Link></BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild><Link to="/app/products">পণ্য সমূহ</Link></BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage className="max-w-[220px] truncate">{name ?? "বিবরণ"}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="space-y-5 p-4 sm:p-6">
+      <Skeleton className="h-5 w-64" />
+      <Skeleton className="h-28 w-full rounded-2xl" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-64 rounded-xl lg:col-span-1" />
+        <Skeleton className="h-64 rounded-xl lg:col-span-2" />
       </div>
     </div>
   );

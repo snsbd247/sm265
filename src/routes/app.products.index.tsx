@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listProducts, saveProduct, deleteProduct, listCategories, listUnits, getPackageUsage } from "@/lib/inventory.functions";
@@ -177,7 +177,14 @@ function Page() {
                   className="cursor-pointer border-b hover:bg-muted/40"
                 >
                   <td className="p-3">
-                    <div className="font-medium">{p.name}</div>
+                    <Link
+                      to="/app/products/$productId"
+                      params={{ productId: p.id }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="block font-medium text-primary hover:underline"
+                    >
+                      {p.name}
+                    </Link>
                     {p.barcode && <div className="text-xs text-muted-foreground">{p.barcode}</div>}
                   </td>
                   <td className="p-3">{p.category?.name ?? "-"}</td>
